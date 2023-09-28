@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+message BlockMessage {
+  string nonce = 1;
+  string previous_hash = 2;
+  string hash = 3;
+  string calculated_hash = 4;
+  string storage_reference = 5;
+  int32 block_number = 6;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+}
+
+service NodeService {
+  rpc AddBlock (BlockMessage) returns (Response);
+}
