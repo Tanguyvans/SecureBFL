@@ -149,15 +149,16 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
     def aggregateParameters(self):
         params_list = []
 
-        for model_directory in self.params_directories:
+        for cnt, model_directory in enumerate(self.params_directories):
             loaded_weights_dict = np.load(model_directory)
             loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
+            print(f"model{cnt}: ", self.flower_client.evaluate(loaded_weights, {}))
             loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
             params_list.append(loaded_weights)
 
-        print(params_list)
+        print("final evaluation: ",self.flower_client.evaluate(params_list[0][0], {}))
         self.aggregated_params = aggregate(params_list)
-        print(self.aggregated_params)
+
 
 class NodeClient:
     def __init__(self):
