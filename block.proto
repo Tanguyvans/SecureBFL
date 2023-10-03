@@ -5,8 +5,9 @@ message BlockMessage {
   string previous_hash = 2;
   string hash = 3;
   string calculated_hash = 4;
-  string storage_reference = 5;
-  int32 block_number = 6;
+  string model_type = 5;
+  string storage_reference = 6;
+  int32 block_number = 7;
 }
 
 message Response {
@@ -14,6 +15,15 @@ message Response {
   string message = 2;
 }
 
+message BlockValidation {
+  bool valid = 1;
+}
+
+message ValidationResponse {
+  bool success = 1;
+}
+
 service NodeService {
-  rpc AddBlock (BlockMessage) returns (Response);
+  rpc AddBlockRequest (BlockMessage) returns (Response);
+  rpc AddBlockToChain (BlockValidation) returns (ValidationResponse);
 }

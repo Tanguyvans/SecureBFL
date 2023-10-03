@@ -14,17 +14,28 @@ class NodeServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.AddBlock = channel.unary_unary(
-                '/NodeService/AddBlock',
+        self.AddBlockRequest = channel.unary_unary(
+                '/NodeService/AddBlockRequest',
                 request_serializer=block__pb2.BlockMessage.SerializeToString,
                 response_deserializer=block__pb2.Response.FromString,
+                )
+        self.AddBlockToChain = channel.unary_unary(
+                '/NodeService/AddBlockToChain',
+                request_serializer=block__pb2.BlockValidation.SerializeToString,
+                response_deserializer=block__pb2.ValidationResponse.FromString,
                 )
 
 
 class NodeServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def AddBlock(self, request, context):
+    def AddBlockRequest(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddBlockToChain(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -33,10 +44,15 @@ class NodeServiceServicer(object):
 
 def add_NodeServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'AddBlock': grpc.unary_unary_rpc_method_handler(
-                    servicer.AddBlock,
+            'AddBlockRequest': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddBlockRequest,
                     request_deserializer=block__pb2.BlockMessage.FromString,
                     response_serializer=block__pb2.Response.SerializeToString,
+            ),
+            'AddBlockToChain': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddBlockToChain,
+                    request_deserializer=block__pb2.BlockValidation.FromString,
+                    response_serializer=block__pb2.ValidationResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -49,7 +65,7 @@ class NodeService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def AddBlock(request,
+    def AddBlockRequest(request,
             target,
             options=(),
             channel_credentials=None,
@@ -59,8 +75,25 @@ class NodeService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/NodeService/AddBlock',
+        return grpc.experimental.unary_unary(request, target, '/NodeService/AddBlockRequest',
             block__pb2.BlockMessage.SerializeToString,
             block__pb2.Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AddBlockToChain(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/NodeService/AddBlockToChain',
+            block__pb2.BlockValidation.SerializeToString,
+            block__pb2.ValidationResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

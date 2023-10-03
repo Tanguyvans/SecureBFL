@@ -37,6 +37,18 @@ class Blockchain:
             print("\n\n================")
             print("prev_hash:\t\t", block.previous_block_cryptographic_hash)
             print("Data:\t\t", block.storage_reference, block.calculated_hash)
+            print("Model type:\t\t", block.model_type)
             print("Number:\t\t", block.block_number)
             print("Hash:\t\t", block.cryptographic_hash)
             print("\n\n================")
+
+    def save_chain_in_file(self, filename): 
+        with open(f"filename.txt", "w") as f: 
+            for block in self.blocks: 
+                f.write("\n\n================")
+                f.write(f"prev_hash:\t\t {str(block.previous_block_cryptographic_hash)}")
+                f.write(f"Data:\t\t {str(block.storage_reference, block.calculated_hash)}")
+                f.write(f"Model type:\t\t {str(block.model_type)}")
+                f.write(f"Number:\t\t {str(block.block_number)}")
+                f.write(f"Hash:\t\t {str(block.cryptographic_hash)}")
+                f.write("\n\n================")
