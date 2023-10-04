@@ -34,89 +34,77 @@ from sklearn.datasets import make_classification
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-class Data(Dataset):
-  def __init__(self, X_train, y_train):
-    self.X = torch.from_numpy(X_train.astype(np.float32))
-    self.y = torch.from_numpy(y_train).type(torch.LongTensor)
-    self.len = self.X.shape[0]
-  
-  def __getitem__(self, index):
-    return self.X[index], self.y[index]
-  def __len__(self):
-    return self.len
-
 class FlowerClient(fl.client.NumPyClient):
-    def __init__(self, trainloader, testloader, network_structure):
-        self.trainloader = trainloader
-        self.testloader = testloader
-        self.net = Net(network_structure).to(DEVICE)
+    def __init__(self, X_train, X_test, y_train, y_test):
+        self.X_train = X_train
+        self.X_test = X_test
+        self.y_train = y_train
+        self.y_test = y_test
+        self.model = Net().to(DEVICE)
+
+        self.criterion = nn.CrossEntropyLoss()
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.01)
 
     def get_parameters(self, config):
-        return [val.cpu().numpy() for _, val in self.net.state_dict().items()]
+        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
     
     def get_dict_params(self, config): 
-        return {f'param_{i}': val.cpu().numpy() for i, (_, val) in enumerate(self.net.state_dict().items())}
+        return {f'param_{i}': val.cpu().numpy() for i, (_, val) in enumerate(self.model.state_dict().items())}
 
     def set_parameters(self, parameters):
-        params_dict = zip(self.net.state_dict().keys(), parameters)
+        params_dict = zip(self.model.state_dict().keys(), parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        self.net.load_state_dict(state_dict, strict=True)
+        self.model.load_state_dict(state_dict, strict=True)
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
-        train(self.net, self.trainloader, epochs=1)
-        return self.get_parameters(config={}), len(self.trainloader.dataset), {}
+        self.train()
+        return self.get_parameters(config={}), len(self.y_train), {}
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
-        loss, accuracy = test(self.net, self.testloader)
-        return float(loss), len(self.testloader.dataset), {'accuracy': accuracy}
+        loss, accuracy = self.test()
+        return float(loss), len(self.y_train), {'accuracy': accuracy}
 
-def train(net, trainloader, epochs):
-    """Train the model on the training set."""
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-
-    for _ in range(epochs):
-        for data, labels in trainloader:
-            optimizer.zero_grad()
-            outputs = net(data)
-            loss = criterion(outputs, labels)
+    def train(self, epoch=1):
+        for i in range(epoch):
+            y_pred = self.model(self.X_train)
+            loss = self.criterion(y_pred, self.y_train)
+            
+            self.optimizer.zero_grad()
             loss.backward()
-            optimizer.step()
+            self.optimizer.step()
 
-def test(net, testloader):
-    """Validate the model on the test set."""
-    criterion = torch.nn.CrossEntropyLoss()
-    correct, loss = 0, 0.0
-    with torch.no_grad():
-        for data, labels in testloader:
-            outputs = net(data)
-            loss += criterion(outputs, labels).item()
-            correct += (torch.max(outputs, 1)[1] == labels).sum().item()
-    accuracy = correct / len(testloader.dataset)
-    return loss, accuracy
+    def test(self):
+        with torch.no_grad():
+            y_pred = self.model(self.X_test)
+            loss_fn = torch.nn.CrossEntropyLoss()  # Utilisez la fonction de perte appropriée
+            loss = loss_fn(y_pred, self.y_test)
 
-def load_data(): 
-    custom_data = torch.randn(32, 5)
-    classification_labels = torch.randint(0, 2, (32,))
-    dataset = TensorDataset(custom_data, classification_labels)
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
-
-    return dataloader, dataloader
+            # Calcul de l'exactitude (accuracy)
+            preds = torch.max(y_pred, dim=1)[1]
+            correct = (preds == self.y_test).sum().item()
+            total = self.y_test.shape[0]
+            accuracy = correct / total * 100
+        return loss.item(), accuracy
 
 class Net(nn.Module):
-  def __init__(self, network_structure):
-    super(Net, self).__init__()
-    self.linear1 = nn.Linear(network_structure["input_dim"], network_structure["hidden_layers"])
-    self.linear2 = nn.Linear(network_structure["hidden_layers"], network_structure["output_dim"])
-  def forward(self, x):
-    x = torch.sigmoid(self.linear1(x))
-    x = self.linear2(x)
-    return x
+    def __init__(self, in_features=4, out_features=3):
+        super().__init__()
+        self.fc1 = nn.Linear(in_features=in_features,
+                             out_features=120)
+        self.fc2 = nn.Linear(in_features=120, 
+                             out_features=84)
+        self.fc3 = nn.Linear(in_features=84,  
+                             out_features=out_features)
+        
+    def forward(self, X):
+        X = F.relu(self.fc1(X))
+        X = F.relu(self.fc2(X))
+        return self.fc3(X)
 
 class NodeServer(pb2_grpc.NodeServiceServicer):
-    def __init__(self, port, id):
+    def __init__(self, port, id, data):
         self.id = id
         self.port = port
         self.server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
@@ -124,23 +112,18 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
         self.server.add_insecure_port(f'127.0.0.1:{self.port}')
         self.server.start()
 
-        X, Y = make_classification(n_samples=100, n_features=4, n_redundant=0, n_informative=3,  n_clusters_per_class=2, n_classes=3)
-        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.33, random_state=42)
-        
-        traindata = Data(X_train, Y_train)
-        trainloader = DataLoader(traindata, shuffle=True, num_workers=2)
+        X = data.iloc[:, 0:4].values
+        y = data.iloc[:, 5].values
 
-        testdata = Data(X_test, Y_test)
-        testloader = DataLoader(testdata, shuffle=True, num_workers=2)
+        X_train, X_test, y_train, y_test = train_test_split(X, y,  test_size=0.2, random_state=42)
 
-        network_structure = {
-            "input_dim": 4,
-            "hidden_layers": 25,
-            "output_dim": 3
-        }
+        X_train = torch.FloatTensor(X_train)
+        X_test = torch.FloatTensor(X_test)
+        y_train = torch.LongTensor(y_train)
+        y_test = torch.LongTensor(y_test)
 
         self.blockchain = Blockchain()
-        self.flower_client = FlowerClient(trainloader, testloader, network_structure)
+        self.flower_client = FlowerClient(X_train, X_test, y_train, y_test)
         self.params_directories = []
 
     def MineBlock(self, filename, model_type): 
@@ -210,8 +193,10 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
                 return pb2.Response(success=True, message=f"Block {request.block_number} added to the blockchain successfully {request.hash}")
             else: 
                 if self.isModelUpdateUsefull(new_block.storage_reference):
+                    print("Usefull")
                     return pb2.Response(success=True, message=f"Block {request.block_number} added to the blockchain successfully {request.hash}")
                 else: 
+                    print("Not usefull")
                     return pb2.Response(success=False, message=f"Block {request.block_number} was not added, loss too high")
         else: 
             return pb2.Response(success=False, message=f"Block {request.block_number} was not added for wrong hash")
@@ -226,8 +211,12 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
         return pb2.Response(success=True)
     
     def aggregateParameters(self):
-        params_list = []
 
+        print("aggregation, ", self.params_directories)
+        if len(self.params_directories) < 2:
+            return {"status": False, "message": f"not enough trained models: {len(self.params_directories)}"}
+         
+        params_list = []
         for cnt, model_directory in enumerate(self.params_directories):
             loaded_weights_dict = np.load(model_directory)
             loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
@@ -265,13 +254,13 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
 
         self.params_directories = []
 
-        return block
+        return {"status": True, "message": block} 
 
     def isModelUpdateUsefull(self, model_directory): 
-        if self.evaluateModel(model_directory) <= self.evaluateModel(self.global_params_directory)*0.95: 
+        print(self.evaluateModel(model_directory), self.evaluateModel(self.global_params_directory)*1.01)
+        if self.evaluateModel(model_directory) <= self.evaluateModel(self.global_params_directory)*1.01: 
             return True
         else: 
-            print("no usefull")
             return False
 
     def evaluateModel(self, model_directory):
@@ -285,10 +274,11 @@ class NodeClient:
     def __init__(self):
         self.connections = {}
 
-    def clientConnection(self, server): 
-        channel = grpc.insecure_channel(f'127.0.0.1:{server.port}')  # Connectez-vous au nœud 2
-        stub = pb2_grpc.NodeServiceStub(channel)
-        self.connections[server.id] = stub 
+    def clientConnection(self, servers): 
+        for server in servers: 
+            channel = grpc.insecure_channel(f'127.0.0.1:{server.port}') 
+            stub = pb2_grpc.NodeServiceStub(channel)
+            self.connections[server.id] = stub 
   
     def broadcast_block(self, block):
         block_message = pb2.BlockMessage()
@@ -304,10 +294,10 @@ class NodeClient:
         for k, v in self.connections.items(): 
             response = v.AddBlockRequest(block_message)
 
-            if response.success:
+            if response.success == True:
                 responses['success'] += 1
             else:
-                responses['success'] += 1
+                responses['failure'] += 1
             responses['tot'] += 1
 
         return responses
@@ -320,10 +310,10 @@ class NodeClient:
         for k, v in self.connections.items(): 
             response = v.AddBlockToChain(block_message)
 
-            if response.success:
+            if response.success == True:
                 responses['success'] += 1
             else:
-                responses['success'] += 1
+                responses['failure'] += 1
             responses['tot'] += 1
 
         return responses
