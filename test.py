@@ -4,7 +4,7 @@ import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
 
-iris = fetch_ucirepo(id=2) 
+iris = fetch_ucirepo(id=53) 
 
 X = iris.data.features
 y = iris.data.targets
@@ -20,12 +20,8 @@ subset1 = df.iloc[:split_size]
 subset2 = df.iloc[split_size:2*split_size]
 subset3 = df.iloc[2*split_size:]
 
-X = subset1.iloc[:, 0:4].values
-y = subset1.iloc[:, 5].values
+print(subset1.head())
 
-X_train, X_test, y_train, y_test = train_test_split(X, y,  test_size=0.2, random_state=42)
+subset1['species_category'] = subset1['species_category'].replace({1: 2, 0: 1, 2: 0})
 
-X_train = torch.FloatTensor(X_train)
-X_test = torch.FloatTensor(X_test)
-y_train = torch.LongTensor(y_train)
-y_test = torch.LongTensor(y_test)
+print(subset1.head())

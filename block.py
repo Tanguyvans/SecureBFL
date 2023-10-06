@@ -52,5 +52,3 @@ class Block:
         print("Number:\t\t", self.block_number)
         print("Hash:\t\t", self.cryptographic_hash)
         print("\n\n================")
-
-

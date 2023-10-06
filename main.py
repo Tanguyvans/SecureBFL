@@ -12,8 +12,7 @@ import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
 
-if __name__ == "__main__":
-
+def dataPreparation(numberOfNodes=3): 
     iris = fetch_ucirepo(id=53) 
 
     X = iris.data.features
@@ -24,20 +23,28 @@ if __name__ == "__main__":
     df = shuffle(df)
 
     num_samples = len(df)
-    split_size = num_samples // 3
+    split_size = num_samples // numberOfNodes
 
     subset1 = df.iloc[:split_size]
     subset2 = df.iloc[split_size:2*split_size]
     subset3 = df.iloc[2*split_size:]
 
+    return [subset1, subset2, subset3]
 
-    NodeServer1 = NodeServer("1111", "node1", subset1)
+if __name__ == "__main__":
+
+    with open("output.txt", "w") as f: 
+            f.write("")
+
+    sets = dataPreparation()
+
+    NodeServer1 = NodeServer("1111", "node1", sets[0])
     NodeClient1 = NodeClient()
 
-    NodeServer2 = NodeServer("1112", "node2", subset2)
+    NodeServer2 = NodeServer("1112", "node2", sets[1])
     NodeClient2 = NodeClient()
 
-    NodeServer3 = NodeServer("1113", "node3", subset3)
+    NodeServer3 = NodeServer("1113", "node3", sets[2])
     NodeClient3 = NodeClient()
 
     NodeClient1.clientConnection([NodeServer2, NodeServer3])

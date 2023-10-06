@@ -13,560 +13,637 @@ Hash:		 2f28811598398d51a21a84b2df1c99740d2943a0c814374188bb27fcefdcf244
 
 ================ 
 prev_hash:		 2f28811598398d51a21a84b2df1c99740d2943a0c814374188bb27fcefdcf244 
-Data:		 models/m1.npz b25f6ec0380ab68e0f11f4d9120c7f03f0700300cb8ccb748bd49283cc64f2c9 
+Data:		 models/m1.npz b1cfd1e6b38aea52d9c3f603285ecd4ae28220ef6c9352d98d1b3cec7fcdd6b8 
 Model type:		 global_model 
 Number:		 2 
-Hash:		 793bd8cb456a374bc2c722e9c89254871793c3f71c520fbf1bf474b9627722e7 
+Hash:		 0d3a1685496de268ca234a802bece6c6abbd34993b94d9a98dec821fa617fc6f 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 793bd8cb456a374bc2c722e9c89254871793c3f71c520fbf1bf474b9627722e7 
-Data:		 models/m2.npz e8c5219bc57e78afb52ff599dcd5e1fe4a35a174a454f731e1659ee2b2cda9c4 
+prev_hash:		 0d3a1685496de268ca234a802bece6c6abbd34993b94d9a98dec821fa617fc6f 
+Data:		 models/m2.npz ba0bb924240f269ca51a1d9b5d73d1285e427dc5baa40c1cce1b252bdfdf37a8 
 Model type:		 update 
 Number:		 3 
-Hash:		 4ad377a4c0047816789a73cef7210950cf98ed0db442d85639eb153620299476 
+Hash:		 bd7dd9cf02e1e652e7f762a647b3e750a2d3ad703e4a9fd9ee68e2b2347b7626 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 4ad377a4c0047816789a73cef7210950cf98ed0db442d85639eb153620299476 
-Data:		 models/m3.npz c1ba838134d38be1fd64e55900f46845f4b1d356b951745e44283fc5737a061c 
+prev_hash:		 bd7dd9cf02e1e652e7f762a647b3e750a2d3ad703e4a9fd9ee68e2b2347b7626 
+Data:		 models/m3.npz f4eb07cc0a92e07de464af6ccefa22dd208ee58937cb42d3881c2ccd0382858e 
 Model type:		 update 
 Number:		 4 
-Hash:		 5d891b6b4e6cc46a78d07e34aa86dff0543deb5b96cd27a6ec2a13470cf35a3d 
+Hash:		 f393564395eb7bda3c3360e8cc37a55e70e6cf71b940b80359c747c7f37a3274 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 5d891b6b4e6cc46a78d07e34aa86dff0543deb5b96cd27a6ec2a13470cf35a3d 
-Data:		 models/m4.npz 70f1118c5e09f51161640cb9a59ad62d4a4dcf8b36b89ac1b34c9e84cd7bc40b 
-Model type:		 update 
-Number:		 5 
-Hash:		 6d1b303f34b72f512c6ecda840d294b400c6fd85dfe6323376381ed416b94695 
-
-
-================ 
-
-
-================ 
-prev_hash:		 6d1b303f34b72f512c6ecda840d294b400c6fd85dfe6323376381ed416b94695 
-Data:		 models/m5.npz c8806b8bdd070b3eb53345b4cca61dc44433e0fdf1a61f5c2399d24247902d81 
+prev_hash:		 f393564395eb7bda3c3360e8cc37a55e70e6cf71b940b80359c747c7f37a3274 
+Data:		 models/m4.npz b1faad78d652c84d7f73c570c573e2071650a32ac5f15fb0989fcc27ba21d585 
 Model type:		 global_model 
+Number:		 5 
+Hash:		 739d187f4f2a6cbd2a03ed1e08c05da2c8eacef52f628baefd43ca024833fefa 
+
+
+================ 
+
+
+================ 
+prev_hash:		 739d187f4f2a6cbd2a03ed1e08c05da2c8eacef52f628baefd43ca024833fefa 
+Data:		 models/m5.npz db0b0471956a0881c3cf1e49bf4608c77221ddd2b7e086847dd8a16821b80136 
+Model type:		 update 
 Number:		 6 
-Hash:		 16cd7e7332a393d1146ac3c647386a3b97040d9dbb5956992d6ac9f78df5b64d 
+Hash:		 5d6d13e0548a9210b234b5ed0882d5d898d4c5d121444e91b1881946e305006a 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 16cd7e7332a393d1146ac3c647386a3b97040d9dbb5956992d6ac9f78df5b64d 
-Data:		 models/m6.npz 9d7a5ca3833d4ebf0af03d9e519d41ac27e14fa86824dc51cb3629db566ad9ee 
+prev_hash:		 5d6d13e0548a9210b234b5ed0882d5d898d4c5d121444e91b1881946e305006a 
+Data:		 models/m6.npz 15f7bfb061a123a6feb1bfaa5a3381b3bab7c48affad59a2f9ac6a38ee490add 
 Model type:		 update 
 Number:		 7 
-Hash:		 bc1b7cf267e3ce5d8adaea8b79cbc70466b3373cbe7350cce8a2a8911242477f 
+Hash:		 c2ddfa5decd4bbd1b16bbe145a330f8b03566e355b763511c723ff67a869b453 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 bc1b7cf267e3ce5d8adaea8b79cbc70466b3373cbe7350cce8a2a8911242477f 
-Data:		 models/m7.npz 8249a471fe3c57178df60b6cde26e06414c3225d3dcbe116a4865ef7727d9938 
+prev_hash:		 c2ddfa5decd4bbd1b16bbe145a330f8b03566e355b763511c723ff67a869b453 
+Data:		 models/m7.npz cfd36f8a4e96d384b2baee47d04eb1f461c59b36dfe29bf0e0f368cef6ce5cf5 
 Model type:		 update 
 Number:		 8 
-Hash:		 da86c0d0fa160c5b2c6680ee8ad66d51f9cb2a90ae041278ca81539934bcc885 
+Hash:		 ac5f34ec1212d28a1b4a54f256ab9c03464746d332ffda92148b9400639bc422 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 da86c0d0fa160c5b2c6680ee8ad66d51f9cb2a90ae041278ca81539934bcc885 
-Data:		 models/m8.npz 45a15d3cbb18633e9ee335364f6d4272e5e4f28f26211a9472a17799383e5ffc 
+prev_hash:		 ac5f34ec1212d28a1b4a54f256ab9c03464746d332ffda92148b9400639bc422 
+Data:		 models/m8.npz 7d6f915c41fe4e6b34e85e8977487a7760ab90f3e9007695ec4fa96562f13a11 
 Model type:		 global_model 
 Number:		 9 
-Hash:		 9c0df5ab28b94ebbf3ddf011678b667aff3da1f3000a3eb884645586a438d6ed 
+Hash:		 c913201f81f2881d582e0a7b7cc1a21f1823c967451591f057110f11cc3ae6cd 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 9c0df5ab28b94ebbf3ddf011678b667aff3da1f3000a3eb884645586a438d6ed 
-Data:		 models/m9.npz c4bc4c234d6311b8142ff5dbad3994501428e655c077f2a8c9ddfd3b0d42d73c 
+prev_hash:		 c913201f81f2881d582e0a7b7cc1a21f1823c967451591f057110f11cc3ae6cd 
+Data:		 models/m9.npz eb1f11c1465cfbfb4cf3f5f017d81810138b956b07daed92d50f7f2bf0d57464 
 Model type:		 update 
 Number:		 10 
-Hash:		 bfc709b2545f2e771e038391e8a7c58decf512589d7c63a3cbb5d986ec3d0ed7 
+Hash:		 9f4feabc33adb10696311c6380a30ab8f95e7e95f3bd4704815b8cf9907c84e5 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 bfc709b2545f2e771e038391e8a7c58decf512589d7c63a3cbb5d986ec3d0ed7 
-Data:		 models/m10.npz 8d0ab17c9abd3677c2e5dc90c4b98fea7b08e8acf41cecb640aef3c2503e2eb0 
+prev_hash:		 9f4feabc33adb10696311c6380a30ab8f95e7e95f3bd4704815b8cf9907c84e5 
+Data:		 models/m10.npz d0fbe5de8cd4a79f473e49590d2fc76d02e8758c3203b9992007368afc8eff92 
 Model type:		 update 
 Number:		 11 
-Hash:		 40b664a56f8feb22ebcc72a9d3ee1073559a313b77950337b7a728cb20b1f20f 
+Hash:		 b4ffe704bd7e316c9c826c5c3ed18363e6e1a31fd14f37a3e464bbfd32749ad2 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 40b664a56f8feb22ebcc72a9d3ee1073559a313b77950337b7a728cb20b1f20f 
-Data:		 models/m11.npz cbfe4c416cdc008fbfe7e34d05f7ea0f6ed693bb47f02efa5753deb9eb9aaa22 
-Model type:		 global_model 
-Number:		 12 
-Hash:		 fae2d4020646c45ee62037cab5ec247a1921103aabc3a76dcff943db6d8fc459 
-
-
-================ 
-
-
-================ 
-prev_hash:		 fae2d4020646c45ee62037cab5ec247a1921103aabc3a76dcff943db6d8fc459 
-Data:		 models/m12.npz d655c3dc39503d22fb5b3acdb5d9287054e2da08ff2539ea88f28d05ffab00fb 
+prev_hash:		 b4ffe704bd7e316c9c826c5c3ed18363e6e1a31fd14f37a3e464bbfd32749ad2 
+Data:		 models/m11.npz 9c7fca15cdd96a1f0c243d8ead27d68022798b953db2a5ad69d0066cc92236d6 
 Model type:		 update 
+Number:		 12 
+Hash:		 6d0eb439f7a5125093baac36c25c45f287772b142040f91b128997905d467c0e 
+
+
+================ 
+
+
+================ 
+prev_hash:		 6d0eb439f7a5125093baac36c25c45f287772b142040f91b128997905d467c0e 
+Data:		 models/m12.npz 7cadde8c2c1eec95f03c946742fea2221b1508ef40618bcba3a936d7b1304e4d 
+Model type:		 global_model 
 Number:		 13 
-Hash:		 97c79e28c098196235b4d339123b1de92ad61aeebdd628947c110bacb3875698 
+Hash:		 57fc365c497fce6e57db5e79039fea5cf417fe331a1f08acf2211451855efcf6 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 97c79e28c098196235b4d339123b1de92ad61aeebdd628947c110bacb3875698 
-Data:		 models/m13.npz 469416d855d1dedc5c952adc7b296f20a6d437679cdea444389e4956f47e7692 
+prev_hash:		 57fc365c497fce6e57db5e79039fea5cf417fe331a1f08acf2211451855efcf6 
+Data:		 models/m13.npz e8fb5321da300f01fddc740aa356c7ab2e0d26a471539776f998956ed14624f9 
 Model type:		 update 
 Number:		 14 
-Hash:		 f678a78b6ab92bf17dffd70623f96deed83c5d7d4a4cf3b0a6fa4a7c7d99fd4e 
+Hash:		 1edfa4e532f171af4c19ab125cf53027fb106d0c49fe94a06156df48b44af2d5 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 f678a78b6ab92bf17dffd70623f96deed83c5d7d4a4cf3b0a6fa4a7c7d99fd4e 
-Data:		 models/m14.npz aa1b773f3b9b9cefe9a4375bb449cc3cdd1f28f11f4c905ea5b56f815d7369fe 
+prev_hash:		 1edfa4e532f171af4c19ab125cf53027fb106d0c49fe94a06156df48b44af2d5 
+Data:		 models/m14.npz aea48e0bf87b0ff3b660fd68ede9b935e19a9b26c1852a714146dfd7f8e1e8ff 
 Model type:		 update 
 Number:		 15 
-Hash:		 ae5da32ca79cb88fce618286d705ac76e8189084c47370a6351fa669e850f3f2 
+Hash:		 4331851a49d00a85be1f944ef6b898c0c08d8ff18e2e346dd0fec909efbb3c3b 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 ae5da32ca79cb88fce618286d705ac76e8189084c47370a6351fa669e850f3f2 
-Data:		 models/m15.npz 7ea0bb8780bd58609be96bade364eadb7c7e81dbbce1da4909f5f2e7de2b873c 
-Model type:		 global_model 
-Number:		 16 
-Hash:		 7ae1effb8a46fc51c0afc9b4c0fc5aa50b4202c508376bd3da9287513d53a50e 
-
-
-================ 
-
-
-================ 
-prev_hash:		 7ae1effb8a46fc51c0afc9b4c0fc5aa50b4202c508376bd3da9287513d53a50e 
-Data:		 models/m16.npz 6e875abe644febc8b5dcb6dd5510ab2b976e026742d2bd3e522c18b290e31623 
+prev_hash:		 4331851a49d00a85be1f944ef6b898c0c08d8ff18e2e346dd0fec909efbb3c3b 
+Data:		 models/m15.npz 57fcd912e019832796e3993463c549e6bc40ae217555996ca1f762a5e80ad6ee 
 Model type:		 update 
+Number:		 16 
+Hash:		 5cc897e12b9fbdfc9234f88403064a62dd218268b13716d40fe603afe672d2c9 
+
+
+================ 
+
+
+================ 
+prev_hash:		 5cc897e12b9fbdfc9234f88403064a62dd218268b13716d40fe603afe672d2c9 
+Data:		 models/m16.npz 742071456a6f4fca01d697ceb294d4be531cc52d5d378107c7478eea51d03240 
+Model type:		 global_model 
 Number:		 17 
-Hash:		 532ec4ca7bccab925bde706f2437d99eb4d63c6b8abcc4500b824fec394cc127 
+Hash:		 0e2028df48b3c62cf893ae50432d01d72dbbe378fc79bf17f645ed60309d1762 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 532ec4ca7bccab925bde706f2437d99eb4d63c6b8abcc4500b824fec394cc127 
-Data:		 models/m17.npz 5db5cd6004d8c48d38d1384fe671a9b6957415e6d8dbde75ad27d33ee3e2ba1b 
+prev_hash:		 0e2028df48b3c62cf893ae50432d01d72dbbe378fc79bf17f645ed60309d1762 
+Data:		 models/m17.npz f5e42e6078c6f0f1f1484b9434c8b3674545c4dfbdccbc518c49e986a3968bab 
 Model type:		 update 
 Number:		 18 
-Hash:		 bfb1ce61f7249b6f5e14eb7ed1ee13c80e332316b214b489d1e732e0dafd33ec 
+Hash:		 27c8bdd1884c9da8eaa11b8e14c5a77b0b624f35f5cefe3d6d1564a2d4c0bd24 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 bfb1ce61f7249b6f5e14eb7ed1ee13c80e332316b214b489d1e732e0dafd33ec 
-Data:		 models/m18.npz d77f82c2a728160424a4499c2dc21fcd31da6e022523704d07d223a4940f1d79 
-Model type:		 global_model 
-Number:		 19 
-Hash:		 8103c67d149f23d7a0c2440701a9a078120c86db0398ac7388b518ac43995e72 
-
-
-================ 
-
-
-================ 
-prev_hash:		 8103c67d149f23d7a0c2440701a9a078120c86db0398ac7388b518ac43995e72 
-Data:		 models/m19.npz 523e744d00d5ed323cfe10c51144ab6d841302a145474795e67621e08dbd032c 
+prev_hash:		 27c8bdd1884c9da8eaa11b8e14c5a77b0b624f35f5cefe3d6d1564a2d4c0bd24 
+Data:		 models/m18.npz 4f9f88539f1a78b4f5c2693ad323d716cf8dfe74f67ca31e1bac6b6a1d8afcba 
 Model type:		 update 
+Number:		 19 
+Hash:		 0986468265654e14dd911de7223fe69c0b25f7499c9d869e41c435e255396b0f 
+
+
+================ 
+
+
+================ 
+prev_hash:		 0986468265654e14dd911de7223fe69c0b25f7499c9d869e41c435e255396b0f 
+Data:		 models/m19.npz 24051455f99ec3b1d223cd64e3175b2b2682b2d9b63cf6957568066cf059937e 
+Model type:		 global_model 
 Number:		 20 
-Hash:		 439f61b13d260d3d13bf739be46ba074c421398eea1fd86e47044599fb054a4a 
+Hash:		 a3682f6e3979e29be21f69f09d21962066fb5ef5319e5e8ba2e7272abb83378d 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 439f61b13d260d3d13bf739be46ba074c421398eea1fd86e47044599fb054a4a 
-Data:		 models/m20.npz 9c7fb0c19e5c831d6762b2218eecc0e7f23c7ce5d00fe9236842fe33b00ed786 
+prev_hash:		 a3682f6e3979e29be21f69f09d21962066fb5ef5319e5e8ba2e7272abb83378d 
+Data:		 models/m20.npz 816180b29aa2d3e3302481cfb0ced72b9f0c43a552b3c69644eb3fe0fda8db15 
 Model type:		 update 
 Number:		 21 
-Hash:		 a304bfa3757785a57c83c8a33d35076a99c5e71aa21290904bd87d437daae5e4 
+Hash:		 9d667a1f7e418fe84ed1e90d08f67fc638624ac658a4e1ca7fe601c7d4071b56 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 a304bfa3757785a57c83c8a33d35076a99c5e71aa21290904bd87d437daae5e4 
-Data:		 models/m21.npz c24282dc5d71c6572837663ea339ebc2d8280c86c75a912a7623e0650d17cca7 
-Model type:		 global_model 
-Number:		 22 
-Hash:		 d45f7fed39673f8ec576472d6a16c38a0806021c3007a824e6a08f3c187428b9 
-
-
-================ 
-
-
-================ 
-prev_hash:		 d45f7fed39673f8ec576472d6a16c38a0806021c3007a824e6a08f3c187428b9 
-Data:		 models/m22.npz 0a884c4ed34fd4a81ecaa6dcc0464daa266663b6363278b694f45ab03496242d 
+prev_hash:		 9d667a1f7e418fe84ed1e90d08f67fc638624ac658a4e1ca7fe601c7d4071b56 
+Data:		 models/m21.npz 3bf14e0e621595a9e160c5da16b3f4f63b1b8e6c22b83bae059aeb9632489da1 
 Model type:		 update 
+Number:		 22 
+Hash:		 e49273959d0acfd03e3e5955d3aa2a95162ce8ef9d8adeea8c91ef93d378fca0 
+
+
+================ 
+
+
+================ 
+prev_hash:		 e49273959d0acfd03e3e5955d3aa2a95162ce8ef9d8adeea8c91ef93d378fca0 
+Data:		 models/m22.npz f1fb9f04af57e8d67d8790d96f1428f26bb0e82a9c6febc5b768550541790789 
+Model type:		 global_model 
 Number:		 23 
-Hash:		 df930735dcd8a27512e86f94334832a54a1071d0dc5f9a7b4515799ac5ffd987 
+Hash:		 2b82d88449b03628d9025c9dad463ee17831dc1520d1eb81618a7173e4490280 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 df930735dcd8a27512e86f94334832a54a1071d0dc5f9a7b4515799ac5ffd987 
-Data:		 models/m23.npz 1d62483fe8104c93406d7b79f22e9c7b6724343c765f185da7fef232bd93681f 
+prev_hash:		 2b82d88449b03628d9025c9dad463ee17831dc1520d1eb81618a7173e4490280 
+Data:		 models/m23.npz 5d3955086e254da04ef3ccb928ea366c51193a38102b4d32c385e292b2be9701 
 Model type:		 update 
 Number:		 24 
-Hash:		 f920997f66bc423e12efb02eef4d45db49518b4134d15575500cca0e8738cbcb 
+Hash:		 5dfc5dc5033fead3fefd17707d05eb751de213734dda1a32dc0910fb3b34196d 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 f920997f66bc423e12efb02eef4d45db49518b4134d15575500cca0e8738cbcb 
-Data:		 models/m24.npz 911c590b5248524f1c6e792a5e2061a703fd93d3eeeb8117fa1d0847b6c9775c 
-Model type:		 global_model 
-Number:		 25 
-Hash:		 ef70f1dff02284ac02519e3429ff76178b69a75c80e1ba409ace515baa226617 
-
-
-================ 
-
-
-================ 
-prev_hash:		 ef70f1dff02284ac02519e3429ff76178b69a75c80e1ba409ace515baa226617 
-Data:		 models/m25.npz b78915856f55a5f624198d3f7d83705d0393ca419cb014753566c5a3fc09ef57 
+prev_hash:		 5dfc5dc5033fead3fefd17707d05eb751de213734dda1a32dc0910fb3b34196d 
+Data:		 models/m24.npz 63c8f1714123c4fcf12bde9a2d02a1c14384c9e783ccbb69485661db011af666 
 Model type:		 update 
+Number:		 25 
+Hash:		 758c95f8c5955f89a653948928007dceea95025292aa2df56bd2cf63f4603647 
+
+
+================ 
+
+
+================ 
+prev_hash:		 758c95f8c5955f89a653948928007dceea95025292aa2df56bd2cf63f4603647 
+Data:		 models/m25.npz c3e5fddb42df61dc6df5f1e5c618b8bbc1916d218a7cd93b2215566da99decfe 
+Model type:		 global_model 
 Number:		 26 
-Hash:		 508fc57f27fafb367ff80a1132d842dbf5b86683ea31fab85a8c0149e8a0aa1f 
+Hash:		 a3b34ded2a4a2af541cdfcf881b6d8286e48edd9cf993df3c7ca2f5be6594d10 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 508fc57f27fafb367ff80a1132d842dbf5b86683ea31fab85a8c0149e8a0aa1f 
-Data:		 models/m26.npz 90839de03a30faa0b51f16296c77abebdaf7efc17c7e33df8f072d5a78c6002c 
+prev_hash:		 a3b34ded2a4a2af541cdfcf881b6d8286e48edd9cf993df3c7ca2f5be6594d10 
+Data:		 models/m26.npz fa70f59dbb1488f79ff629eb50828cefbda763569ed78afafa4837919823ce85 
 Model type:		 update 
 Number:		 27 
-Hash:		 742bc51a83fe1cc93a3ab23290cdd292babf3312d62cfc2422feeaa1637f0ef1 
+Hash:		 b25bd191576c07cb5e241a7bde8097c68057af64f9dfe0775b54a31f90140d20 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 742bc51a83fe1cc93a3ab23290cdd292babf3312d62cfc2422feeaa1637f0ef1 
-Data:		 models/m27.npz ea01f816c43823f585bebc7924ff7a8282967ab2151877d61d710e906e1b2bca 
-Model type:		 global_model 
-Number:		 28 
-Hash:		 32582f9fdaf62d37a9c1d3f43a86bf78d9fe489d7c284052d4e7df610f4f9faa 
-
-
-================ 
-
-
-================ 
-prev_hash:		 32582f9fdaf62d37a9c1d3f43a86bf78d9fe489d7c284052d4e7df610f4f9faa 
-Data:		 models/m28.npz 009095d5676a535f969cda9fb88d9693ffb1a1fd05e8f4970c6894a7bd6edb0a 
+prev_hash:		 b25bd191576c07cb5e241a7bde8097c68057af64f9dfe0775b54a31f90140d20 
+Data:		 models/m27.npz 1a0e044e544c288497688efc141d3fea959600796260d656f98921054fc80e30 
 Model type:		 update 
+Number:		 28 
+Hash:		 1d199867af9c7a03709a4c6cfe622fbd5aa9ef4b957027f9f4e85772768bd184 
+
+
+================ 
+
+
+================ 
+prev_hash:		 1d199867af9c7a03709a4c6cfe622fbd5aa9ef4b957027f9f4e85772768bd184 
+Data:		 models/m28.npz daffc819b24fc0f88f0758fa14855a4c41e95e3d3fdc453aea2eaf39981f94b1 
+Model type:		 global_model 
 Number:		 29 
-Hash:		 7b001d28aa98747f131c24a8d75d47327c01989bdb96111064431d17c44d5134 
+Hash:		 0ce0ce309ba0df0c537fde3d837bc57651b6ba32c06dee222e29b90f1474be30 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 7b001d28aa98747f131c24a8d75d47327c01989bdb96111064431d17c44d5134 
-Data:		 models/m29.npz e69b54689e52092cea602cab35c9438121f58a1ba6d95398a469d73bb705790a 
+prev_hash:		 0ce0ce309ba0df0c537fde3d837bc57651b6ba32c06dee222e29b90f1474be30 
+Data:		 models/m29.npz a6db0a58e21f19cfb4c9bdc6addff1a4ecf2e1407874f6714d81bad4a8889cd1 
 Model type:		 update 
 Number:		 30 
-Hash:		 2f53fc397012d9fb1353473e9160d88e54272629cbd4c84d309ff56f8305fb0e 
+Hash:		 a4733c77fd45107bb8a0cb7658e9b751234c36fbe43146160500fb6ee9927536 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 2f53fc397012d9fb1353473e9160d88e54272629cbd4c84d309ff56f8305fb0e 
-Data:		 models/m30.npz 8bd46b22ee8e589b69bffdd33155f9f4fc6d8838f1961530278ddb1b115dc614 
-Model type:		 global_model 
-Number:		 31 
-Hash:		 ed034e543a4c85d7ddbe9ec51a4097f7654ca032efe33e035b7cbafb918bdb66 
-
-
-================ 
-
-
-================ 
-prev_hash:		 ed034e543a4c85d7ddbe9ec51a4097f7654ca032efe33e035b7cbafb918bdb66 
-Data:		 models/m31.npz 251bfe21c09f9797d3eb3ee05f6d6d17cbe35567c54ee734f06a78e87870bcd1 
+prev_hash:		 a4733c77fd45107bb8a0cb7658e9b751234c36fbe43146160500fb6ee9927536 
+Data:		 models/m30.npz d2bc4b2d389e885c11bd3f640720dd91b1cad5fa75d1cf8a9664d4b1bdedbafd 
 Model type:		 update 
+Number:		 31 
+Hash:		 e7c741cd1bac33f73be15452317b4ba8f9416068a5240e69ea1a30376c905e79 
+
+
+================ 
+
+
+================ 
+prev_hash:		 e7c741cd1bac33f73be15452317b4ba8f9416068a5240e69ea1a30376c905e79 
+Data:		 models/m31.npz 7950688e555413375e493eddddb2e22e609e489f006b31556d7b4f3af4a826ec 
+Model type:		 global_model 
 Number:		 32 
-Hash:		 8feece7b0e507c7c14514215b28f91976d253260ff0b409b69c5d43d41b57551 
+Hash:		 23f5df331858c8d55e6cd139b3899f74c4729cd128a6ff7c4a67722706328c5e 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 8feece7b0e507c7c14514215b28f91976d253260ff0b409b69c5d43d41b57551 
-Data:		 models/m32.npz e4fd2224c306a5d9b525ff74e7b4fb88f30e60fe6b9fcc34b6c084b95f496dbc 
+prev_hash:		 23f5df331858c8d55e6cd139b3899f74c4729cd128a6ff7c4a67722706328c5e 
+Data:		 models/m32.npz 65dde900553cc737e2621bd72fa68a3a86c0660f1c106c65618fe4d8818b61f8 
 Model type:		 update 
 Number:		 33 
-Hash:		 1725df2808bbd3c1cb9f0120033a2329e09c4ff30fd6fed4af4bb84a28927864 
+Hash:		 6b22ce49c10462d2694a6e2df88462cc57adfa910b3306f8a8372e0e1d7e85e8 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 1725df2808bbd3c1cb9f0120033a2329e09c4ff30fd6fed4af4bb84a28927864 
-Data:		 models/m33.npz 2b7e84dea3b72fd93892226729f81c8a28e7e731ee1c6ecaba1b0adfb5dfa89f 
-Model type:		 global_model 
-Number:		 34 
-Hash:		 b1c99405d1d08f8c54704294523d9c18e1680ded2f1359e85ee67c9b8fcfaa50 
-
-
-================ 
-
-
-================ 
-prev_hash:		 b1c99405d1d08f8c54704294523d9c18e1680ded2f1359e85ee67c9b8fcfaa50 
-Data:		 models/m34.npz eab22300e09692ae771f2ccf87b4624f3bfb0007066158eed935f0cfb2dc128e 
+prev_hash:		 6b22ce49c10462d2694a6e2df88462cc57adfa910b3306f8a8372e0e1d7e85e8 
+Data:		 models/m33.npz b59053bde34018d51d742f5263526bf6e0993f4800e5d61b63ddcbd8c64bb34c 
 Model type:		 update 
+Number:		 34 
+Hash:		 769337d3d5608322fea31fb5cc00ab50d16b5ff546bf2a67f319e5bf2075336c 
+
+
+================ 
+
+
+================ 
+prev_hash:		 769337d3d5608322fea31fb5cc00ab50d16b5ff546bf2a67f319e5bf2075336c 
+Data:		 models/m34.npz 9a16e08fe4704473cd574e7f3b97a8487cc9c17ed59657cebb9e9c44f41959db 
+Model type:		 global_model 
 Number:		 35 
-Hash:		 559ab9897102120d83e5fa278c29027b5fc3aaa218fd53eb2aad5453110d4e88 
+Hash:		 4b0381516ebafff35ebb9f9f916b8f55f27b95c6458e649ea75af0bf4a64ae45 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 559ab9897102120d83e5fa278c29027b5fc3aaa218fd53eb2aad5453110d4e88 
-Data:		 models/m35.npz fec34a51449f966c0ef3de1d2a5dc9a918340ee9288d876a4d3377d7f42bf808 
+prev_hash:		 4b0381516ebafff35ebb9f9f916b8f55f27b95c6458e649ea75af0bf4a64ae45 
+Data:		 models/m35.npz 93f5fb15c33db1592ceb97a06928c55a6a5dd107bedefc0abd06a2576b4ef2de 
 Model type:		 update 
 Number:		 36 
-Hash:		 a9da3a2ab3af8c4bd6d26f543aa7b674a625f431b25d906edf7b7a4c3b410d55 
+Hash:		 8e2a1bfeb19d18e069504907a0c9da8909edf45e2ad2b7beddd26b84f9755197 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 a9da3a2ab3af8c4bd6d26f543aa7b674a625f431b25d906edf7b7a4c3b410d55 
-Data:		 models/m36.npz 975bbd6cd0a98c09b43f3788e2ceb118829511730b886084a8aa79fcb507f88c 
-Model type:		 global_model 
-Number:		 37 
-Hash:		 2013e67870561a1c324f7b0674c56a5a2a4fb8096c8951699f1f248aa39eb3fd 
-
-
-================ 
-
-
-================ 
-prev_hash:		 2013e67870561a1c324f7b0674c56a5a2a4fb8096c8951699f1f248aa39eb3fd 
-Data:		 models/m37.npz 50cffc2aa5c0f4a7e3c709a0607767a35a524e54d811383b6cbebeacdbd26410 
+prev_hash:		 8e2a1bfeb19d18e069504907a0c9da8909edf45e2ad2b7beddd26b84f9755197 
+Data:		 models/m36.npz a5a4775f7179135d7cd7a7d895705728d928c41241b7bcccf2872e62760c4e35 
 Model type:		 update 
+Number:		 37 
+Hash:		 cb7f1a4fd4fa7cec7b1c71a3420cf302e57a86fccfcd550d8e7458d105fa6de8 
+
+
+================ 
+
+
+================ 
+prev_hash:		 cb7f1a4fd4fa7cec7b1c71a3420cf302e57a86fccfcd550d8e7458d105fa6de8 
+Data:		 models/m37.npz 980d236162b2c63db5936ea794bf5c2b9d6d08ea6ce3f87387706bdfcf7a743d 
+Model type:		 global_model 
 Number:		 38 
-Hash:		 a5c46b1731ebac002d058c1a09ab27151b50cf2646dc83591222f70b60d6ecc0 
+Hash:		 6f9e37ea5c7302e05b2e3fd2ce3e306892637455bea0b9d50654d9e507de36a5 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 a5c46b1731ebac002d058c1a09ab27151b50cf2646dc83591222f70b60d6ecc0 
-Data:		 models/m38.npz 545b3e58cd408e8d8c7c6e86c9e20efc917acc8860eb574e52047d7966df5123 
+prev_hash:		 6f9e37ea5c7302e05b2e3fd2ce3e306892637455bea0b9d50654d9e507de36a5 
+Data:		 models/m38.npz b8f85763473ec7c9010e57832add76ecb1da4c611c4d2b6bc649d2c4432d3e0b 
 Model type:		 update 
 Number:		 39 
-Hash:		 d63fc0a4afcc1c8c25e38edf74339b9d7094e0d44c919342e6d38457a6f42e69 
+Hash:		 f5f387fc6366c83268b502e3e612f78b06f697f2c65a2673cb5420e48c8146f8 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 d63fc0a4afcc1c8c25e38edf74339b9d7094e0d44c919342e6d38457a6f42e69 
-Data:		 models/m39.npz af944e8222f3e931360479f5baf1bb01f1518342ada80476d6b27020ec41b3c5 
-Model type:		 global_model 
-Number:		 40 
-Hash:		 65934baaef8d39e57d5568e7fd54d4e4f30f355755e28850430f9312575addd4 
-
-
-================ 
-
-
-================ 
-prev_hash:		 65934baaef8d39e57d5568e7fd54d4e4f30f355755e28850430f9312575addd4 
-Data:		 models/m40.npz bd66a94c1dba6def143752a5ea62b9b1decab281c3f4780e0032a693a5bcc4a3 
+prev_hash:		 f5f387fc6366c83268b502e3e612f78b06f697f2c65a2673cb5420e48c8146f8 
+Data:		 models/m39.npz 23a5f6c654cff3829c1de16aaa7819b2bb18135f29d6c28a8079783fb6ccc451 
 Model type:		 update 
+Number:		 40 
+Hash:		 09a39c801b56c4f212fb4413506cdc59daef3c90b07fa83d996d29588a9bed73 
+
+
+================ 
+
+
+================ 
+prev_hash:		 09a39c801b56c4f212fb4413506cdc59daef3c90b07fa83d996d29588a9bed73 
+Data:		 models/m40.npz 7baf46fc8162a4b50dbbf4ee7c3e07a9068cd9abce43e9cd6b7dce16043cf1e7 
+Model type:		 global_model 
 Number:		 41 
-Hash:		 b4783864e1a165341c3d616c5fe4358bfe4684e0b028fe219adb7a2bc6a0afe4 
+Hash:		 a6163e4674ef4a5714352823815feafe94d4b268c1f30ad305fe4f918f03017a 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 b4783864e1a165341c3d616c5fe4358bfe4684e0b028fe219adb7a2bc6a0afe4 
-Data:		 models/m41.npz 5ed500e8089bfa60c2504e12f619a65b76621d322ab4cbe75d1a3ca3b20effd1 
+prev_hash:		 a6163e4674ef4a5714352823815feafe94d4b268c1f30ad305fe4f918f03017a 
+Data:		 models/m41.npz e6add781aeabecc6fa287ef1487f490bbc83e77af39b85173a59a5ddb9e31f11 
 Model type:		 update 
 Number:		 42 
-Hash:		 3a4e7a12b84834f01944f9366ccc45fb1405449b77b802cd492323c7ba25c34c 
+Hash:		 a233db478a55a04af9d403f5bf872a05828ebec019835c78840f423af3fb2818 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 3a4e7a12b84834f01944f9366ccc45fb1405449b77b802cd492323c7ba25c34c 
-Data:		 models/m42.npz 6fdea46ec8136aa3630a9a2815ea5a469380f63932431cc5092a14a146790c0f 
-Model type:		 global_model 
-Number:		 43 
-Hash:		 5550c9ea0a968b4a384461dc0784a4a47b189e14e7d64568f98ff67598d55c15 
-
-
-================ 
-
-
-================ 
-prev_hash:		 5550c9ea0a968b4a384461dc0784a4a47b189e14e7d64568f98ff67598d55c15 
-Data:		 models/m43.npz 1579dc839a27c4a6b8e8b3ef9820cd04ebc1688414036eeaccb258c1d3617c32 
+prev_hash:		 a233db478a55a04af9d403f5bf872a05828ebec019835c78840f423af3fb2818 
+Data:		 models/m42.npz a051a54f2724eeeb09f10ce77e162e5e596be684775baca313ba5dab7460baa1 
 Model type:		 update 
+Number:		 43 
+Hash:		 a8170b8acb2f1aa9112fc7014f3ef15e4878b48a8d350a8e4211995707dcd51a 
+
+
+================ 
+
+
+================ 
+prev_hash:		 a8170b8acb2f1aa9112fc7014f3ef15e4878b48a8d350a8e4211995707dcd51a 
+Data:		 models/m43.npz ff2f970a5b67ca3aa3be1c9d36a398281b9a0668920f63ac1bfb905fe379d5f6 
+Model type:		 global_model 
 Number:		 44 
-Hash:		 90b0a11e7439da9ceb540736b2aeb5117c99cf4a0a68fbed157408ec749f2c0f 
+Hash:		 403129cd06cf3841d39006dc41786a0e548b1cc4c105cf7b29047a6d83bb88a1 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 90b0a11e7439da9ceb540736b2aeb5117c99cf4a0a68fbed157408ec749f2c0f 
-Data:		 models/m44.npz dd66fe0ea26de94febe64ac0ca03d97ca7018be07ad59d701c1a1f05498e94ad 
+prev_hash:		 403129cd06cf3841d39006dc41786a0e548b1cc4c105cf7b29047a6d83bb88a1 
+Data:		 models/m44.npz d2e3b6b25bfc0f4fd8bb61bb3f40f95e3f0db25f8623cc322aae83c2d57b7eb7 
 Model type:		 update 
 Number:		 45 
-Hash:		 fa594a4e75f129790d7f8289c8109a9017810b67c4fe7cff82357049f2058f13 
+Hash:		 b7fdc536fa8c6719cc2b0e48dae86e3176bec270042bde6d4d81c751c4fdbd32 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 fa594a4e75f129790d7f8289c8109a9017810b67c4fe7cff82357049f2058f13 
-Data:		 models/m45.npz 3e94d2324efcc17a8b0fe575abc63e1f552533bcbebf1e6d37cabe874b6470aa 
-Model type:		 global_model 
-Number:		 46 
-Hash:		 544f5c29d479f74631ee272e03aace0aee205a74cfdd99604c866a7e6188c723 
-
-
-================ 
-
-
-================ 
-prev_hash:		 544f5c29d479f74631ee272e03aace0aee205a74cfdd99604c866a7e6188c723 
-Data:		 models/m46.npz 31c3eaa36bd3e837dec02c72ae9be0d4f17f68906eafcee23851687c6ec1dc44 
+prev_hash:		 b7fdc536fa8c6719cc2b0e48dae86e3176bec270042bde6d4d81c751c4fdbd32 
+Data:		 models/m45.npz 2e505919ec5226d0b53788701cf0336e2787ede1e2c59e27b1a01be2c2f46813 
 Model type:		 update 
+Number:		 46 
+Hash:		 4c487089151f8d2773a8aed577c7ff841884e6909ceb907ca6614e8590b64f7c 
+
+
+================ 
+
+
+================ 
+prev_hash:		 4c487089151f8d2773a8aed577c7ff841884e6909ceb907ca6614e8590b64f7c 
+Data:		 models/m46.npz 9a793653358df9dee1a66e0440da03f0b7aed7585e9bd9b4732eebc5ddf4efca 
+Model type:		 global_model 
 Number:		 47 
-Hash:		 347d21a39e4b0c8f8678d5f3713ab36cb2762df565a7f63ce697e58edbb0dfd8 
+Hash:		 b09be10f2c632027a1acdb2a29c2894f66e60be42f4c56e2b2e7d1acf997aa5a 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 347d21a39e4b0c8f8678d5f3713ab36cb2762df565a7f63ce697e58edbb0dfd8 
-Data:		 models/m47.npz 351399b6c37741409f6e9abc202aa8c47a7a03afa360051e6a74c4d21bbd6021 
+prev_hash:		 b09be10f2c632027a1acdb2a29c2894f66e60be42f4c56e2b2e7d1acf997aa5a 
+Data:		 models/m47.npz fb60b3fc9d29f1bf018ca45f3a252f13799eb522d04474106d21f10d1da28b94 
 Model type:		 update 
 Number:		 48 
-Hash:		 90662497f6654e8791fa36ad8fc69139098d1065219d4f5581948cd50fff8c42 
+Hash:		 772d92bc3da87145f516c5b8e8dfa14a984e0220c590fb78268a645646e4d5d5 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 90662497f6654e8791fa36ad8fc69139098d1065219d4f5581948cd50fff8c42 
-Data:		 models/m48.npz 1bb31e829f54afa37ec6079cdf13da4867f2a8385d0f91bcd1de92da137e015b 
-Model type:		 global_model 
-Number:		 49 
-Hash:		 781b8dc34ee6e737b277e4b18c553cb8fb1d912bef59c3f66d53119bf93be954 
-
-
-================ 
-
-
-================ 
-prev_hash:		 781b8dc34ee6e737b277e4b18c553cb8fb1d912bef59c3f66d53119bf93be954 
-Data:		 models/m49.npz 24593bb98366f837ac1b3c3d316c196a1c5c6cf24eba9cc2fa6a3b8327036738 
+prev_hash:		 772d92bc3da87145f516c5b8e8dfa14a984e0220c590fb78268a645646e4d5d5 
+Data:		 models/m48.npz 7aa3a948c21bdc6339ee1fa4252812a65cc2a11fe574507778a28b258f5bab07 
 Model type:		 update 
+Number:		 49 
+Hash:		 7dbadc8ce13502dbc6c04f98e014389c2c76a6459105daf089b839e15f38a398 
+
+
+================ 
+
+
+================ 
+prev_hash:		 7dbadc8ce13502dbc6c04f98e014389c2c76a6459105daf089b839e15f38a398 
+Data:		 models/m49.npz 031e346d992f2a32f5bc3eb80f0fd3a6580c0d735523e57a3377387650ddc2ec 
+Model type:		 global_model 
 Number:		 50 
-Hash:		 4babb6b866f6e774d33a6ecfae38681f6954ea86ed6cf41f897683e4da7e6603 
+Hash:		 d8f95334a144ddbefb7d1ed7fd3ec17425cd9f275fc31493a2dbca370a7d1baf 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 4babb6b866f6e774d33a6ecfae38681f6954ea86ed6cf41f897683e4da7e6603 
-Data:		 models/m50.npz 7e5d17fd41fa66149d5de99633c106e283c25d6a40885de2b1062318ae41ed3f 
+prev_hash:		 d8f95334a144ddbefb7d1ed7fd3ec17425cd9f275fc31493a2dbca370a7d1baf 
+Data:		 models/m50.npz db0e98593872d85ec09667a9195c7f074cf838e9c30c29f843e5172fe3ba9582 
 Model type:		 update 
 Number:		 51 
-Hash:		 b3e08e8d3a5d5136fd1872a1fb0d109c1bbc7f3b829e064a301fee28407ea8ea 
+Hash:		 07bb413e51e9b2691ab69d5a6fc1686570cc8fc1707fe483161c2a9e9cd8c1ed 
 
 
 ================ 
 
 
 ================ 
-prev_hash:		 b3e08e8d3a5d5136fd1872a1fb0d109c1bbc7f3b829e064a301fee28407ea8ea 
-Data:		 models/m51.npz 008db93d11f2a83c36d124ee7195fedf7ed4fa59a85f531d2397ca319ddb9545 
-Model type:		 global_model 
+prev_hash:		 07bb413e51e9b2691ab69d5a6fc1686570cc8fc1707fe483161c2a9e9cd8c1ed 
+Data:		 models/m51.npz 7075c18784ea3ad6e3d1cc190d4e7a42b4f1f78d0847d6f7480d580480b6e179 
+Model type:		 update 
 Number:		 52 
-Hash:		 7bdeaf69df9e99a197891c9bad1f2d177ef35e712f34f2e1d385494e46d6020e 
+Hash:		 53101163d50253686e5d7bde4572f9a073abce09ba87d156e0b0f452a1cdd511 
+
+
+================ 
+
+
+================ 
+prev_hash:		 53101163d50253686e5d7bde4572f9a073abce09ba87d156e0b0f452a1cdd511 
+Data:		 models/m52.npz 23c06d43c09030ba3d18aa93babdfe1f6ce62a5b5702591c9f4eae00c27996ce 
+Model type:		 global_model 
+Number:		 53 
+Hash:		 f183728e606b99c09bd3c9bb7a1e73adccf015438fa6c73e94ea39cfb79aadd0 
+
+
+================ 
+
+
+================ 
+prev_hash:		 f183728e606b99c09bd3c9bb7a1e73adccf015438fa6c73e94ea39cfb79aadd0 
+Data:		 models/m53.npz 3ef4b5c1831cabc1619fdd71bdf9518cebf43ed232bf34ce4150d1b70789a4b3 
+Model type:		 update 
+Number:		 54 
+Hash:		 bf1c2a7bd3e275973cd83d15954ef7807b045947883cc5bea033557d12afb4d5 
+
+
+================ 
+
+
+================ 
+prev_hash:		 bf1c2a7bd3e275973cd83d15954ef7807b045947883cc5bea033557d12afb4d5 
+Data:		 models/m54.npz 73da8d92ac8f43b1655597ff442c9583f6ed8bf625e49b5b9dc5f01def546ff6 
+Model type:		 update 
+Number:		 55 
+Hash:		 2b42c53d8706323c52a79dad5a90e637e5df9f063490778a829e6b7446098e60 
+
+
+================ 
+
+
+================ 
+prev_hash:		 2b42c53d8706323c52a79dad5a90e637e5df9f063490778a829e6b7446098e60 
+Data:		 models/m55.npz e5a71e249090845df021503bc11d1251ef850d7ce952a574fc70e6028758847d 
+Model type:		 global_model 
+Number:		 56 
+Hash:		 cee067fbb6f1f0796509fa7c64f8c423b4e301f9ec666f8222cf1eb17a001bf5 
+
+
+================ 
+
+
+================ 
+prev_hash:		 cee067fbb6f1f0796509fa7c64f8c423b4e301f9ec666f8222cf1eb17a001bf5 
+Data:		 models/m56.npz 75595a99ba56c6cc8a38cd4accca7390517d9fa5e42910fbea38874ad4879ea2 
+Model type:		 update 
+Number:		 57 
+Hash:		 e7c60af793c02007f6153be24a50d0138792a643a91f7b4b53d6cd48def7211d 
+
+
+================ 
+
+
+================ 
+prev_hash:		 e7c60af793c02007f6153be24a50d0138792a643a91f7b4b53d6cd48def7211d 
+Data:		 models/m57.npz 9f2dccaec808817fce8180afb003e89cc22751bf3f5895752d089dffb1530098 
+Model type:		 update 
+Number:		 58 
+Hash:		 3f41b4fd3bc07bbaf4ac253a24f07607192b093396ef01d662b6c359495133e9 
+
+
+================ 
+
+
+================ 
+prev_hash:		 3f41b4fd3bc07bbaf4ac253a24f07607192b093396ef01d662b6c359495133e9 
+Data:		 models/m58.npz 9b5ffb16f9c5cbd921b282f0321d21f5c87ee7caaaeb9835b8df95f27613521c 
+Model type:		 global_model 
+Number:		 59 
+Hash:		 140ff81d89a64f8761e63e42cdf5d8b491cfe5953aea098c4e2ef53d590d9ec3 
 
 
 ================ 
