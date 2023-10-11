@@ -1,17 +1,29 @@
 import torch.nn as nn
 import torch.nn.functional as F
-
+    
 class Model(nn.Module):
-    def __init__(self, in_features=4, out_features=3):
-        super().__init__()
-        self.fc1 = nn.Linear(in_features=in_features,
-                             out_features=120)
-        self.fc2 = nn.Linear(in_features=120, 
-                             out_features=84)
-        self.fc3 = nn.Linear(in_features=84,  
-                             out_features=out_features)
+    def __init__(self):
+        super(Model, self).__init__()
+        # Number of input features is 12.
+        self.layer_1 = nn.Linear(22, 120) 
+        self.layer_2 = nn.Linear(120, 120)
+        self.layer_3 = nn.Linear(120, 120)
+        self.layer_4 = nn.Linear(120, 120)
+        self.layer_5 = nn.Linear(120, 120)
+        self.layer_6 = nn.Linear(120, 120)
+        self.layer_7 = nn.Linear(120, 120)
+        self.layer_out = nn.Linear(120, 1) 
         
-    def forward(self, X):
-        X = F.relu(self.fc1(X))
-        X = F.relu(self.fc2(X))
-        return self.fc3(X)
+        self.relu = nn.ReLU()
+        
+    def forward(self, inputs):
+        x = self.relu(self.layer_1(inputs))
+        x = self.relu(self.layer_2(x))
+        x = self.relu(self.layer_3(x))
+        x = self.relu(self.layer_4(x))
+        x = self.relu(self.layer_5(x))
+        x = self.relu(self.layer_6(x))
+        x = self.relu(self.layer_7(x))
+        x = self.layer_out(x)
+        
+        return x

@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 import torch
 
 class NodeServer(pb2_grpc.NodeServiceServicer):
-    def __init__(self, port, id, data):
+    def __init__(self, port, id, batch_size, train, test):
         self.id = id
         self.port = port
         self.server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
@@ -21,18 +21,12 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
         self.server.add_insecure_port(f'127.0.0.1:{self.port}')
         self.server.start()
 
-        X = data.iloc[:, 0:4].values
-        y = data.iloc[:, 5].values
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y,  test_size=0.2, random_state=42)
-
-        X_train = torch.FloatTensor(X_train)
-        X_test = torch.FloatTensor(X_test)
-        y_train = torch.LongTensor(y_train)
-        y_test = torch.LongTensor(y_test)
+        X_train, y_train = train
+        X_test, y_test = test
+        X_train,X_val,y_train,y_val=train_test_split(X_train,y_train,test_size=0.2,random_state=42,stratify=y_train)
 
         self.blockchain = Blockchain()
-        self.flower_client = FlowerClient(X_train, X_test, y_train, y_test)
+        self.flower_client = FlowerClient(batch_size, X_train, X_val ,X_test, y_train, y_val, y_test)
         self.params_directories = []
 
     def MineBlock(self, filename, model_type): 
@@ -92,7 +86,7 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
 
         block = self.MineBlock(filename, model_type)
 
-        return block
+        return self.isModelUpdateUsefull(block.storage_reference), block
 
     def AddBlockRequest(self, request, context): 
         new_block = Block(request.calculated_hash, request.storage_reference, request.model_type, self.blockchain.blocks[-1])
@@ -135,7 +129,7 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
 
             print(f"model{cnt}: loss: {loss}, acc: {acc}")
             with open("output.txt", "a") as f: 
-                f.write(f"model{cnt}: loss: {loss}, acc: {acc} \n")
+                f.write(f'Model{cnt}: | Test Loss: {loss:.5f} | Test Acc: {acc:.3f} \n')
             loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
             params_list.append(loaded_weights)
 

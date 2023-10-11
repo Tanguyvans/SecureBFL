@@ -1,57 +1,43 @@
-model0: loss: 1.3490588665008545, acc: 50.0 
-model1: loss: 2.5595717430114746, acc: 10.0 
-final_model: loss: 1.9450883865356445, acc: 10.0 
-model0: loss: 0.9522141218185425, acc: 50.0 
-model1: loss: 1.3354848623275757, acc: 50.0 
-model2: loss: 1.3833138942718506, acc: 50.0 
-final_model: loss: 1.2042088508605957, acc: 50.0 
-model0: loss: 0.7378212213516235, acc: 50.0 
-model1: loss: 0.9317326545715332, acc: 50.0 
-model2: loss: 1.050100326538086, acc: 40.0 
-final_model: loss: 0.868362307548523, acc: 50.0 
-model0: loss: 0.738847553730011, acc: 60.0 
-model1: loss: 0.7005792260169983, acc: 50.0 
-model2: loss: 0.7756468057632446, acc: 50.0 
-final_model: loss: 0.7007080316543579, acc: 90.0 
-model0: loss: 0.6414021849632263, acc: 60.0 
-model1: loss: 0.6632336378097534, acc: 90.0 
-final_model: loss: 0.6448208689689636, acc: 80.0 
-model0: loss: 0.597449004650116, acc: 70.0 
-model1: loss: 0.6100488901138306, acc: 60.0 
-final_model: loss: 0.5954006910324097, acc: 100.0 
-model0: loss: 0.5683470964431763, acc: 100.0 
-model1: loss: 0.5838955044746399, acc: 60.0 
-final_model: loss: 0.5666078925132751, acc: 90.0 
-model0: loss: 0.5498453378677368, acc: 100.0 
-model1: loss: 0.5784040689468384, acc: 60.0 
-final_model: loss: 0.5525192618370056, acc: 90.0 
-model0: loss: 0.5373964309692383, acc: 90.0 
-model1: loss: 0.5647519826889038, acc: 60.0 
-final_model: loss: 0.5371009111404419, acc: 90.0 
-model0: loss: 0.5277084112167358, acc: 90.0 
-model1: loss: 0.5408608317375183, acc: 60.0 
-final_model: loss: 0.5169406533241272, acc: 90.0 
-model0: loss: 0.5056829452514648, acc: 90.0 
-model1: loss: 0.5006471276283264, acc: 90.0 
-final_model: loss: 0.48352718353271484, acc: 80.0 
-model0: loss: 0.4492679536342621, acc: 90.0 
-model1: loss: 0.44558802247047424, acc: 90.0 
-final_model: loss: 0.427470862865448, acc: 80.0 
-model0: loss: 0.3683547079563141, acc: 100.0 
-model1: loss: 0.378537654876709, acc: 90.0 
-final_model: loss: 0.3527173399925232, acc: 100.0 
-model0: loss: 0.2954868674278259, acc: 100.0 
-model1: loss: 0.31007590889930725, acc: 90.0 
-final_model: loss: 0.28054481744766235, acc: 100.0 
-model0: loss: 0.25023218989372253, acc: 100.0 
-model1: loss: 0.24970051646232605, acc: 90.0 
-final_model: loss: 0.22103266417980194, acc: 100.0 
-model0: loss: 0.2088441550731659, acc: 90.0 
-model1: loss: 0.22448129951953888, acc: 90.0 
-final_model: loss: 0.21615085005760193, acc: 90.0 
-model0: loss: 0.21967212855815887, acc: 100.0 
-model1: loss: 0.15814371407032013, acc: 100.0 
-final_model: loss: 0.14807187020778656, acc: 100.0 
-model0: loss: 0.11930404603481293, acc: 100.0 
-model1: loss: 0.15302184224128723, acc: 100.0 
-final_model: loss: 0.1304122358560562, acc: 100.0 
+Model0: | Test Loss: 0.63532 | Test Acc: 65.404 
+Model1: | Test Loss: 0.62328 | Test Acc: 66.504 
+Model2: | Test Loss: 0.65398 | Test Acc: 64.431 
+final_model: loss: 0.6395365495785903, acc: 64.92874522071602 
+Model0: | Test Loss: 0.60903 | Test Acc: 67.675 
+Model1: | Test Loss: 0.62230 | Test Acc: 66.250 
+Model2: | Test Loss: 0.56898 | Test Acc: 70.861 
+Model3: | Test Loss: 0.61891 | Test Acc: 66.956 
+final_model: loss: 0.6390192696744604, acc: 65.95991194531341 
+Model0: | Test Loss: 0.53017 | Test Acc: 75.936 
+Model1: | Test Loss: 0.58127 | Test Acc: 67.628 
+final_model: loss: 0.6130929991573547, acc: 66.07577337504345 
+Model0: | Test Loss: 0.60715 | Test Acc: 70.536 
+Model1: | Test Loss: 0.49004 | Test Acc: 80.199 
+Model2: | Test Loss: 0.42384 | Test Acc: 82.841 
+final_model: loss: 0.4548447162505097, acc: 82.77140539914262 
+Model0: | Test Loss: 0.38854 | Test Acc: 83.652 
+Model1: | Test Loss: 0.41893 | Test Acc: 81.161 
+Model2: | Test Loss: 0.45415 | Test Acc: 79.933 
+final_model: loss: 0.43243833197868414, acc: 80.94079480940795 
+Model0: | Test Loss: 0.36711 | Test Acc: 85.714 
+Model1: | Test Loss: 0.42546 | Test Acc: 81.578 
+final_model: loss: 0.36800723628550697, acc: 84.56725755995829 
+Model0: | Test Loss: 0.36518 | Test Acc: 84.996 
+Model1: | Test Loss: 0.36046 | Test Acc: 85.077 
+final_model: loss: 0.3570716495257397, acc: 85.44780442590661 
+Model0: | Test Loss: 0.35872 | Test Acc: 85.969 
+Model1: | Test Loss: 0.35573 | Test Acc: 85.807 
+final_model: loss: 0.35650921946014014, acc: 86.1893175761789 
+Model0: | Test Loss: 0.33849 | Test Acc: 86.282 
+Model1: | Test Loss: 0.35908 | Test Acc: 85.981 
+final_model: loss: 0.34411818136799577, acc: 86.61800486618004 
+Model0: | Test Loss: 0.34056 | Test Acc: 85.668 
+Model1: | Test Loss: 0.33421 | Test Acc: 86.606 
+Model2: | Test Loss: 0.33398 | Test Acc: 86.317 
+final_model: loss: 0.3456747063477481, acc: 85.54049356969065 
+Model0: | Test Loss: 0.34129 | Test Acc: 86.757 
+Model1: | Test Loss: 0.34208 | Test Acc: 85.795 
+Model2: | Test Loss: 0.33136 | Test Acc: 86.745 
+final_model: loss: 0.329415846888758, acc: 87.06986444212721 
+Model0: | Test Loss: 0.33362 | Test Acc: 87.174 
+Model1: | Test Loss: 0.32924 | Test Acc: 86.259 
+final_model: loss: 0.32946745009376155, acc: 86.27042057698992 
