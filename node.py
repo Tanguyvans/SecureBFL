@@ -13,9 +13,10 @@ from sklearn.model_selection import train_test_split
 import torch
 
 class NodeServer(pb2_grpc.NodeServiceServicer):
-    def __init__(self, port, id, batch_size, train, test):
+    def __init__(self, port, id, batch_size, train, test, coef_usefull=1.02):
         self.id = id
         self.port = port
+        self.coef_usefull = coef_usefull
         self.server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
         pb2_grpc.add_NodeServiceServicer_to_server(self, self.server)
         self.server.add_insecure_port(f'127.0.0.1:{self.port}')
@@ -46,8 +47,12 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
         self.blockchain.add_block(block, block.cryptographic_hash)
         if block.model_type == "global_model": 
             self.global_params_directory = block.storage_reference
+            with open('output.txt', 'a') as f: 
+                f.write(f"final_model: {self.id} | Test Loss: {self.evaluateModel(block.storage_reference)[0]:.5f} | Test acc: {self.evaluateModel(block.storage_reference)[1]:.3f} \n")
         else:
             self.params_directories.append(block.storage_reference)
+            with open('output.txt', 'a') as f: 
+                f.write(f"block: {self.blockchain.len_chain} node: {self.id} | Test Loss: {self.evaluateModel(block.storage_reference)[0]:.5f} | Test acc: {self.evaluateModel(block.storage_reference)[1]:.3f} \n")
 
     def CreateGlobalModel(self): 
         old_params = self.flower_client.get_parameters({})
@@ -108,15 +113,19 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
         self.blockchain.add_block(self.block, self.block.cryptographic_hash)
         if self.block.model_type == "global_model": 
             self.global_params_directory = self.block.storage_reference
+            with open('output.txt', 'a') as f: 
+                f.write(f"final_model: {self.id} | Test Loss: {self.evaluateModel(self.block.storage_reference)[0]:.5f} | Test acc: {self.evaluateModel(self.block.storage_reference)[1]:.3f} \n")
         else:
             self.params_directories.append(self.block.storage_reference)
+            with open('output.txt', 'a') as f: 
+                f.write(f"block: {self.blockchain.len_chain} node: {self.id} | Test Loss: {self.evaluateModel(self.block.storage_reference)[0]:.5f} | Test acc: {self.evaluateModel(self.block.storage_reference)[1]:.3f} \n")
 
         return pb2.Response(success=True)
     
-    def aggregateParameters(self):
+    def aggregateParameters(self, numberOfUpdatesRequired=2):
 
-        print("aggregation, ", self.params_directories)
-        if len(self.params_directories) < 2:
+        print("AGGREGATION: ", len(self.params_directories), numberOfUpdatesRequired)
+        if len(self.params_directories) < numberOfUpdatesRequired:
             return {"status": False, "message": f"not enough trained models: {len(self.params_directories)}"}
          
         params_list = []
@@ -124,24 +133,11 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
             loaded_weights_dict = np.load(model_directory)
             loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
 
-            loss = self.flower_client.evaluate(loaded_weights, {})[0]
-            acc = self.flower_client.evaluate(loaded_weights, {})[2]['accuracy']
-
-            print(f"model{cnt}: loss: {loss}, acc: {acc}")
-            with open("output.txt", "a") as f: 
-                f.write(f'Model{cnt}: | Test Loss: {loss:.5f} | Test Acc: {acc:.3f} \n')
             loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
             params_list.append(loaded_weights)
 
         self.aggregated_params = aggregate(params_list)
         self.flower_client.set_parameters(self.aggregated_params)
-
-        final_loss = self.flower_client.evaluate(self.aggregated_params, {})[0]
-        final_acc = self.flower_client.evaluate(self.aggregated_params, {})[2]['accuracy']
-        print(f"final_model: loss: {final_loss}, acc: {final_acc}")
-        with open("output.txt", "a") as f: 
-            f.write(f"final_model: loss: {final_loss}, acc: {final_acc} \n")
-        
 
         weights_dict = self.flower_client.get_dict_params({})
         weights_dict['len_dataset'] = 40
@@ -160,8 +156,8 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
         return {"status": True, "message": block} 
 
     def isModelUpdateUsefull(self, model_directory): 
-        print(self.evaluateModel(model_directory), self.evaluateModel(self.global_params_directory)*1.02)
-        if self.evaluateModel(model_directory) <= self.evaluateModel(self.global_params_directory)*1.02: 
+        print(self.evaluateModel(model_directory)[0], self.evaluateModel(self.global_params_directory)[0]*self.coef_usefull)
+        if self.evaluateModel(model_directory)[0] <= self.evaluateModel(self.global_params_directory)[0]*self.coef_usefull: 
             return True
         else: 
             return False
@@ -170,18 +166,21 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
         loaded_weights_dict = np.load(model_directory)
         loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
         loss = self.flower_client.evaluate(loaded_weights, {})[0]
+        acc = self.flower_client.evaluate(loaded_weights, {})[2]['accuracy']
 
-        return loss
+        return loss, acc
 
 class NodeClient:
-    def __init__(self):
+    def __init__(self, nodeServer):
         self.connections = {}
-
+        self.serverId = nodeServer
+    
     def clientConnection(self, servers): 
         for server in servers: 
-            channel = grpc.insecure_channel(f'127.0.0.1:{server.port}') 
-            stub = pb2_grpc.NodeServiceStub(channel)
-            self.connections[server.id] = stub 
+            if self.serverId != server: 
+                channel = grpc.insecure_channel(f'127.0.0.1:{server.port}') 
+                stub = pb2_grpc.NodeServiceStub(channel)
+                self.connections[server.id] = stub 
   
     def broadcast_block(self, block):
         block_message = pb2.BlockMessage()

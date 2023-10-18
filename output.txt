@@ -1,43 +1,234 @@
-Model0: | Test Loss: 0.63532 | Test Acc: 65.404 
-Model1: | Test Loss: 0.62328 | Test Acc: 66.504 
-Model2: | Test Loss: 0.65398 | Test Acc: 64.431 
-final_model: loss: 0.6395365495785903, acc: 64.92874522071602 
-Model0: | Test Loss: 0.60903 | Test Acc: 67.675 
-Model1: | Test Loss: 0.62230 | Test Acc: 66.250 
-Model2: | Test Loss: 0.56898 | Test Acc: 70.861 
-Model3: | Test Loss: 0.61891 | Test Acc: 66.956 
-final_model: loss: 0.6390192696744604, acc: 65.95991194531341 
-Model0: | Test Loss: 0.53017 | Test Acc: 75.936 
-Model1: | Test Loss: 0.58127 | Test Acc: 67.628 
-final_model: loss: 0.6130929991573547, acc: 66.07577337504345 
-Model0: | Test Loss: 0.60715 | Test Acc: 70.536 
-Model1: | Test Loss: 0.49004 | Test Acc: 80.199 
-Model2: | Test Loss: 0.42384 | Test Acc: 82.841 
-final_model: loss: 0.4548447162505097, acc: 82.77140539914262 
-Model0: | Test Loss: 0.38854 | Test Acc: 83.652 
-Model1: | Test Loss: 0.41893 | Test Acc: 81.161 
-Model2: | Test Loss: 0.45415 | Test Acc: 79.933 
-final_model: loss: 0.43243833197868414, acc: 80.94079480940795 
-Model0: | Test Loss: 0.36711 | Test Acc: 85.714 
-Model1: | Test Loss: 0.42546 | Test Acc: 81.578 
-final_model: loss: 0.36800723628550697, acc: 84.56725755995829 
-Model0: | Test Loss: 0.36518 | Test Acc: 84.996 
-Model1: | Test Loss: 0.36046 | Test Acc: 85.077 
-final_model: loss: 0.3570716495257397, acc: 85.44780442590661 
-Model0: | Test Loss: 0.35872 | Test Acc: 85.969 
-Model1: | Test Loss: 0.35573 | Test Acc: 85.807 
-final_model: loss: 0.35650921946014014, acc: 86.1893175761789 
-Model0: | Test Loss: 0.33849 | Test Acc: 86.282 
-Model1: | Test Loss: 0.35908 | Test Acc: 85.981 
-final_model: loss: 0.34411818136799577, acc: 86.61800486618004 
-Model0: | Test Loss: 0.34056 | Test Acc: 85.668 
-Model1: | Test Loss: 0.33421 | Test Acc: 86.606 
-Model2: | Test Loss: 0.33398 | Test Acc: 86.317 
-final_model: loss: 0.3456747063477481, acc: 85.54049356969065 
-Model0: | Test Loss: 0.34129 | Test Acc: 86.757 
-Model1: | Test Loss: 0.34208 | Test Acc: 85.795 
-Model2: | Test Loss: 0.33136 | Test Acc: 86.745 
-final_model: loss: 0.329415846888758, acc: 87.06986444212721 
-Model0: | Test Loss: 0.33362 | Test Acc: 87.174 
-Model1: | Test Loss: 0.32924 | Test Acc: 86.259 
-final_model: loss: 0.32946745009376155, acc: 86.27042057698992 
+final_model: node1 | Test Loss: 0.64727 | Test acc: 65.214 
+final_model: node2 | Test Loss: 0.64967 | Test acc: 64.635 
+final_model: node3 | Test Loss: 0.79772 | Test acc: 32.514 
+final_model: node4 | Test Loss: 0.78574 | Test acc: 36.292 
+final_model: node5 | Test Loss: 0.79658 | Test acc: 34.067 
+final_model: node6 | Test Loss: 0.79058 | Test acc: 34.947 
+
+block: 3 node: node3 | Test Loss: 0.63975 | Test acc: 64.635 
+block: 3 node: node1 | Test Loss: 0.85509 | Test acc: 36.454 
+block: 3 node: node2 | Test Loss: 0.85459 | Test acc: 36.593 
+block: 3 node: node4 | Test Loss: 0.65952 | Test acc: 62.549 
+block: 3 node: node5 | Test Loss: 0.64511 | Test acc: 64.032 
+block: 3 node: node6 | Test Loss: 0.65260 | Test acc: 63.131 
+
+block: 4 node: node4 | Test Loss: 0.66297 | Test acc: 59.490 
+block: 4 node: node1 | Test Loss: 0.78456 | Test acc: 39.282 
+block: 4 node: node2 | Test Loss: 0.78449 | Test acc: 39.189 
+block: 4 node: node3 | Test Loss: 0.65116 | Test acc: 61.715 
+block: 4 node: node5 | Test Loss: 0.65282 | Test acc: 60.811 
+block: 4 node: node6 | Test Loss: 0.65890 | Test acc: 60.699 
+
+block: 5 node: node5 | Test Loss: 0.64664 | Test acc: 65.052 
+block: 5 node: node1 | Test Loss: 0.81902 | Test acc: 36.176 
+block: 5 node: node2 | Test Loss: 0.81771 | Test acc: 36.130 
+block: 5 node: node3 | Test Loss: 0.64038 | Test acc: 65.771 
+block: 5 node: node4 | Test Loss: 0.65635 | Test acc: 63.268 
+block: 5 node: node6 | Test Loss: 0.65075 | Test acc: 64.034 
+
+block: 6 node: node6 | Test Loss: 0.66459 | Test acc: 59.518 
+block: 6 node: node1 | Test Loss: 0.83324 | Test acc: 40.533 
+block: 6 node: node2 | Test Loss: 0.83337 | Test acc: 39.861 
+block: 6 node: node3 | Test Loss: 0.65381 | Test acc: 60.556 
+block: 6 node: node4 | Test Loss: 0.66983 | Test acc: 58.725 
+block: 6 node: node5 | Test Loss: 0.65602 | Test acc: 59.397 
+
+final_model: node1 | Test Loss: 0.75829 | Test acc: 41.924 
+final_model: node2 | Test Loss: 0.75822 | Test acc: 41.182 
+final_model: node3 | Test Loss: 0.65995 | Test acc: 59.397 
+final_model: node4 | Test Loss: 0.66795 | Test acc: 57.937 
+final_model: node5 | Test Loss: 0.66064 | Test acc: 58.679 
+final_model: node6 | Test Loss: 0.66518 | Test acc: 58.592 
+
+block: 8 node: node3 | Test Loss: 0.64789 | Test acc: 62.920 
+block: 8 node: node1 | Test Loss: 0.86578 | Test acc: 38.424 
+block: 8 node: node2 | Test Loss: 0.86401 | Test acc: 38.216 
+block: 8 node: node4 | Test Loss: 0.66682 | Test acc: 60.788 
+block: 8 node: node5 | Test Loss: 0.64929 | Test acc: 62.109 
+block: 8 node: node6 | Test Loss: 0.66118 | Test acc: 61.718 
+
+block: 9 node: node4 | Test Loss: 0.64773 | Test acc: 63.221 
+block: 9 node: node1 | Test Loss: 0.82725 | Test acc: 35.110 
+block: 9 node: node2 | Test Loss: 0.82587 | Test acc: 35.759 
+block: 9 node: node3 | Test Loss: 0.63054 | Test acc: 66.443 
+block: 9 node: node5 | Test Loss: 0.63408 | Test acc: 65.817 
+block: 9 node: node6 | Test Loss: 0.63986 | Test acc: 65.100 
+
+block: 10 node: node5 | Test Loss: 0.63478 | Test acc: 66.721 
+block: 10 node: node1 | Test Loss: 0.81822 | Test acc: 34.044 
+block: 10 node: node2 | Test Loss: 0.81649 | Test acc: 34.786 
+block: 10 node: node3 | Test Loss: 0.63128 | Test acc: 67.810 
+block: 10 node: node4 | Test Loss: 0.64747 | Test acc: 64.148 
+block: 10 node: node6 | Test Loss: 0.64087 | Test acc: 65.748 
+
+block: 11 node: node6 | Test Loss: 0.63987 | Test acc: 65.910 
+block: 11 node: node1 | Test Loss: 0.82330 | Test acc: 33.905 
+block: 11 node: node2 | Test Loss: 0.82180 | Test acc: 34.299 
+block: 11 node: node3 | Test Loss: 0.62997 | Test acc: 67.787 
+block: 11 node: node4 | Test Loss: 0.64669 | Test acc: 64.681 
+block: 11 node: node5 | Test Loss: 0.63330 | Test acc: 67.068 
+
+final_model: node1 | Test Loss: 0.83700 | Test acc: 34.253 
+final_model: node2 | Test Loss: 0.83614 | Test acc: 34.762 
+final_model: node3 | Test Loss: 0.63055 | Test acc: 67.184 
+final_model: node4 | Test Loss: 0.64870 | Test acc: 64.218 
+final_model: node5 | Test Loss: 0.63410 | Test acc: 66.489 
+final_model: node6 | Test Loss: 0.64212 | Test acc: 64.961 
+
+block: 13 node: node3 | Test Loss: 0.62915 | Test acc: 67.045 
+block: 13 node: node1 | Test Loss: 0.82730 | Test acc: 33.975 
+block: 13 node: node2 | Test Loss: 0.82526 | Test acc: 35.087 
+block: 13 node: node4 | Test Loss: 0.64548 | Test acc: 64.218 
+block: 13 node: node5 | Test Loss: 0.63125 | Test acc: 66.628 
+block: 13 node: node6 | Test Loss: 0.63883 | Test acc: 65.285 
+
+block: 14 node: node4 | Test Loss: 0.63661 | Test acc: 64.334 
+block: 14 node: node1 | Test Loss: 0.87512 | Test acc: 34.484 
+block: 14 node: node2 | Test Loss: 0.87438 | Test acc: 34.438 
+block: 14 node: node3 | Test Loss: 0.61803 | Test acc: 66.929 
+block: 14 node: node5 | Test Loss: 0.61988 | Test acc: 66.141 
+block: 14 node: node6 | Test Loss: 0.63092 | Test acc: 65.215 
+
+block: 15 node: node3 | Test Loss: 0.62925 | Test acc: 66.628 
+block: 15 node: node1 | Test Loss: 0.83844 | Test acc: 34.600 
+block: 15 node: node2 | Test Loss: 0.83718 | Test acc: 34.600 
+block: 15 node: node4 | Test Loss: 0.64627 | Test acc: 63.708 
+block: 15 node: node5 | Test Loss: 0.63038 | Test acc: 65.701 
+block: 15 node: node6 | Test Loss: 0.64035 | Test acc: 64.822 
+
+block: 16 node: node4 | Test Loss: 0.65201 | Test acc: 63.963 
+block: 16 node: node1 | Test Loss: 0.82460 | Test acc: 34.623 
+block: 16 node: node2 | Test Loss: 0.82249 | Test acc: 34.716 
+block: 16 node: node3 | Test Loss: 0.63589 | Test acc: 66.860 
+block: 16 node: node5 | Test Loss: 0.63746 | Test acc: 65.817 
+block: 16 node: node6 | Test Loss: 0.64610 | Test acc: 65.007 
+
+block: 17 node: node5 | Test Loss: 0.62965 | Test acc: 66.698 
+block: 17 node: node1 | Test Loss: 0.91659 | Test acc: 33.998 
+block: 17 node: node2 | Test Loss: 0.91402 | Test acc: 34.577 
+block: 17 node: node3 | Test Loss: 0.62559 | Test acc: 67.346 
+block: 17 node: node4 | Test Loss: 0.65016 | Test acc: 64.496 
+block: 17 node: node6 | Test Loss: 0.64134 | Test acc: 65.331 
+
+block: 18 node: node6 | Test Loss: 0.63746 | Test acc: 65.794 
+block: 18 node: node1 | Test Loss: 0.88923 | Test acc: 33.673 
+block: 18 node: node2 | Test Loss: 0.88678 | Test acc: 34.183 
+block: 18 node: node3 | Test Loss: 0.62298 | Test acc: 67.601 
+block: 18 node: node4 | Test Loss: 0.64634 | Test acc: 64.681 
+block: 18 node: node5 | Test Loss: 0.62754 | Test acc: 66.906 
+
+final_model: node1 | Test Loss: 0.82426 | Test acc: 35.921 
+final_model: node2 | Test Loss: 0.82295 | Test acc: 35.574 
+final_model: node3 | Test Loss: 0.63765 | Test acc: 65.678 
+final_model: node4 | Test Loss: 0.65392 | Test acc: 62.920 
+final_model: node5 | Test Loss: 0.63945 | Test acc: 64.797 
+final_model: node6 | Test Loss: 0.64805 | Test acc: 63.687 
+
+block: 20 node: node3 | Test Loss: 0.59507 | Test acc: 73.210 
+block: 20 node: node1 | Test Loss: 0.86762 | Test acc: 27.972 
+block: 20 node: node2 | Test Loss: 0.86422 | Test acc: 29.177 
+block: 20 node: node4 | Test Loss: 0.60506 | Test acc: 71.240 
+block: 20 node: node5 | Test Loss: 0.59761 | Test acc: 72.422 
+block: 20 node: node6 | Test Loss: 0.60397 | Test acc: 72.209 
+block: 21 node: node4 | Test Loss: 0.61280 | Test acc: 64.195 
+block: 21 node: node1 | Test Loss: 0.89970 | Test acc: 33.951 
+block: 21 node: node2 | Test Loss: 0.89535 | Test acc: 34.994 
+block: 21 node: node3 | Test Loss: 0.59603 | Test acc: 66.929 
+block: 21 node: node5 | Test Loss: 0.59700 | Test acc: 66.929 
+block: 21 node: node6 | Test Loss: 0.60708 | Test acc: 65.563 
+block: 22 node: node6 | Test Loss: 0.58852 | Test acc: 71.955 
+block: 22 node: node1 | Test Loss: 0.98107 | Test acc: 28.227 
+block: 22 node: node2 | Test Loss: 0.97755 | Test acc: 28.691 
+block: 22 node: node3 | Test Loss: 0.57468 | Test acc: 73.720 
+block: 22 node: node4 | Test Loss: 0.59302 | Test acc: 71.518 
+block: 22 node: node5 | Test Loss: 0.57461 | Test acc: 73.163 
+final_model: node1 | Test Loss: 0.90204 | Test acc: 31.448 
+final_model: node2 | Test Loss: 0.89822 | Test acc: 31.842 
+final_model: node3 | Test Loss: 0.59245 | Test acc: 70.081 
+final_model: node4 | Test Loss: 0.61049 | Test acc: 67.138 
+final_model: node5 | Test Loss: 0.59516 | Test acc: 69.409 
+final_model: node6 | Test Loss: 0.60493 | Test acc: 68.249 
+block: 24 node: node3 | Test Loss: 0.58708 | Test acc: 69.363 
+block: 24 node: node1 | Test Loss: 0.93608 | Test acc: 31.935 
+block: 24 node: node2 | Test Loss: 0.93360 | Test acc: 32.746 
+block: 24 node: node4 | Test Loss: 0.60792 | Test acc: 66.512 
+block: 24 node: node5 | Test Loss: 0.58999 | Test acc: 69.038 
+block: 24 node: node6 | Test Loss: 0.60095 | Test acc: 67.624 
+block: 25 node: node5 | Test Loss: 0.56898 | Test acc: 71.634 
+block: 25 node: node1 | Test Loss: 0.98576 | Test acc: 28.853 
+block: 25 node: node2 | Test Loss: 0.98654 | Test acc: 28.946 
+block: 25 node: node3 | Test Loss: 0.56684 | Test acc: 72.005 
+block: 25 node: node4 | Test Loss: 0.58277 | Test acc: 70.452 
+block: 25 node: node6 | Test Loss: 0.58251 | Test acc: 69.569 
+block: 26 node: node4 | Test Loss: 0.59118 | Test acc: 69.131 
+block: 26 node: node1 | Test Loss: 0.99484 | Test acc: 29.502 
+block: 26 node: node2 | Test Loss: 0.99140 | Test acc: 30.776 
+block: 26 node: node3 | Test Loss: 0.56878 | Test acc: 71.495 
+block: 26 node: node5 | Test Loss: 0.57312 | Test acc: 71.170 
+block: 26 node: node6 | Test Loss: 0.58423 | Test acc: 70.009 
+block: 27 node: node6 | Test Loss: 0.59246 | Test acc: 71.839 
+block: 27 node: node1 | Test Loss: 0.91397 | Test acc: 29.386 
+block: 27 node: node2 | Test Loss: 0.91010 | Test acc: 30.382 
+block: 27 node: node3 | Test Loss: 0.58200 | Test acc: 72.816 
+block: 27 node: node4 | Test Loss: 0.59640 | Test acc: 70.614 
+block: 27 node: node5 | Test Loss: 0.58682 | Test acc: 71.356 
+final_model: node1 | Test Loss: 0.92565 | Test acc: 33.302 
+final_model: node2 | Test Loss: 0.92315 | Test acc: 33.465 
+final_model: node3 | Test Loss: 0.60410 | Test acc: 68.111 
+final_model: node4 | Test Loss: 0.62588 | Test acc: 65.794 
+final_model: node5 | Test Loss: 0.60938 | Test acc: 67.393 
+final_model: node6 | Test Loss: 0.61997 | Test acc: 66.304 
+block: 29 node: node5 | Test Loss: 0.50661 | Test acc: 74.878 
+block: 29 node: node1 | Test Loss: 1.32029 | Test acc: 25.562 
+block: 29 node: node2 | Test Loss: 1.32906 | Test acc: 25.747 
+block: 29 node: node3 | Test Loss: 0.51040 | Test acc: 74.948 
+block: 29 node: node4 | Test Loss: 0.52297 | Test acc: 73.859 
+block: 29 node: node6 | Test Loss: 0.52293 | Test acc: 74.016 
+block: 30 node: node6 | Test Loss: 0.53359 | Test acc: 75.498 
+block: 30 node: node1 | Test Loss: 1.17739 | Test acc: 23.754 
+block: 30 node: node2 | Test Loss: 1.17796 | Test acc: 24.148 
+block: 30 node: node3 | Test Loss: 0.51805 | Test acc: 76.246 
+block: 30 node: node4 | Test Loss: 0.53643 | Test acc: 74.786 
+block: 30 node: node5 | Test Loss: 0.51545 | Test acc: 76.153 
+block: 31 node: node3 | Test Loss: 0.53105 | Test acc: 77.914 
+block: 31 node: node1 | Test Loss: 1.06943 | Test acc: 23.013 
+block: 31 node: node2 | Test Loss: 1.06464 | Test acc: 23.523 
+block: 31 node: node4 | Test Loss: 0.54347 | Test acc: 76.895 
+block: 31 node: node5 | Test Loss: 0.53093 | Test acc: 78.216 
+block: 31 node: node6 | Test Loss: 0.53969 | Test acc: 77.327 
+block: 32 node: node4 | Test Loss: 0.57214 | Test acc: 69.131 
+block: 32 node: node1 | Test Loss: 1.18147 | Test acc: 29.015 
+block: 32 node: node2 | Test Loss: 1.17813 | Test acc: 30.243 
+block: 32 node: node3 | Test Loss: 0.55147 | Test acc: 70.637 
+block: 32 node: node5 | Test Loss: 0.54907 | Test acc: 71.495 
+block: 32 node: node6 | Test Loss: 0.56699 | Test acc: 69.847 
+block: 33 node: node5 | Test Loss: 0.52590 | Test acc: 74.670 
+block: 33 node: node1 | Test Loss: 1.12408 | Test acc: 25.863 
+block: 33 node: node2 | Test Loss: 1.12810 | Test acc: 25.701 
+block: 33 node: node3 | Test Loss: 0.52991 | Test acc: 74.693 
+block: 33 node: node4 | Test Loss: 0.54361 | Test acc: 73.418 
+block: 33 node: node6 | Test Loss: 0.54300 | Test acc: 73.344 
+block: 34 node: node6 | Test Loss: 0.62821 | Test acc: 64.220 
+block: 34 node: node1 | Test Loss: 1.08096 | Test acc: 35.110 
+block: 34 node: node2 | Test Loss: 1.07890 | Test acc: 36.269 
+block: 34 node: node3 | Test Loss: 0.61124 | Test acc: 65.238 
+block: 34 node: node4 | Test Loss: 0.63667 | Test acc: 62.804 
+block: 34 node: node5 | Test Loss: 0.61316 | Test acc: 65.840 
+final_model: node1 | Test Loss: 1.07524 | Test acc: 22.851 
+final_model: node2 | Test Loss: 1.07533 | Test acc: 23.013 
+final_model: node3 | Test Loss: 0.52527 | Test acc: 77.845 
+final_model: node4 | Test Loss: 0.53979 | Test acc: 77.034 
+final_model: node5 | Test Loss: 0.52319 | Test acc: 77.636 
+final_model: node6 | Test Loss: 0.53744 | Test acc: 77.235 
+block: 36 node: node4 | Test Loss: 0.50940 | Test acc: 76.918 
+block: 36 node: node1 | Test Loss: 1.51045 | Test acc: 21.993 
+block: 36 node: node2 | Test Loss: 1.49894 | Test acc: 23.870 
+block: 36 node: node3 | Test Loss: 0.50103 | Test acc: 77.613 
+block: 36 node: node5 | Test Loss: 0.48930 | Test acc: 77.497 
+block: 36 node: node6 | Test Loss: 0.50828 | Test acc: 77.327 
+block: 37 node: node5 | Test Loss: 0.52145 | Test acc: 75.504 
+block: 37 node: node1 | Test Loss: 1.12732 | Test acc: 25.006 
+block: 37 node: node2 | Test Loss: 1.12512 | Test acc: 26.211 
+block: 37 node: node3 | Test Loss: 0.52541 | Test acc: 74.600 
+block: 37 node: node4 | Test Loss: 0.53910 | Test acc: 73.441 
+block: 37 node: node6 | Test Loss: 0.53383 | Test acc: 74.062 
