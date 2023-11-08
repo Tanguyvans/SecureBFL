@@ -10,7 +10,7 @@ message BlockMessage {
   int32 block_number = 7;
 }
 
-message Response {
+message BlockResponse {
   bool success = 1;
   string message = 2;
 }
@@ -23,7 +23,18 @@ message ValidationResponse {
   bool success = 1;
 }
 
+message ClientMessage {
+  bytes value = 1;
+  int32 dataset_number = 2;
+  string client_id = 3;
+}
+
+message NodeResponse {
+  bool success = 1;
+}
+
 service NodeService {
-  rpc AddBlockRequest (BlockMessage) returns (Response);
+  rpc AddWeightsFromClient (ClientMessage) returns (NodeResponse);
+  rpc AddBlockRequest (BlockMessage) returns (BlockResponse);
   rpc AddBlockToChain (BlockValidation) returns (ValidationResponse);
 }

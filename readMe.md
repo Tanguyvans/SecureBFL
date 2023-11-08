@@ -19,8 +19,10 @@ In this project we are creating a DFL (Decentralised Federated Learning) archite
 3. Gossip ? At the moment the model is fully connected
 4. Create a warning when the node has poisonned data.
 5. Add clusters where each cluster communicates with a node to add data on the chain.
+6. client authentification (certificate to verify who they are claiming to be)
 
 ## proto
 
 Update proto file
-python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. block.proto
+python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. client.proto
+python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. node.proto

@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+message SmpcMessage {
+  bytes value = 1;
+  int32 dataset_number = 2;
+}
+
+message SmpcResponse {
+  bool success = 1;
+}
+
+message GobalModelMessage {
+  bytes value = 1;
+}
+
+message GlobalModelResponse {
+  bool success = 1;
+}
+
+service ClientService {
+  rpc sendSmpc (SmpcMessage) returns (SmpcResponse);
+  rpc sendGlobalModel (GobalModelMessage) returns (GlobalModelResponse);
+}

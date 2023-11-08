@@ -1,24 +1,33 @@
 import grpc
-import block_pb2 as pb2
-import block_pb2_grpc as pb2_grpc
+
+import node_pb2
+import node_pb2_grpc
+
+import client_pb2
+import client_pb2_grpc
+
 import concurrent.futures
 import hashlib
 import numpy as np
 from block import Block
 from blockchain import Blockchain
 from flowerclient import FlowerClient
+import pickle
 
 from flwr.server.strategy.aggregate import aggregate
 from sklearn.model_selection import train_test_split
-import torch
 
-class NodeServer(pb2_grpc.NodeServiceServicer):
-    def __init__(self, port, id, batch_size, train, test, coef_usefull=1.02):
+class NodeServer(node_pb2_grpc.NodeServiceServicer):
+    def __init__(self, port, id, batch_size, train, test, coef_usefull=1.4):
         self.id = id
         self.port = port
         self.coef_usefull = coef_usefull
+
+        self.cluster = {}
+        self.cluster_weights = []
+
         self.server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
-        pb2_grpc.add_NodeServiceServicer_to_server(self, self.server)
+        node_pb2_grpc.add_NodeServiceServicer_to_server(self, self.server)
         self.server.add_insecure_port(f'127.0.0.1:{self.port}')
         self.server.start()
 
@@ -72,16 +81,16 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
 
         return block
     
-    def UpdateModel(self):
-        loaded_weights_dict = np.load(self.global_params_directory)
-        loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
+    def UpdateModel(self, loaded_weights):
+        # loaded_weights_dict = np.load(self.global_params_directory)
+        # loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
         self.flower_client.set_parameters(loaded_weights)
 
-        old_params = self.flower_client.get_parameters({})
-        len_dataset = self.flower_client.fit(old_params, {})[1]
+        # old_params = self.flower_client.get_parameters({})
+        # len_dataset = self.flower_client.fit(old_params, {})[1]
 
         weights_dict = self.flower_client.get_dict_params({})
-        weights_dict['len_dataset'] = len_dataset
+        weights_dict['len_dataset'] = 10
         model_type = "update"
 
         filename = f"models/m{self.blockchain.len_chain}.npz"
@@ -98,16 +107,16 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
         if self.blockchain.is_valid_block(new_block, request.hash): 
             self.block = new_block
             if request.model_type == "global_model":
-                return pb2.Response(success=True, message=f"Block {request.block_number} added to the blockchain successfully {request.hash}")
+                return node_pb2.BlockResponse(success=True, message=f"Block {request.block_number} added to the blockchain successfully {request.hash}")
             else: 
                 if self.isModelUpdateUsefull(new_block.storage_reference):
                     print("Usefull")
-                    return pb2.Response(success=True, message=f"Block {request.block_number} added to the blockchain successfully {request.hash}")
+                    return node_pb2.BlockResponse(success=True, message=f"Block {request.block_number} added to the blockchain successfully {request.hash}")
                 else: 
                     print("Not usefull")
-                    return pb2.Response(success=False, message=f"Block {request.block_number} was not added, loss too high")
+                    return node_pb2.BlockResponse(success=False, message=f"Block {request.block_number} was not added, loss too high")
         else: 
-            return pb2.Response(success=False, message=f"Block {request.block_number} was not added for wrong hash")
+            return node_pb2.BlockResponse(success=False, message=f"Block {request.block_number} was not added for wrong hash")
         
     def AddBlockToChain(self, request, constext):
         self.blockchain.add_block(self.block, self.block.cryptographic_hash)
@@ -120,10 +129,10 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
             with open('output.txt', 'a') as f: 
                 f.write(f"block: {self.blockchain.len_chain} node: {self.id} | Test Loss: {self.evaluateModel(self.block.storage_reference)[0]:.5f} | Test acc: {self.evaluateModel(self.block.storage_reference)[1]:.3f} \n")
 
-        return pb2.Response(success=True)
+        return node_pb2.BlockResponse(success=True)
     
     def aggregateParameters(self, numberOfUpdatesRequired=2):
-
+        
         print("AGGREGATION: ", len(self.params_directories), numberOfUpdatesRequired)
         if len(self.params_directories) < numberOfUpdatesRequired:
             return {"status": False, "message": f"not enough trained models: {len(self.params_directories)}"}
@@ -158,6 +167,7 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
     def isModelUpdateUsefull(self, model_directory): 
         print(self.evaluateModel(model_directory)[0], self.evaluateModel(self.global_params_directory)[0]*self.coef_usefull)
         if self.evaluateModel(model_directory)[0] <= self.evaluateModel(self.global_params_directory)[0]*self.coef_usefull: 
+            print('model is usefull')
             return True
         else: 
             return False
@@ -170,20 +180,49 @@ class NodeServer(pb2_grpc.NodeServiceServicer):
 
         return loss, acc
 
+    def createCluster(self, clients): 
+        self.cluster = {client: 0 for client in clients}
+
+    def AddWeightsFromClient(self, request, context): 
+        if request.client_id in self.cluster: 
+            if self.cluster[request.client_id] == 0: 
+                self.cluster[request.client_id] = 1
+                self.cluster_weights.append(pickle.loads(request.value))
+                print("done")
+
+        return node_pb2.NodeResponse(success=True)
+    
+    def clusterAggregation(self): 
+        weights = []
+        for i in range(len(self.cluster_weights)): 
+            weights.append((self.cluster_weights[i], 20))
+
+        aggregated_weights = aggregate(weights)
+
+        return aggregated_weights
+
 class NodeClient:
     def __init__(self, nodeServer):
-        self.connections = {}
+        self.nodeConnections = {}
+        self.clientConnections = {}
         self.serverId = nodeServer
-    
-    def clientConnection(self, servers): 
+
+    def clientConnection(self, clients): 
+        for client in clients: 
+            if self.serverId != client: 
+                channel = grpc.insecure_channel(f'127.0.0.1:{client.port}') 
+                stub = client_pb2_grpc.ClientServiceStub(channel)
+                self.clientConnections[client.id] = stub 
+
+    def nodeConnection(self, servers): 
         for server in servers: 
             if self.serverId != server: 
                 channel = grpc.insecure_channel(f'127.0.0.1:{server.port}') 
-                stub = pb2_grpc.NodeServiceStub(channel)
-                self.connections[server.id] = stub 
+                stub = node_pb2_grpc.NodeServiceStub(channel)
+                self.nodeConnections[server.id] = stub 
   
     def broadcast_block(self, block):
-        block_message = pb2.BlockMessage()
+        block_message = node_pb2.BlockMessage()
         block_message.nonce = block.nonce
         block_message.previous_hash = block.previous_block_cryptographic_hash
         block_message.hash = block.cryptographic_hash
@@ -193,7 +232,7 @@ class NodeClient:
         block_message.block_number = block.block_number
         
         responses = {'success': 0, 'failure': 0, 'tot': 0}
-        for k, v in self.connections.items(): 
+        for k, v in self.nodeConnections.items(): 
             response = v.AddBlockRequest(block_message)
 
             if response.success == True:
@@ -205,11 +244,11 @@ class NodeClient:
         return responses
 
     def broadcast_decision(self):
-        block_message = pb2.BlockValidation()
+        block_message = node_pb2.BlockValidation()
         block_message.valid = True
 
         responses = {'success': 0, 'failure': 0, 'tot': 0}
-        for k, v in self.connections.items(): 
+        for k, v in self.nodeConnections.items(): 
             response = v.AddBlockToChain(block_message)
 
             if response.success == True:
@@ -220,6 +259,18 @@ class NodeClient:
 
         return responses
     
+    def broadcast_global_model_to_clients(self, model_directory): 
+        loaded_weights_dict = np.load(model_directory)
+        loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
+        serialized_data = pickle.dumps(loaded_weights)
+
+        message = client_pb2.GobalModelMessage()
+        message.value = serialized_data
+
+        for k, v in self.clientConnections.items(): 
+            response = v.sendGlobalModel(message)  
+
+
 if __name__ == "__main__":
     NodeServer1 = NodeServer("1234", "node1")
     NodeClient1 = NodeClient()

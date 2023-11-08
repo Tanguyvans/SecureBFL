@@ -32,13 +32,6 @@ def dataPreparation(filename, numberOfNodes=3):
         multi_df.append([X_s, y_s])
 
     return multi_df
-
-def nodePoisonning(poisonned_number, train_sets, test_sets): 
-    for i in range(poisonned_number): 
-        train_sets[i][1] = train_sets[i][1].replace({0: 1, 1: 0})
-        test_sets[i][1] = test_sets[i][1].replace({0: 1, 1: 0})
-        
-    return train_sets[:], test_sets[:]
     
 def nodeCreation(train_sets, test_sets, batch_size, coef_usefull = 1.02):
     nodes = []
@@ -85,9 +78,9 @@ if __name__ == "__main__":
 
     train_path = 'Airline Satisfaction/train.csv'
     test_path = 'Airline Satisfaction/test.csv'
-    numberOfUpdatesRequired = 3
-    numberOfNodes = 6
-    poisonned_number = 2
+    numberOfUpdatesRequired = 1
+    numberOfNodes = 2
+    poisonned_number = 0
     epochs = 10
 
     with open("output.txt", "w") as f: 
