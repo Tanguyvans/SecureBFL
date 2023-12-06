@@ -37,7 +37,7 @@ def dataPreparation(filename, numberOfNodes=3):
 def clientCreation(train_sets, test_sets, batch_size): 
     clients = []
     for i in range(len(train_sets)):
-        clientServer = ClientServer(f"111{i+1}", f"node{i+1}", len(train_sets), batch_size, train_sets[i], test_sets[i])
+        clientServer = ClientServer(f"111{i+1}", f"node{i+1}", batch_size, train_sets[i], test_sets[i])
         clientClient = ClientClient(clientServer)
         clients.append((clientServer, clientClient))
     
@@ -59,6 +59,7 @@ def startClientNodeConnections(node, clients):
     for i in range(len(clients)):
         # start client to client connections
         clients[i][1].clientConnection(clientServers)
+        clients[i][0].cluster = len(clientServers)
         # start client to node connections 
         clients[i][1].clientNodeConnection(nodeServer)
         # start node to client connections 
@@ -109,7 +110,7 @@ if __name__ == "__main__":
 
     numberOfClients = 6
     poisonned_number = 0
-    epochs = 50
+    epochs = 25
 
     with open("output.txt", "w") as f: 
         f.write("")
@@ -149,12 +150,12 @@ if __name__ == "__main__":
         print(f"EPOCH: {i+1}")
         # TRAINING
 
-        clients[0][0].sum_weights = []
-        clients[1][0].sum_weights = []
-        clients[2][0].sum_weights = []
-        clients[3][0].sum_weights = []
-        clients[4][0].sum_weights = []
-        clients[5][0].sum_weights = []
+        clients[0][0].frag_weights = []
+        clients[1][0].frag_weights = []
+        clients[2][0].frag_weights = []
+        clients[3][0].frag_weights = []
+        clients[4][0].frag_weights = []
+        clients[5][0].frag_weights = []
 
         frag_weights = clients[0][0].train()
         clients[0][1].sendFragmentedWeightsToClients(frag_weights)

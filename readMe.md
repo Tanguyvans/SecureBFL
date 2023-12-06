@@ -11,15 +11,24 @@ In this project we are creating a DFL (Decentralised Federated Learning) archite
 5. Check if the block and models are valid.
 6. Generate false data on multiple nodes.
 7. Store only the reference hash and the hash of the weights on the model.
+8. Creation of the client layer to send the models to the nodes
+9. Creation of the cluster among clients
+10. Creation of the SMPC protocol among the clients
 
 ## ToDo
+
+### Communcation protocol
 
 1. Create a final consensus protocol.
 2. The global should be validated by multiple nodes before adding it to the chain.
 3. Gossip ? At the moment the model is fully connected
 4. Create a warning when the node has poisonned data.
-5. Add clusters where each cluster communicates with a node to add data on the chain.
-6. client authentification (certificate to verify who they are claiming to be)
+5. client authentification (certificate to verify who they are claiming to be)
+
+### SMPC
+
+1. Check that all the clients have sent their SMPC model before doing the aggregation
+2.
 
 ## proto
 
