@@ -1,7 +1,10 @@
-import pandas as pd
-from client import ClientClient, ClientServer
-from node import NodeServer, NodeClient
-import numpy as np
+import time 
+import pandas as pd 
+import threading
+import logging
+
+from node import Node
+from client import Client
 
 def dataPreparation(filename, numberOfNodes=3): 
     df = pd.read_csv(filename)
@@ -27,89 +30,22 @@ def dataPreparation(filename, numberOfNodes=3):
         X_s = subset.drop(['satisfaction'],axis=1)
         y_s=subset[['satisfaction']]
 
-        # X_s = df.drop(['satisfaction'],axis=1)
-        # y_s=df[['satisfaction']]
-
         multi_df.append([X_s, y_s])
 
     return multi_df
-
-def clientCreation(train_sets, test_sets, batch_size): 
-    clients = []
-    for i in range(len(train_sets)):
-        clientServer = ClientServer(f"111{i+1}", f"node{i+1}", batch_size, train_sets[i], test_sets[i])
-        clientClient = ClientClient(clientServer)
-        clients.append((clientServer, clientClient))
-    
-    return clients
-
-def nodeCreation(nb, train_sets, test_sets, batch_size, coef_usefull = 1.02):
-    nodes = []
-    for i in range(nb):
-        nodeServer = NodeServer(f"211{i+1}", f"node{i+1}", batch_size, train_sets[i], test_sets[i], coef_usefull)
-        nodeClient = NodeClient(nodeServer)
-        nodes.append((nodeServer, nodeClient))
-
-    return nodes
-
-def startClientNodeConnections(node, clients): 
-    nodeServer = node[0]
-    nodeClient = node[1]
-    clientServers = [clientServer for (clientServer, clientClient) in clients]
-    for i in range(len(clients)):
-        # start client to client connections
-        clients[i][1].clientConnection(clientServers)
-        clients[i][0].cluster = len(clientServers)
-        # start client to node connections 
-        clients[i][1].clientNodeConnection(nodeServer)
-        # start node to client connections 
-        nodeClient.clientConnection(clientServers)
-
-def startNodeNodeConnections(nodes): 
-    nodeServers = [nodeServer for (nodeServer, nodeClient) in nodes]
-    for i in range(len(nodes)):
-        nodes[i][1].nodeConnection(nodeServers)
-
-    return nodes
-
-def createAndBroadcastGlobalModelToNodes(node): 
-    nodeServer = node[0]
-    nodeClient = node[1]
-    block = nodeServer.CreateGlobalModel()
-    nodeClient.broadcast_block(block)
-    nodeServer.AppendBlock(block)
-    nodeClient.broadcast_decision()
-
-def broadcastModelToClients(node): 
-    nodeServer = node[0]
-    nodeClient = node[1]
-    nodeClient.broadcast_global_model_to_clients(nodeServer.global_params_directory)
-
-def updateAndBroadcastModel(node, weights):
-    nodeServer = node[0]
-    nodeClient = node[1]
-    server_msg, block = nodeServer.UpdateModel(weights)
-    msg = nodeClient.broadcast_block(block)
-    msg['tot']+=1
-    if server_msg == True:
-        msg['success']+=1
-    else: 
-        msg['failure']+=1
-    print(msg)
-    if msg['success']/msg['tot'] >= 2/3: 
-        nodeServer.AppendBlock(block)
-        nodeClient.broadcast_decision()
 
 def saveNodesChain(nodes): 
     for node in nodes: 
         node[0].blockchain.save_chain_in_file(node[0].id)
 
 if __name__ == "__main__": 
+    logging.basicConfig(level=logging.DEBUG)
+
     train_path = 'Airline Satisfaction/train.csv'
     test_path = 'Airline Satisfaction/test.csv'
 
-    numberOfClients = 6
-    poisonned_number = 1
+    numberOfClients = 3
+    poisonned_number = 0
     epochs = 20
 
     with open("output.txt", "w") as f: 
@@ -118,111 +54,78 @@ if __name__ == "__main__":
     train_sets = dataPreparation(train_path, numberOfClients)
     test_sets = dataPreparation(test_path, numberOfClients)
 
-    clients = clientCreation(train_sets, test_sets, batch_size=256)
-    nodes = nodeCreation(3, train_sets, test_sets, batch_size=256)
-    
-    startClientNodeConnections(nodes[0], [clients[0], clients[1]])
-    nodes[0][0].createCluster([clients[0][0].id, clients[1][0].id])
-
-    startClientNodeConnections(nodes[1], [clients[2], clients[3]])
-    nodes[1][0].createCluster([clients[2][0].id, clients[3][0].id])
-
-    startClientNodeConnections(nodes[2], [clients[4], clients[5]])
-    nodes[2][0].createCluster([clients[4][0].id, clients[5][0].id])
-
-    startNodeNodeConnections(nodes)
-    createAndBroadcastGlobalModelToNodes(nodes[0])
-    createAndBroadcastGlobalModelToNodes(nodes[1])
-    createAndBroadcastGlobalModelToNodes(nodes[2])
-
-    w0d = np.load(nodes[0][0].global_params_directory)
-    w0 = [w0d[f'param_{i}'] for i in range(len(w0d)-1)]
-
-    broadcastModelToClients(nodes[0])
-    broadcastModelToClients(nodes[1])
-    broadcastModelToClients(nodes[2])
-
     for i in range(poisonned_number): 
         train_sets[i][1] = train_sets[i][1].replace({0: 1, 1: 0})
         test_sets[i][1] = test_sets[i][1].replace({0: 1, 1: 0})
 
-    for i in range(epochs): 
-        print(f"EPOCH: {i+1}")
-        # TRAINING
+    node1 = Node(id="n1", host="127.0.0.1", port=6010, consensus_protocol="pbft", batch_size=256, train=train_sets[0], test=test_sets[0])
+    node2 = Node(id="n2", host="127.0.0.1", port=6011, consensus_protocol="pbft", batch_size=256, train=train_sets[0], test=test_sets[0])
+    node3 = Node(id="n3", host="127.0.0.1", port=6012, consensus_protocol="pbft", batch_size=256, train=train_sets[0], test=test_sets[0])
 
-        clients[0][0].frag_weights = []
-        clients[1][0].frag_weights = []
-        clients[2][0].frag_weights = []
-        clients[3][0].frag_weights = []
-        clients[4][0].frag_weights = []
-        clients[5][0].frag_weights = []
+    client1 = Client(id="c1", host="127.0.0.1", port=5010, batch_size=256, train=train_sets[0], test=test_sets[0])
+    client2 = Client(id="c2", host="127.0.0.1", port=5011, batch_size=256, train=train_sets[1], test=test_sets[1])
+    client3 = Client(id="c3", host="127.0.0.1", port=5012, batch_size=256, train=train_sets[2], test=test_sets[2])
 
-        frag_weights = clients[0][0].train()
-        clients[0][1].sendFragmentedWeightsToClients(frag_weights)
-        frag_weights = clients[1][0].train()
-        clients[1][1].sendFragmentedWeightsToClients(frag_weights)
+    client1.add_connections("c2", 5011)
+    client1.add_connections("c3", 5012)
 
-        nodes[0][0].cluster_weights = []
-        for k,v in nodes[0][0].cluster.items():
-            nodes[0][0].cluster[k] = 0
+    client2.add_connections("c1", 5010)
+    client2.add_connections("c3", 5012)
 
-        clients[0][1].sendWeightsToNode(clients[0][0].sum_weights, 10)
-        clients[1][1].sendWeightsToNode(clients[1][0].sum_weights, 10)
+    client3.add_connections("c1", 5010)
+    client3.add_connections("c2", 5011)
 
-        weights = nodes[0][0].clusterAggregation()
+    client1.update_node_connection("n1", 6010)
+    client2.update_node_connection("n1", 6010)
+    client3.update_node_connection("n1", 6010)
 
-        updateAndBroadcastModel(nodes[0], weights)
+    node1.add_peer(peer_id="n2", peer_address=("localhost", 6011))
+    node1.add_peer(peer_id="n3", peer_address=("localhost", 6012))
 
-        print("done node 1")
+    node2.add_peer(peer_id="n1", peer_address=("localhost", 6010))
+    node2.add_peer(peer_id="n3", peer_address=("localhost", 6012))
 
-        frag_weights = clients[2][0].train()
-        clients[2][1].sendFragmentedWeightsToClients(frag_weights)
-        frag_weights = clients[3][0].train()
-        clients[3][1].sendFragmentedWeightsToClients(frag_weights)
+    node3.add_peer(peer_id="n1", peer_address=("localhost", 6010))
+    node3.add_peer(peer_id="n2", peer_address=("localhost", 6011))
 
-        nodes[1][0].cluster_weights = []
-        for k,v in nodes[1][0].cluster.items():
-            nodes[1][0].cluster[k] = 0
+    node1.add_client(client_id="c1", client_address=("localhost", 5010))
+    node1.add_client(client_id="c2", client_address=("localhost", 5011))
+    node1.add_client(client_id="c3", client_address=("localhost", 5012))
 
-        clients[2][1].sendWeightsToNode(clients[2][0].sum_weights, 10)
-        clients[3][1].sendWeightsToNode(clients[3][0].sum_weights, 10)
+    node1.create_cluster([client1.id, client2.id, client3.id])
 
-        weights = nodes[1][0].clusterAggregation()
+    threading.Thread(target=client1.start_server).start()
+    threading.Thread(target=client2.start_server).start()
+    threading.Thread(target=client3.start_server).start()
 
-        updateAndBroadcastModel(nodes[1], weights)
+    threading.Thread(target=node1.start_server).start()
+    threading.Thread(target=node2.start_server).start()
+    threading.Thread(target=node3.start_server).start()
 
-        print("done node 2")
+    node1.create_first_global_model_request()
 
-        frag_weights = clients[4][0].train()
-        clients[4][1].sendFragmentedWeightsToClients(frag_weights)
-        frag_weights = clients[5][0].train()
-        clients[5][1].sendFragmentedWeightsToClients(frag_weights)
+    time.sleep(10)
 
-        nodes[2][0].cluster_weights = []
-        for k,v in nodes[2][0].cluster.items():
-            nodes[2][0].cluster[k] = 0
+    for i in range(5): 
+        frag_weights_1 = client1.train()
+        frag_weights_2 = client2.train()
+        frag_weights_3 = client3.train()
 
-        clients[4][1].sendWeightsToNode(clients[4][0].sum_weights, 10)
-        clients[5][1].sendWeightsToNode(clients[5][0].sum_weights, 10)
+        client1.send_frag_clients(frag_weights_1)
+        client2.send_frag_clients(frag_weights_2)
+        client3.send_frag_clients(frag_weights_3)
 
-        weights = nodes[2][0].clusterAggregation()
+        client1.send_frag_node()
+        client2.send_frag_node()
+        client3.send_frag_node()
 
-        updateAndBroadcastModel(nodes[2], weights)
+        time.sleep(5)
 
-        print("done node 3")
+        if i > 1 and i % 2 == 0: 
+            node1.create_global_model()
 
-        answer = nodes[0][0].aggregateParameters(2)
+    time.sleep(5)
 
-        if answer["status"] == True:
-            msg = nodes[0][1].broadcast_block(answer["message"]) 
-
-            nodes[0][0].AppendBlock(answer["message"])
-            nodes[0][1].broadcast_decision()
-
-            broadcastModelToClients(nodes[0])
-
-        else: 
-            print(answer["message"]) 
-            break
-
-    saveNodesChain(nodes)
+    node1.blockchain.print_blockchain()
+    node2.blockchain.print_blockchain()
+    node3.blockchain.print_blockchain()

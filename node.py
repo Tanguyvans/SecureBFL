@@ -1,10 +1,14 @@
-import grpc
+import socket
+import threading
+import json
+import os
+import time
+import base64
+import random
 
-import node_pb2
-import node_pb2_grpc
-
-import client_pb2
-import client_pb2_grpc
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
 import concurrent.futures
 import hashlib
@@ -17,159 +21,132 @@ import pickle
 from flwr.server.strategy.aggregate import aggregate
 from sklearn.model_selection import train_test_split
 
-class NodeServer(node_pb2_grpc.NodeServiceServicer):
-    def __init__(self, port, id, batch_size, train, test, coef_usefull=1.4):
+from protocols.pbft_protocol import PBFTProtocol
+from protocols.raft_protocol import RaftProtocol
+
+class Node:
+    def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.1):
         self.id = id
+        self.host = host
         self.port = port
         self.coef_usefull = coef_usefull
 
-        self.cluster = {}
+        self.peers = {}
+        self.clients = {}
+        self.clusters = []
         self.cluster_weights = []
 
-        self.server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=10))
-        node_pb2_grpc.add_NodeServiceServicer_to_server(self, self.server)
-        self.server.add_insecure_port(f'127.0.0.1:{self.port}')
-        self.server.start()
+        self.global_params_directory = ""
+
+        private_key_path = f"keys/{id}_private_key.pem"
+        public_key_path = f"keys/{id}_public_key.pem"
+        self.getKeys(private_key_path, public_key_path)
 
         X_train, y_train = train
         X_test, y_test = test
         X_train,X_val,y_train,y_val=train_test_split(X_train,y_train,test_size=0.2,random_state=42,stratify=y_train)
+        self.flower_client = FlowerClient(batch_size, X_train, X_val ,X_test, y_train, y_val, y_test)
 
         self.blockchain = Blockchain()
-        self.flower_client = FlowerClient(batch_size, X_train, X_val ,X_test, y_train, y_val, y_test)
-        self.params_directories = []
+        if consensus_protocol == "pbft": 
+            self.consensus_protocol = PBFTProtocol(node=self, blockchain=self.blockchain)
+        elif consensus_protocol == "raft": 
+            self.consensus_protocol = RaftProtocol(node=self, blockchain=self.blockchain)
+            threading.Thread(target=self.consensus_protocol.run).start()
 
-    def MineBlock(self, filename, model_type): 
-        loaded_weights_dict = np.load(filename)
-        loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
-        loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
+    def start_server(self):
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind((self.host, self.port))
+        server_socket.listen(5)
+        print(f"Node {self.id} listening on {self.host}:{self.port}")
 
-        hash_model = hashlib.sha256()
-        hash_model.update(str(loaded_weights).encode('utf-8'))
-        hash_model = hash_model.hexdigest()
+        while True:
+            client_socket, addr = server_socket.accept()
+            threading.Thread(target=self.handle_message, args=(client_socket,)).start()
 
-        block = Block(calculated_hash=hash_model, storage_reference=filename, model_type=model_type, previous_block=self.blockchain.blocks[-1])
+    def handle_message(self, client_socket):
 
-        return block
-    
-    def AppendBlock(self, block): 
-        self.blockchain.add_block(block, block.cryptographic_hash)
-        if block.model_type == "global_model": 
-            self.global_params_directory = block.storage_reference
-            with open('output.txt', 'a') as f: 
-                f.write(f"final_model: {self.id} | Test Loss: {self.evaluateModel(block.storage_reference)[0]:.5f} | Test acc: {self.evaluateModel(block.storage_reference)[1]:.3f} \n")
-        else:
-            self.params_directories.append(block.storage_reference)
-            with open('output.txt', 'a') as f: 
-                f.write(f"block: {self.blockchain.len_chain} node: {self.id} | Test Loss: {self.evaluateModel(block.storage_reference)[0]:.5f} | Test acc: {self.evaluateModel(block.storage_reference)[1]:.3f} \n")
+        data_length = int.from_bytes(client_socket.recv(4), byteorder='big')
+        data = client_socket.recv(data_length)
+        
+        message = pickle.loads(data)
 
-    def CreateGlobalModel(self): 
-        old_params = self.flower_client.get_parameters({})
-        len_dataset = self.flower_client.fit(old_params, {})[1]
+        message_type = message.get("type")
 
-        weights_dict = self.flower_client.get_dict_params({})
-        weights_dict['len_dataset'] = len_dataset
-        model_type = "global_model"
+        if message_type == "frag_weights": 
+            message_id = message.get("id")
+            weights = pickle.loads(message.get("value"))
+            for pos, cluster in enumerate(self.clusters): 
+                if message_id in cluster: 
+                    if cluster[message_id] == 0: 
+                        self.cluster_weights[pos].append(weights)
+                        cluster[message_id] = 1
+                        cluster["count"] += 1
 
-        filename = f"models/m{self.blockchain.len_chain}.npz"
-        self.global_params_directory = filename
+                    if cluster["count"] == cluster["tot"]:  
+                        aggregated_weights = self.aggregation_cluster(pos) 
+                        message = self.create_update_request(aggregated_weights)
 
-        with open(filename, "wb") as f:
-            np.savez(f, **weights_dict)
-
-        block = self.MineBlock(filename, model_type)
-
-        return block
-    
-    def UpdateModel(self, loaded_weights):
-        # loaded_weights_dict = np.load(self.global_params_directory)
-        # loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
-        self.flower_client.set_parameters(loaded_weights)
-
-        # old_params = self.flower_client.get_parameters({})
-        # len_dataset = self.flower_client.fit(old_params, {})[1]
-
-        weights_dict = self.flower_client.get_dict_params({})
-        weights_dict['len_dataset'] = 10
-        model_type = "update"
-
-        filename = f"models/m{self.blockchain.len_chain}.npz"
-
-        with open(filename, "wb") as f:
-            np.savez(f, **weights_dict)
-
-        block = self.MineBlock(filename, model_type)
-
-        return self.isModelUpdateUsefull(block.storage_reference), block
-
-    def AddBlockRequest(self, request, context): 
-        new_block = Block(request.calculated_hash, request.storage_reference, request.model_type, self.blockchain.blocks[-1])
-        if self.blockchain.is_valid_block(new_block, request.hash): 
-            self.block = new_block
-            if request.model_type == "global_model":
-                return node_pb2.BlockResponse(success=True, message=f"Block {request.block_number} added to the blockchain successfully {request.hash}")
-            else: 
-                if self.isModelUpdateUsefull(new_block.storage_reference):
-                    print("Usefull")
-                    return node_pb2.BlockResponse(success=True, message=f"Block {request.block_number} added to the blockchain successfully {request.hash}")
-                else: 
-                    print("Not usefull")
-                    return node_pb2.BlockResponse(success=False, message=f"Block {request.block_number} was not added, loss too high")
+                        self.consensus_protocol.handle_message(message)
+                    
         else: 
-            return node_pb2.BlockResponse(success=False, message=f"Block {request.block_number} was not added for wrong hash")
-        
-    def AddBlockToChain(self, request, constext):
-        self.blockchain.add_block(self.block, self.block.cryptographic_hash)
-        if self.block.model_type == "global_model": 
-            self.global_params_directory = self.block.storage_reference
-            with open('output.txt', 'a') as f: 
-                f.write(f"final_model: {self.id} | Test Loss: {self.evaluateModel(self.block.storage_reference)[0]:.5f} | Test acc: {self.evaluateModel(self.block.storage_reference)[1]:.3f} \n")
-        else:
-            self.params_directories.append(self.block.storage_reference)
-            with open('output.txt', 'a') as f: 
-                f.write(f"block: {self.blockchain.len_chain} node: {self.id} | Test Loss: {self.evaluateModel(self.block.storage_reference)[0]:.5f} | Test acc: {self.evaluateModel(self.block.storage_reference)[1]:.3f} \n")
+            result = self.consensus_protocol.handle_message(message)
 
-        return node_pb2.BlockResponse(success=True)
-    
-    def aggregateParameters(self, numberOfUpdatesRequired=2):
-        
-        print("AGGREGATION: ", len(self.params_directories), numberOfUpdatesRequired)
-        if len(self.params_directories) < numberOfUpdatesRequired:
-            return {"status": False, "message": f"not enough trained models: {len(self.params_directories)}"}
-         
+            if result == "added":
+                block = self.blockchain.blocks[-1] 
+                model_type = block.model_type
+
+                if model_type == "update": 
+                    nb_updates = 0
+                    for block in self.blockchain.blocks[::-1]: 
+                        if block.model_type == "update": 
+                            nb_updates += 1
+                        else: 
+                            break 
+
+                elif model_type == "global_model": 
+                    self.broadcast_model_to_clients()
+
+        client_socket.close()
+
+    def is_update_usefull(self, model_directory): 
+        global_model_directory = ""
+        for block in self.blockchain.blocks[::-1]: 
+            if block.model_type == "global_model": 
+                global_model_directory = block.storage_reference
+                break
+
+        if self.evaluateModel(model_directory)[0] <= self.evaluateModel(global_model_directory)[0]*self.coef_usefull: 
+            return True
+        else: 
+            return False
+
+    def is_global_valid(self, proposed_hash):
         params_list = []
-        for cnt, model_directory in enumerate(self.params_directories):
-            loaded_weights_dict = np.load(model_directory)
-            loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
+        for block in self.blockchain.blocks[::-1]: 
+            if block.model_type == "update": 
+                loaded_weights_dict = np.load(block.storage_reference)
+                loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
 
-            loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
-            params_list.append(loaded_weights)
+                loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
+                params_list.append(loaded_weights)
+            else: 
+                break 
 
         self.aggregated_params = aggregate(params_list)
         self.flower_client.set_parameters(self.aggregated_params)
 
         weights_dict = self.flower_client.get_dict_params({})
-        weights_dict['len_dataset'] = 40
-        model_type = "global_model"
+        weights_dict['len_dataset'] = 10
 
-        filename = f"models/m{self.blockchain.len_chain}.npz"
-        self.global_params_directory = filename
+        filename = f"models/{self.id}temp.npz"
 
         with open(filename, "wb") as f:
             np.savez(f, **weights_dict)
 
-        block = self.MineBlock(filename, model_type)
-
-        self.params_directories = []
-
-        return {"status": True, "message": block} 
-
-    def isModelUpdateUsefull(self, model_directory): 
-        print(self.evaluateModel(model_directory)[0], self.evaluateModel(self.global_params_directory)[0]*self.coef_usefull)
-        if self.evaluateModel(model_directory)[0] <= self.evaluateModel(self.global_params_directory)[0]*self.coef_usefull: 
-            print('model is usefull')
-            return True
-        else: 
+        if proposed_hash == self.calculate_model_hash(filename): 
+            return True 
+        else:
             return False
 
     def evaluateModel(self, model_directory):
@@ -180,102 +157,269 @@ class NodeServer(node_pb2_grpc.NodeServiceServicer):
 
         return loss, acc
 
-    def createCluster(self, clients): 
-        self.cluster = {client: 0 for client in clients}
+    def broadcast_model_to_clients(self):
+        for block in self.blockchain.blocks[::-1]: 
+            if block.model_type == "global_model":
+                block_model = block 
+                break 
 
-    def AddWeightsFromClient(self, request, context): 
-        if request.client_id in self.cluster: 
-            if self.cluster[request.client_id] == 0: 
-                self.cluster[request.client_id] = 1
-                self.cluster_weights.append(pickle.loads(request.value))
-                print("done")
+        loaded_weights_dict = np.load(block_model.storage_reference)
+        loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
 
-        return node_pb2.NodeResponse(success=True)
-    
-    def clusterAggregation(self): 
+        for k,v in self.clients.items():
+            address = v.get('address')
+
+            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_socket.connect(('127.0.0.1', address[1]))
+
+            serialized_data = pickle.dumps(loaded_weights)
+            message = {"type": "global_model", "value": serialized_data}
+
+            serialized_message = pickle.dumps(message)
+
+            # Send the length of the message first
+            client_socket.send(len(serialized_message).to_bytes(4, byteorder='big'))
+            client_socket.send(serialized_message)
+
+            # Fermer le socket après l'envoi
+            client_socket.close()
+
+    def broadcast_message(self, message):
+        for peer_id in self.peers:
+            self.send_message(peer_id, message)
+
+    def send_message(self, peer_id, message):
+        if peer_id in self.peers:
+            peer_info = self.peers[peer_id]
+            peer_address = peer_info["address"]
+
+            signed_message = message.copy()
+            signed_message["signature"] = self.sign_message(signed_message)
+            signed_message["id"] = self.id
+
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+                    client_socket.connect(peer_address)
+
+                    serialized_message = pickle.dumps(signed_message)
+
+                    # Envoyer la longueur du message en premier
+                    client_socket.send(len(serialized_message).to_bytes(4, byteorder='big'))
+                    client_socket.send(serialized_message)
+
+            except ConnectionRefusedError:
+                pass
+            except Exception as e:
+                pass
+        else:
+            print(f"Peer {peer_id} not found.")
+
+    def calculate_model_hash(self, filename): 
+        loaded_weights_dict = np.load(filename)
+        loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
+        loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
+
+        hash_model = hashlib.sha256()
+        hash_model.update(str(loaded_weights).encode('utf-8'))
+        hash_model = hash_model.hexdigest()
+
+        return hash_model
+   
+    def create_first_global_model_request(self): 
+        old_params = self.flower_client.get_parameters({})
+        len_dataset = self.flower_client.fit(old_params, {})[1]
+
+        weights_dict = self.flower_client.get_dict_params({})
+        weights_dict['len_dataset'] = len_dataset
+        model_type = "global_model"
+        
+        filename = f"models/m0.npz"
+        self.global_params_directory = filename
+
+        with open(filename, "wb") as f:
+            np.savez(f, **weights_dict)
+
+        message = {
+            "id": self.id,
+            "type": "request", 
+            "content": {
+                "storage_reference": filename,
+                "model_type": model_type,
+                "calculated_hash": self.calculate_model_hash(filename)
+            }
+        }
+
+        self.consensus_protocol.handle_message(message)
+
+    def create_global_model(self): 
+        params_list = []
+        for block in self.blockchain.blocks[::-1]: 
+            if block.model_type == "update": 
+                loaded_weights_dict = np.load(block.storage_reference)
+                loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
+
+                loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
+                params_list.append(loaded_weights)
+            else: 
+                break 
+
+        self.aggregated_params = aggregate(params_list)
+
+        self.flower_client.set_parameters(self.aggregated_params)
+
+        weights_dict = self.flower_client.get_dict_params({})
+        weights_dict['len_dataset'] = 10
+
+        model_type = "global_model"
+
+        filename = f"models/{self.id}m{self.blockchain.len_chain}.npz"
+        self.global_params_directory = filename
+
+        with open(filename, "wb") as f:
+            np.savez(f, **weights_dict)
+
+        message = {
+            "id": self.id,
+            "type": "request", 
+            "content": {
+                "storage_reference": filename,
+                "model_type": model_type,
+                "calculated_hash": self.calculate_model_hash(filename)
+            }
+        }
+
+        self.consensus_protocol.handle_message(message)
+
+    def create_update_request(self, weights):
+
+        self.flower_client.set_parameters(weights)
+
+        weights_dict = self.flower_client.get_dict_params({})
+        weights_dict['len_dataset'] = 10
+        model_type = "update"
+
+        filename = f"models/m{self.blockchain.len_chain}.npz"
+
+        with open(filename, "wb") as f:
+            np.savez(f, **weights_dict)
+
+        message = {
+            "id": self.id,
+            "type": "request", 
+            "content": {
+                "storage_reference": filename,
+                "model_type": model_type,
+                "calculated_hash": self.calculate_model_hash(filename)
+            }
+        }
+
+        # self.isModelUpdateUsefull(filename)
+
+        return message
+
+    def aggregation_cluster(self, pos): 
         weights = []
-        for i in range(len(self.cluster_weights)): 
-            weights.append((self.cluster_weights[i], 20))
+        for i in range(len(self.cluster_weights[pos])): 
+            weights.append((self.cluster_weights[pos][i], 20))
 
         aggregated_weights = aggregate(weights)
 
+        loss = self.flower_client.evaluate(aggregated_weights, {})[0]
+
+        self.cluster_weights[pos] = []
+        for k,v in self.clusters[pos].items(): 
+            if k != "tot": 
+                 self.clusters[pos][k] = 0
+
         return aggregated_weights
 
-class NodeClient:
-    def __init__(self, nodeServer):
-        self.nodeConnections = {}
-        self.clientConnections = {}
-        self.serverId = nodeServer
+    def getKeys(self, private_key_path, public_key_path): 
+        if os.path.exists(private_key_path) and os.path.exists(public_key_path):
+            with open(private_key_path, 'rb') as f:
+                self.private_key = serialization.load_pem_private_key(
+                    f.read(),
+                    password=None,
+                    backend=default_backend()
+                )
 
-    def clientConnection(self, clients): 
-        for client in clients: 
-            if self.serverId != client: 
-                channel = grpc.insecure_channel(f'127.0.0.1:{client.port}') 
-                stub = client_pb2_grpc.ClientServiceStub(channel)
-                self.clientConnections[client.id] = stub 
+            with open(public_key_path, 'rb') as f:
+                self.public_key = serialization.load_pem_public_key(
+                    f.read(),
+                    backend=default_backend()
+                )
+        else:
+            # Generate new keys
+            self.private_key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=2048,
+                backend=default_backend()
+            )
+            self.public_key = self.private_key.public_key()
 
-    def nodeConnection(self, servers): 
-        for server in servers: 
-            if self.serverId != server: 
-                channel = grpc.insecure_channel(f'127.0.0.1:{server.port}') 
-                stub = node_pb2_grpc.NodeServiceStub(channel)
-                self.nodeConnections[server.id] = stub 
-  
-    def broadcast_block(self, block):
-        block_message = node_pb2.BlockMessage()
-        block_message.nonce = block.nonce
-        block_message.previous_hash = block.previous_block_cryptographic_hash
-        block_message.hash = block.cryptographic_hash
-        block_message.model_type = block.model_type
-        block_message.calculated_hash = block.calculated_hash
-        block_message.storage_reference = block.storage_reference
-        block_message.block_number = block.block_number
-        
-        responses = {'success': 0, 'failure': 0, 'tot': 0}
-        for k, v in self.nodeConnections.items(): 
-            response = v.AddBlockRequest(block_message)
+            # Save keys to files
+            with open(private_key_path, 'wb') as f:
+                f.write(self.private_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption()
+                ))
 
-            if response.success == True:
-                responses['success'] += 1
-            else:
-                responses['failure'] += 1
-            responses['tot'] += 1
+            with open(public_key_path, 'wb') as f:
+                f.write(self.public_key.public_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo
+                ))
 
-        return responses
+    def sign_message(self, message):
+        signature = self.private_key.sign(
+            json.dumps(message).encode(),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        return base64.b64encode(signature).decode()
 
-    def broadcast_decision(self):
-        block_message = node_pb2.BlockValidation()
-        block_message.valid = True
+    def verify_signature(self, signature, message, public_key):
+        try:
+            signature_binary = base64.b64decode(signature)
 
-        responses = {'success': 0, 'failure': 0, 'tot': 0}
-        for k, v in self.nodeConnections.items(): 
-            response = v.AddBlockToChain(block_message)
+            public_key.verify(
+                signature_binary,
+                json.dumps(message).encode(),
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            return True
+        except Exception as e:
+            print(f"Signature verification error: {e}")
+            return False
 
-            if response.success == True:
-                responses['success'] += 1
-            else:
-                responses['failure'] += 1
-            responses['tot'] += 1
+    def add_peer(self, peer_id, peer_address):
+        with open(f"keys/{peer_id}_public_key.pem", 'rb') as f:
+            public_key = serialization.load_pem_public_key(
+                f.read(),
+                backend=default_backend()
+            )
 
-        return responses
-    
-    def broadcast_global_model_to_clients(self, model_directory): 
-        loaded_weights_dict = np.load(model_directory)
-        loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
-        serialized_data = pickle.dumps(loaded_weights)
+        self.peers[peer_id] = {"address": peer_address, "public_key": public_key}
 
-        message = client_pb2.GobalModelMessage()
-        message.value = serialized_data
+    def add_client(self, client_id, client_address):
+        with open(f"keys/{client_id}_public_key.pem", 'rb') as f:
+            public_key = serialization.load_pem_public_key(
+                f.read(),
+                backend=default_backend()
+            )
 
-        for k, v in self.clientConnections.items(): 
-            response = v.sendGlobalModel(message)  
+        self.clients[client_id] = {"address": client_address, "public_key": public_key}
 
+    def create_cluster(self, clients): 
+        self.clusters.append({client: 0 for client in clients})
+        self.clusters[-1]["tot"] = len(self.clusters[-1])
+        self.clusters[-1]["count"] = 0
 
-if __name__ == "__main__":
-    NodeServer1 = NodeServer("1234", "node1")
-    NodeClient1 = NodeClient()
-    NodeServer2 = NodeServer("2345", "node2")
-    NodeClient2 = NodeClient()
-
-    NodeClient1.clientConnection(NodeServer2)
-    NodeClient2.clientConnection(NodeServer1)
+        self.cluster_weights.append([])

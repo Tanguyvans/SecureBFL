@@ -5,14 +5,10 @@ import hashlib
 class Blockchain:
     def __init__(self):
         self.blocks = []
-        genesis_block = Block.create_genesis_block()
-        self.blocks.append(genesis_block)
+        self.add_genesis_block()
 
-    def add_block(self, block, hash):
-        if self.is_valid_block(block, hash):
-            self.blocks.append(block)
-            return True
-        return False     
+    def add_block(self, block):
+        self.blocks.append(block)    
 
     def is_valid_block(self, block, hash):
         loaded_weights_dict = np.load(block.storage_reference)
@@ -28,19 +24,18 @@ class Blockchain:
         else: 
             return False
 
+    def add_genesis_block(self):
+        genesis_block = Block(0, "", "", "", "")
+        self.blocks.append(genesis_block)
+  
     @property
     def len_chain(self): 
         return len(self.blocks)
 
-    def show_chain(self): 
-        for block in self.blocks: 
-            print("\n\n================")
-            print("prev_hash:\t\t", block.previous_block_cryptographic_hash)
-            print("Data:\t\t", block.storage_reference, block.calculated_hash)
-            print("Model type:\t\t", block.model_type)
-            print("Number:\t\t", block.block_number)
-            print("Hash:\t\t", block.cryptographic_hash)
-            print("\n\n================")
+    def print_blockchain(self):
+        # Print the contents of the blockchain
+        for block in self.blocks:
+            print(block)
 
     def save_chain_in_file(self, filename): 
         with open(f"{filename}.txt", "w") as f: 
