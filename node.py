@@ -2,15 +2,12 @@ import socket
 import threading
 import json
 import os
-import time
 import base64
-import random
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
-import concurrent.futures
 import hashlib
 import numpy as np
 from block import Block

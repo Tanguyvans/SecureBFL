@@ -129,3 +129,7 @@ if __name__ == "__main__":
     node1.blockchain.print_blockchain()
     node2.blockchain.print_blockchain()
     node3.blockchain.print_blockchain()
+
+    node1.blockchain.save_chain_in_file()
+    node2.blockchain.save_chain_in_file()
+    node3.blockchain.save_chain_in_file()

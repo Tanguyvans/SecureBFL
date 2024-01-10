@@ -1,37 +1,33 @@
-# Test chain
+# DFL Architecture with PBFT Protocol
 
-In this project we are creating a DFL (Decentralised Federated Learning) architecture. In htis architecture we are creating multiple nodes.
+Welcome to the Decentralized Federated Learning (DFL) project! This endeavor focuses on redefining machine learning through a decentralized approach. By creating a network of multiple nodes, we enable collaborative model training with a strong emphasis on security and reliability, thanks to the integration of the Practical Byzantine Fault Tolerance (PBFT) protocol.
 
-## Done
+## Protocol
 
-1. Create and use a dataset to train the models. We use the "Airline Satisfaction" dataset from Kaggle with more than 100.000 training data.
-2. Use flower to train and aggregate the models.
-3. Create multiple nodes and use grpc for communication.
-4. Check and add blocks to the chains of each node.
-5. Check if the block and models are valid.
-6. Generate false data on multiple nodes.
-7. Store only the reference hash and the hash of the weights on the model.
-8. Creation of the client layer to send the models to the nodes
-9. Creation of the cluster among clients
-10. Creation of the SMPC protocol among the clients
+The Practical Byzantine Fault Tolerance (PBFT) protocol is a consensus algorithm designed for distributed systems. It ensures agreement among nodes even in the presence of faulty or malicious actors. PBFT allows nodes to reach consensus through a series of message exchanges, and it guarantees system integrity as long as fewer than one-third of the nodes are faulty. This makes PBFT a robust choice for applications like decentralized federated learning, providing a reliable method for achieving agreement and consistency in distributed environments.
 
-## ToDo
+## Guidelines
 
-### Communcation protocol
+To get started with the DFL architecture using the PBFT protocol, follow these simple steps:
 
-1. Create a final consensus protocol.
-2. The global should be validated by multiple nodes before adding it to the chain.
-3. Gossip ? At the moment the model is fully connected
-4. Create a warning when the node has poisonned data.
-5. client authentification (certificate to verify who they are claiming to be)
+### Install Dependencies:
 
-### SMPC
+Run the following command to install the required dependencies from the requirements.txt file:
 
-1. Check that all the clients have sent their SMPC model before doing the aggregation
-2.
+pip install -r requirements.txt
 
-## proto
+### Run the Main Script:
 
-Update proto file
-python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. client.proto
-python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. node.proto
+Execute the main script main.py to initiate the DFL architecture and start the federated learning process:
+
+python main.py
+
+### View Outputs:
+
+After the execution is complete, you can examine the output files:
+
+output.txt: This file contains the overall output and logs from the federated learning process.
+node1.txt: Output specific to Node 1.
+node2.txt: Output specific to Node 2.
+node3.txt: Output specific to Node 3.
+Feel free to explore the generated files to gain insights into the decentralized federated learning process.
