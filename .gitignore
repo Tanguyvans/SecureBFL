@@ -1,9 +1,13 @@
 /.DS_Store
+*DS_Store
 /__pycache__
 .idea
 /models
 /env
 /keys
-*.txt
+node1.txt
+node2.txt
+node3.txt
+output.txt
 *.pyc
 client_test.py
