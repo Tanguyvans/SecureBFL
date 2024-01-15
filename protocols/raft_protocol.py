@@ -126,6 +126,7 @@ class RaftProtocol:
             self.state = "follower"
             self.leader_id = None
             print(f"Node {self.node_id} updated to follower due to higher term {term}")
+
         elif vote_granted:
             # Increment the votes received if the vote is granted
             self.votes_received += 1
@@ -144,14 +145,14 @@ class RaftProtocol:
     def handle_sync_blockchain(self, message):
         print("sync")
         received_blocks = message.get("blocks", [])
-        
-        # Obtenir l'index du dernier bloc dans la blockchain locale
+
+        # Get the index of the last block in the local blockchain
         last_local_index = self.blockchain.get_last_block_index()
 
         for block_data in received_blocks:
             block_index = block_data["index"]
 
-            # Ajouter le bloc uniquement s'il est manquant dans la blockchain locale
+            # Add the block only if it is missing in the local blockchain
             if block_index > last_local_index:
                 block = Block(
                     index=block_index,
@@ -217,21 +218,23 @@ class RaftProtocol:
         threading.Thread(target=self.send_message, args=(node_id, request_vote_message)).start()
 
     def request_sync_blockchain(self, target_node_id):
-        # Obtenir l'index du dernier bloc dans la blockchain locale
+        # Get the index of the last block in the local blockchain
         last_block_index = self.blockchain.get_last_block_index()
 
-        # Créer un message de demande de synchronisation avec l'index du dernier bloc
+        # Create a sync request message with the index of the last block
         sync_request_message = {
             "type": "sync_request",
             "requester_id": self.node_id,
             "last_block_index": last_block_index,
         }
 
-        # Envoyer le message de demande de synchronisation au nœud cible
+        # Send the sync request message to the target node
         self.node.send_message(target_node_id, sync_request_message)
 
     def send_append_entries(self, node_id, entries):
-        # Implement sending AppendEntries RPC to another node
+        """
+        Implement sending AppendEntries RPC to another node
+        """
         pass
 
     def send_heartbeats(self):
@@ -258,16 +261,19 @@ class RaftProtocol:
             current_time = time.time()
 
             if self.state == "follower" and current_time - self.last_heartbeat_time > self.election_timeout:
-                # Le délai d'élection a expiré, commence une nouvelle élection
+                # The election timeout has expired, start a new election
                 self.state = "candidate"
                 print(f"starting election with node: {self.node_id}")
                 self.start_election()
+
             elif self.state == "candidate":
                 # Run election
                 self.start_election()
                 time.sleep(random.uniform(1, 5))  # Simulate election timeout
+
             elif self.state == "leader":
                 self.send_heartbeats()
+
             time.sleep(0.1)
 
     def reset_election_timeout(self):

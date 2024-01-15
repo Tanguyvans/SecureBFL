@@ -10,7 +10,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
 import hashlib
 import numpy as np
-from block import Block
 from blockchain import Blockchain
 from flowerclient import FlowerClient
 import pickle
@@ -20,6 +19,61 @@ from sklearn.model_selection import train_test_split
 
 from protocols.pbft_protocol import PBFTProtocol
 from protocols.raft_protocol import RaftProtocol
+
+
+def get_keys(private_key_path, public_key_path):
+    if os.path.exists(private_key_path) and os.path.exists(public_key_path):
+        with open(private_key_path, 'rb') as f:
+            private_key = serialization.load_pem_private_key(
+                f.read(),
+                password=None,
+                backend=default_backend()
+            )
+
+        with open(public_key_path, 'rb') as f:
+            public_key = serialization.load_pem_public_key(
+                f.read(),
+                backend=default_backend()
+            )
+
+    else:
+        # Generate new keys
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+            backend=default_backend()
+        )
+        public_key = private_key.public_key()
+
+        # Save keys to files
+        with open(private_key_path, 'wb') as f:
+            f.write(private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=serialization.NoEncryption()
+            ))
+
+        with open(public_key_path, 'wb') as f:
+            f.write(
+                public_key.public_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo
+                )
+            )
+
+    return private_key, public_key
+
+
+def start_server(host, port, handle_message, num_node):
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((host, port))
+    server_socket.listen(5)
+    print(f"Node {num_node} listening on {host}:{port}")
+
+    while True:
+        client_socket, addr = server_socket.accept()
+        threading.Thread(target=handle_message, args=(client_socket,)).start()
+
 
 class Node:
     def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.1):
@@ -37,12 +91,13 @@ class Node:
 
         private_key_path = f"keys/{id}_private_key.pem"
         public_key_path = f"keys/{id}_public_key.pem"
-        self.getKeys(private_key_path, public_key_path)
+        self.get_keys(private_key_path, public_key_path)
 
-        X_train, y_train = train
-        X_test, y_test = test
-        X_train,X_val,y_train,y_val=train_test_split(X_train,y_train,test_size=0.2,random_state=42,stratify=y_train)
-        self.flower_client = FlowerClient(batch_size, X_train, X_val ,X_test, y_train, y_val, y_test)
+        x_train, y_train = train
+        x_test, y_test = test
+        x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
+                                                          stratify=y_train)
+        self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test)
 
         self.blockchain = Blockchain()
         if consensus_protocol == "pbft": 
@@ -52,14 +107,7 @@ class Node:
             threading.Thread(target=self.consensus_protocol.run).start()
 
     def start_server(self):
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind((self.host, self.port))
-        server_socket.listen(5)
-        print(f"Node {self.id} listening on {self.host}:{self.port}")
-
-        while True:
-            client_socket, addr = server_socket.accept()
-            threading.Thread(target=self.handle_message, args=(client_socket,)).start()
+        start_server(self.host, self.port, self.handle_message, self.id)
 
     def handle_message(self, client_socket):
 
@@ -113,28 +161,35 @@ class Node:
                 global_model_directory = block.storage_reference
                 break
 
-        if self.evaluateModel(model_directory)[0] <= self.evaluateModel(global_model_directory)[0]*self.coef_usefull: 
+        if self.evaluate_model(model_directory)[0] <= self.evaluate_model(global_model_directory)[0]*self.coef_usefull:
             return True
+
         else: 
             return False
 
-    def is_global_valid(self, proposed_hash):
+    def get_weights(self, len_dataset=10):
         params_list = []
-        for block in self.blockchain.blocks[::-1]: 
-            if block.model_type == "update": 
+        for block in self.blockchain.blocks[::-1]:
+            if block.model_type == "update":
                 loaded_weights_dict = np.load(block.storage_reference)
-                loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
+                loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict) - 1)]
 
                 loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
                 params_list.append(loaded_weights)
-            else: 
-                break 
+
+            else:
+                break
 
         self.aggregated_params = aggregate(params_list)
+
         self.flower_client.set_parameters(self.aggregated_params)
 
         weights_dict = self.flower_client.get_dict_params({})
-        weights_dict['len_dataset'] = 10
+        weights_dict['len_dataset'] = len_dataset
+        return weights_dict
+
+    def is_global_valid(self, proposed_hash):
+        weights_dict = self.get_weights(len_dataset=10)
 
         filename = f"models/{self.id}temp.npz"
 
@@ -142,11 +197,12 @@ class Node:
             np.savez(f, **weights_dict)
 
         if proposed_hash == self.calculate_model_hash(filename): 
-            return True 
+            return True
+
         else:
             return False
 
-    def evaluateModel(self, model_directory):
+    def evaluate_model(self, model_directory):
         loaded_weights_dict = np.load(model_directory)
         loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
         loss = self.flower_client.evaluate(loaded_weights, {})[0]
@@ -163,7 +219,7 @@ class Node:
         loaded_weights_dict = np.load(block_model.storage_reference)
         loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
 
-        for k,v in self.clients.items():
+        for k, v in self.clients.items():
             address = v.get('address')
 
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -178,7 +234,7 @@ class Node:
             client_socket.send(len(serialized_message).to_bytes(4, byteorder='big'))
             client_socket.send(serialized_message)
 
-            # Fermer le socket après l'envoi
+            # Close the socket after sending
             client_socket.close()
 
     def broadcast_message(self, message):
@@ -200,12 +256,13 @@ class Node:
 
                     serialized_message = pickle.dumps(signed_message)
 
-                    # Envoyer la longueur du message en premier
+                    # Send the length of the message first
                     client_socket.send(len(serialized_message).to_bytes(4, byteorder='big'))
                     client_socket.send(serialized_message)
 
             except ConnectionRefusedError:
                 pass
+
             except Exception as e:
                 pass
         else:
@@ -249,23 +306,7 @@ class Node:
         self.consensus_protocol.handle_message(message)
 
     def create_global_model(self): 
-        params_list = []
-        for block in self.blockchain.blocks[::-1]: 
-            if block.model_type == "update": 
-                loaded_weights_dict = np.load(block.storage_reference)
-                loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
-
-                loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
-                params_list.append(loaded_weights)
-            else: 
-                break 
-
-        self.aggregated_params = aggregate(params_list)
-
-        self.flower_client.set_parameters(self.aggregated_params)
-
-        weights_dict = self.flower_client.get_dict_params({})
-        weights_dict['len_dataset'] = 10
+        weights_dict = self.get_weights(len_dataset=10)
 
         model_type = "global_model"
 
@@ -324,48 +365,14 @@ class Node:
         loss = self.flower_client.evaluate(aggregated_weights, {})[0]
 
         self.cluster_weights[pos] = []
-        for k,v in self.clusters[pos].items(): 
-            if k != "tot": 
-                 self.clusters[pos][k] = 0
+        for k, v in self.clusters[pos].items():
+            if k != "tot":
+                self.clusters[pos][k] = 0
 
         return aggregated_weights
 
-    def getKeys(self, private_key_path, public_key_path): 
-        if os.path.exists(private_key_path) and os.path.exists(public_key_path):
-            with open(private_key_path, 'rb') as f:
-                self.private_key = serialization.load_pem_private_key(
-                    f.read(),
-                    password=None,
-                    backend=default_backend()
-                )
-
-            with open(public_key_path, 'rb') as f:
-                self.public_key = serialization.load_pem_public_key(
-                    f.read(),
-                    backend=default_backend()
-                )
-        else:
-            # Generate new keys
-            self.private_key = rsa.generate_private_key(
-                public_exponent=65537,
-                key_size=2048,
-                backend=default_backend()
-            )
-            self.public_key = self.private_key.public_key()
-
-            # Save keys to files
-            with open(private_key_path, 'wb') as f:
-                f.write(self.private_key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.TraditionalOpenSSL,
-                    encryption_algorithm=serialization.NoEncryption()
-                ))
-
-            with open(public_key_path, 'wb') as f:
-                f.write(self.public_key.public_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PublicFormat.SubjectPublicKeyInfo
-                ))
+    def get_keys(self, private_key_path, public_key_path):
+        self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
 
     def sign_message(self, message):
         signature = self.private_key.sign(
@@ -391,7 +398,9 @@ class Node:
                 ),
                 hashes.SHA256()
             )
+
             return True
+
         except Exception as e:
             print(f"Signature verification error: {e}")
             return False

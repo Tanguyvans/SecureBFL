@@ -1,5 +1,5 @@
 import hashlib
-import json
+
 
 class Block: 
     def __init__(self, index, model_type, storage_reference, calculated_hash, previous_hash):
@@ -11,8 +11,12 @@ class Block:
 
     @property
     def current_hash(self):
-        # Calculer et renvoyer le hash actuel à chaque accès
-        block_string = f"{self.index}{self.model_type}{self.storage_reference}{self.calculated_hash}{self.previous_hash}"
+        """
+        Calculate and return the current hash on each access
+        :return:
+        """
+        block_string = (f"{self.index}{self.model_type}{self.storage_reference}"
+                        f"{self.calculated_hash}{self.previous_hash}")
         return hashlib.sha256(block_string.encode()).hexdigest()
 
     def __str__(self):
@@ -25,7 +29,7 @@ class Block:
                f"Hash:\t\t {self.current_hash}\n"
     
     def to_dict(self):
-        # Convertissez les attributs du bloc en un dictionnaire
+        # Convert the attributes of the block into a dictionary
         return {
             "index": self.index,
             "storage_reference": self.storage_reference,

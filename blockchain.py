@@ -2,6 +2,7 @@ from block import Block
 import numpy as np 
 import hashlib
 
+
 class Blockchain:
     def __init__(self):
         self.blocks = []

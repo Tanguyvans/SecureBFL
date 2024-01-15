@@ -1,8 +1,8 @@
-import time
 import logging
 
 from block import Block
 from protocols.consensus_protocol import ConsensusProtocol
+
 
 class PBFTProtocol(ConsensusProtocol):
     def __init__(self, node, blockchain):
@@ -39,7 +39,7 @@ class PBFTProtocol(ConsensusProtocol):
         elif message_type == "prepare":
             response = self.prepare(message["content"])
         elif message_type == "commit":
-            response = self.commit(message['id'],message["content"])
+            response = self.commit(message['id'], message["content"])
         else:
             logging.warning("Unknown message type: %s", message_type)
 
@@ -55,7 +55,8 @@ class PBFTProtocol(ConsensusProtocol):
     def pre_prepare(self, message):
         logging.info("Node %s received pre-prepare for block: \n%s", self.node_id, message)
 
-        block = Block(message["index"], message["model_type"], message["storage_reference"], message["calculated_hash"], message["previous_hash"])
+        block = Block(message["index"], message["model_type"], message["storage_reference"], message["calculated_hash"],
+                      message["previous_hash"])
 
         self.prepare_counts[message["current_hash"]] = 0
 
@@ -116,26 +117,33 @@ class PBFTProtocol(ConsensusProtocol):
             return "waiting"
 
     def validate_block(self, block_data):
-        # Vérifiez l'intégrité du bloc
-        if "index" not in block_data or "model_type" not in block_data or "storage_reference" not in block_data \
-            or "calculated_hash" not in block_data or "previous_hash" not in block_data:
+        """
+        Verify the integrity of the block
+        :param block_data:
+        :return:
+        """
+
+        if ("index" not in block_data or "model_type" not in block_data or "storage_reference" not in block_data
+                or "calculated_hash" not in block_data or "previous_hash" not in block_data):
             return False
 
-        # Vérifiez que l'index est correctement incrémenté
+        # Verify that the index is correctly incremented
         if block_data["index"] != len(self.blockchain.blocks):
             return False
 
-        # Vérifiez la validité du hachage précédent
+        # Verify the validity of the previous hash
         previous_block = self.blockchain.blocks[-1] if self.blockchain.blocks else None
         if previous_block and block_data["previous_hash"] != previous_block.current_hash:
             return False
+
+        """
+        if block_data["model_type"] == "update": 
+            return self.node.is_update_usefull(block_data["storage_reference"])
         
-        # if block_data["model_type"] == "update": 
-        #     return self.node.is_update_usefull(block_data["storage_reference"])
-        
-        # if block_data["index"] > 2 and block_data["model_type"] == "global_model": 
-        #     return self.node.is_global_valid(block_data["calculated_hash"])
-        
+        if block_data["index"] > 2 and block_data["model_type"] == "global_model": 
+            return self.node.is_global_valid(block_data["calculated_hash"])
+        """
+
         return True
 
     def create_block_from_request(self, content):
@@ -146,8 +154,9 @@ class PBFTProtocol(ConsensusProtocol):
         calculated_hash = content.get("calculated_hash")
         previous_hash_of_last_block = previous_blocks[-1].current_hash
 
-        # Créez un nouveau bloc à partir de la demande du client
-        new_block = Block(index_of_new_block, model_type, storage_reference, calculated_hash, previous_hash_of_last_block)
+        # create a new block from the client's request
+        new_block = Block(index_of_new_block, model_type, storage_reference, calculated_hash,
+                          previous_hash_of_last_block)
 
         return new_block
     
@@ -156,4 +165,3 @@ class PBFTProtocol(ConsensusProtocol):
 
     def can_commit(self, id):
         return self.commit_counts[id]["count"] >= 2
-
