@@ -1,5 +1,9 @@
 /.DS_Store
 /__pycache__
+.idea
 /models
 /env
 /keys
+*.txt
+*.pyc
+client_test.py
