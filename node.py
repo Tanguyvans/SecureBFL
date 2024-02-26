@@ -63,7 +63,6 @@ def get_keys(private_key_path, public_key_path):
 
     return private_key, public_key
 
-
 def start_server(host, port, handle_message, num_node):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((host, port))
@@ -73,7 +72,6 @@ def start_server(host, port, handle_message, num_node):
     while True:
         client_socket, addr = server_socket.accept()
         threading.Thread(target=handle_message, args=(client_socket,)).start()
-
 
 class Node:
     def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.1):
@@ -88,6 +86,7 @@ class Node:
         self.cluster_weights = []
 
         self.global_params_directory = ""
+        self.nb_updates = 0
 
         private_key_path = f"keys/{id}_private_key.pem"
         public_key_path = f"keys/{id}_public_key.pem"
@@ -150,18 +149,16 @@ class Node:
                             break 
 
                 elif model_type == "global_model": 
+
+                    self.global_params_directory = message.get("content")["storage_reference"]
                     self.broadcast_model_to_clients()
 
         client_socket.close()
 
     def is_update_usefull(self, model_directory): 
-        global_model_directory = ""
-        for block in self.blockchain.blocks[::-1]: 
-            if block.model_type == "global_model": 
-                global_model_directory = block.storage_reference
-                break
 
-        if self.evaluate_model(model_directory)[0] <= self.evaluate_model(global_model_directory)[0]*self.coef_usefull:
+        print(f"node: {self.id} GM: {self.global_params_directory} global model: {self.evaluate_model(self.global_params_directory)[0]}, cluster model: {self.evaluate_model(model_directory)[0]} ")
+        if self.evaluate_model(model_directory)[0] <= self.evaluate_model(self.global_params_directory)[0]*self.coef_usefull:
             return True
 
         else: 
@@ -363,6 +360,9 @@ class Node:
         aggregated_weights = aggregate(weights)
 
         loss = self.flower_client.evaluate(aggregated_weights, {})[0]
+
+        with open('output.txt', 'a') as f: 
+            f.write(f"cluster {pos} node {self.id}: {loss} \n")
 
         self.cluster_weights[pos] = []
         for k, v in self.clusters[pos].items():

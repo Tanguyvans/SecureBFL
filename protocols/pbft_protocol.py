@@ -136,13 +136,11 @@ class PBFTProtocol(ConsensusProtocol):
         if previous_block and block_data["previous_hash"] != previous_block.current_hash:
             return False
 
-        """
-        if block_data["model_type"] == "update": 
-            return self.node.is_update_usefull(block_data["storage_reference"])
+        # if block_data["model_type"] == "update": 
+        #     return self.node.is_update_usefull(block_data["storage_reference"])
         
-        if block_data["index"] > 2 and block_data["model_type"] == "global_model": 
-            return self.node.is_global_valid(block_data["calculated_hash"])
-        """
+        # if block_data["index"] > 2 and block_data["model_type"] == "global_model": 
+        #     return self.node.is_global_valid(block_data["calculated_hash"])
 
         return True
 

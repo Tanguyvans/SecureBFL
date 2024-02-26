@@ -18,7 +18,6 @@ def encrypt(x, n_shares=2):
     shares.append(x - sum(shares))
     return tuple(shares)
 
-
 def apply_smpc(input_list, n_shares=2):
     """
     Function to apply SMPC to a list of lists
@@ -53,7 +52,6 @@ def apply_smpc(input_list, n_shares=2):
 
     return encrypted_list
 
-
 def decrypt_list_of_lists(encrypted_list):
     """
     Function to decrypt a list of lists encrypted with SMPC
@@ -71,7 +69,6 @@ def decrypt_list_of_lists(encrypted_list):
         decrypted_list.append(sum_array)
 
     return decrypted_list
-
 
 def data_preparation(filename, number_of_nodes=3):
     df = pd.read_csv(filename)
@@ -101,11 +98,9 @@ def data_preparation(filename, number_of_nodes=3):
 
     return multi_df
 
-
 def save_nodes_chain(nodes):
     for node in nodes:
         node[0].blockchain.save_chain_in_file(node[0].id)
-
 
 class Client: 
     def __init__(self, id, host, port, batch_size, train, test):
@@ -155,11 +150,11 @@ class Client:
     def train(self): 
         old_params = self.flower_client.get_parameters({})
         res = old_params[:]
-        for i in range(2):
+        for i in range(1):
             res = self.flower_client.fit(res, {})[0]
             loss = self.flower_client.evaluate(res, {})[0]
             with open('output.txt', 'a') as f: 
-                f.write(f"loss: {loss} \n")
+                f.write(f"client {self.id}: {loss} \n")
 
         encripted_lists = apply_smpc(res, len(self.connections)+1)
         self.frag_weights.append(encripted_lists.pop())
