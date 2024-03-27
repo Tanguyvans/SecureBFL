@@ -11,3 +11,4 @@ node3.txt
 output.txt
 *.pyc
 client_test.py
+*__pycache__
