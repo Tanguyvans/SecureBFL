@@ -18,6 +18,7 @@ def encrypt(x, n_shares=2):
     shares.append(x - sum(shares))
     return tuple(shares)
 
+
 def apply_smpc(input_list, n_shares=2):
     """
     Function to apply SMPC to a list of lists
@@ -30,27 +31,28 @@ def apply_smpc(input_list, n_shares=2):
     for inner_list in input_list:
         if isinstance(inner_list[0], np.ndarray):
             encrypted_inner_list = [[] for i in range(n_shares)]
-            for inner_inner_list in inner_list: 
+            for inner_inner_list in inner_list:
                 encrypted_inner_inner_list = [[] for i in range(n_shares)]
-                for x in inner_inner_list: 
+                for x in inner_inner_list:
                     crypted_tuple = encrypt(x, n_shares)
                     for i in range(n_shares):
                         encrypted_inner_inner_list[i].append(crypted_tuple[i])
 
                 for i in range(n_shares):
                     encrypted_inner_list[i].append(encrypted_inner_inner_list[i])
-        else: 
+        else:
             encrypted_inner_list = [[] for i in range(n_shares)]
-            for x in inner_list: 
+            for x in inner_list:
                 crypted_tuple = encrypt(x, n_shares)
 
                 for i in range(n_shares):
                     encrypted_inner_list[i].append(crypted_tuple[i])
-        
+
         for i in range(n_shares):
             encrypted_list[i].append(np.array(encrypted_inner_list[i]))
 
     return encrypted_list
+
 
 def decrypt_list_of_lists(encrypted_list):
     """
@@ -61,14 +63,15 @@ def decrypt_list_of_lists(encrypted_list):
     decrypted_list = []
     n_shares = len(encrypted_list)
 
-    for i in range(len(encrypted_list[0])): 
+    for i in range(len(encrypted_list[0])):
         sum_array = np.add(encrypted_list[0][i], encrypted_list[1][i])
-        for j in range(2, n_shares): 
+        for j in range(2, n_shares):
             sum_array = np.add(sum_array, encrypted_list[j][i])
 
         decrypted_list.append(sum_array)
 
     return decrypted_list
+
 
 def data_preparation(filename, number_of_nodes=3):
     df = pd.read_csv(filename)
@@ -97,6 +100,7 @@ def data_preparation(filename, number_of_nodes=3):
         multi_df.append([x_s, y_s])
 
     return multi_df
+
 
 def save_nodes_chain(nodes):
     for node in nodes:
@@ -129,32 +133,33 @@ class Client:
 
     def start_server(self):
         start_server(self.host, self.port, self.handle_message, self.id)
-    
+
     def handle_message(self, client_socket):
         data_length = int.from_bytes(client_socket.recv(4), byteorder='big')
         data = client_socket.recv(data_length)
-        
+
         message = pickle.loads(data)
-        
+
         message_type = message.get("type")
 
-        if message_type == "frag_weights": 
+        if message_type == "frag_weights":
             weights = pickle.loads(message.get("value"))
             self.frag_weights.append(weights)
-        elif message_type == "global_model": 
+
+        elif message_type == "global_model":
             weights = pickle.loads(message.get("value"))
             self.flower_client.set_parameters(weights)
 
         client_socket.close()
 
-    def train(self): 
+    def train(self):
         old_params = self.flower_client.get_parameters({})
         res = old_params[:]
         for i in range(3):
             res = self.flower_client.fit(res, {})[0]
             loss = self.flower_client.evaluate(res, {})[0]
-        with open('output.txt', 'a') as f: 
-            f.write(f"client {self.id}: {loss} \n")
+            with open('output.txt', 'a') as f:
+                f.write(f"client {self.id}: {loss} \n")
 
         encripted_lists = apply_smpc(res, len(self.connections)+1)
         self.frag_weights.append(encripted_lists.pop())

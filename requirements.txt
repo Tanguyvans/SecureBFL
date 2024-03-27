@@ -5,3 +5,4 @@ cryptography
 torch
 flower
 flwr
+opacus

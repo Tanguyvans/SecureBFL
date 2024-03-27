@@ -3,7 +3,8 @@ from client import ClientClient, ClientServer
 from node import NodeServer, NodeClient
 import numpy as np
 
-def dataPreparation(filename, numberOfNodes=3): 
+
+def dataPreparation(filename, numberOfNodes=3):
     df = pd.read_csv(filename)
     df = df.drop(['Unnamed: 0', 'id'], axis=1)
     df['Gender'] = df['Gender'].map({'Male': 0, 'Female': 1})
@@ -19,13 +20,13 @@ def dataPreparation(filename, numberOfNodes=3):
 
     multi_df = []
     for i in range(numberOfNodes):
-        if i < numberOfNodes-1: 
+        if i < numberOfNodes-1:
             subset = df.iloc[i*split_size:(i+1)*split_size]
-        else: 
+        else:
             subset = df.iloc[i*split_size:]
 
         X_s = subset.drop(['satisfaction'],axis=1)
-        y_s=subset[['satisfaction']]
+        y_s = subset[['satisfaction']]
 
         # X_s = df.drop(['satisfaction'],axis=1)
         # y_s=df[['satisfaction']]
@@ -34,14 +35,16 @@ def dataPreparation(filename, numberOfNodes=3):
 
     return multi_df
 
-def clientCreation(train_sets, test_sets, batch_size): 
+
+def clientCreation(train_sets, test_sets, batch_size):
     clients = []
     for i in range(len(train_sets)):
         clientServer = ClientServer(f"111{i+1}", f"node{i+1}", batch_size, train_sets[i], test_sets[i])
         clientClient = ClientClient(clientServer)
         clients.append((clientServer, clientClient))
-    
+
     return clients
+
 
 def nodeCreation(nb, train_sets, test_sets, batch_size, coef_usefull = 1.02):
     nodes = []
@@ -52,7 +55,8 @@ def nodeCreation(nb, train_sets, test_sets, batch_size, coef_usefull = 1.02):
 
     return nodes
 
-def startClientNodeConnections(node, clients): 
+
+def startClientNodeConnections(node, clients):
     nodeServer = node[0]
     nodeClient = node[1]
     clientServers = [clientServer for (clientServer, clientClient) in clients]
@@ -60,19 +64,21 @@ def startClientNodeConnections(node, clients):
         # start client to client connections
         clients[i][1].clientConnection(clientServers)
         clients[i][0].cluster = len(clientServers)
-        # start client to node connections 
+        # start client to node connections
         clients[i][1].clientNodeConnection(nodeServer)
-        # start node to client connections 
+        # start node to client connections
         nodeClient.clientConnection(clientServers)
 
-def startNodeNodeConnections(nodes): 
+
+def startNodeNodeConnections(nodes):
     nodeServers = [nodeServer for (nodeServer, nodeClient) in nodes]
     for i in range(len(nodes)):
         nodes[i][1].nodeConnection(nodeServers)
 
     return nodes
 
-def createAndBroadcastGlobalModelToNodes(node): 
+
+def createAndBroadcastGlobalModelToNodes(node):
     nodeServer = node[0]
     nodeClient = node[1]
     block = nodeServer.CreateGlobalModel()
@@ -80,31 +86,35 @@ def createAndBroadcastGlobalModelToNodes(node):
     nodeServer.AppendBlock(block)
     nodeClient.broadcast_decision()
 
-def broadcastModelToClients(node): 
+
+def broadcastModelToClients(node):
     nodeServer = node[0]
     nodeClient = node[1]
     nodeClient.broadcast_global_model_to_clients(nodeServer.global_params_directory)
+
 
 def updateAndBroadcastModel(node, weights):
     nodeServer = node[0]
     nodeClient = node[1]
     server_msg, block = nodeServer.UpdateModel(weights)
     msg = nodeClient.broadcast_block(block)
-    msg['tot']+=1
+    msg['tot'] += 1
     if server_msg == True:
-        msg['success']+=1
-    else: 
-        msg['failure']+=1
+        msg['success'] += 1
+    else:
+        msg['failure'] += 1
     print(msg)
-    if msg['success']/msg['tot'] >= 2/3: 
+    if msg['success']/msg['tot'] >= 2/3:
         nodeServer.AppendBlock(block)
         nodeClient.broadcast_decision()
 
-def saveNodesChain(nodes): 
-    for node in nodes: 
+
+def saveNodesChain(nodes):
+    for node in nodes:
         node[0].blockchain.save_chain_in_file(node[0].id)
 
-if __name__ == "__main__": 
+
+if __name__ == "__main__":
     train_path = 'Airline Satisfaction/train.csv'
     test_path = 'Airline Satisfaction/test.csv'
 
@@ -112,7 +122,7 @@ if __name__ == "__main__":
     poisonned_number = 0
     epochs = 25
 
-    with open("output.txt", "w") as f: 
+    with open("output.txt", "w") as f:
         f.write("")
 
     train_sets = dataPreparation(train_path, numberOfClients)
@@ -120,7 +130,7 @@ if __name__ == "__main__":
 
     clients = clientCreation(train_sets, test_sets, batch_size=256)
     nodes = nodeCreation(3, train_sets, test_sets, batch_size=256)
-    
+
     startClientNodeConnections(nodes[0], [clients[0], clients[1]])
     nodes[0][0].createCluster([clients[0][0].id, clients[1][0].id])
 
@@ -142,11 +152,11 @@ if __name__ == "__main__":
     broadcastModelToClients(nodes[1])
     broadcastModelToClients(nodes[2])
 
-    for i in range(poisonned_number): 
+    for i in range(poisonned_number):
         train_sets[i][1] = train_sets[i][1].replace({0: 1, 1: 0})
         test_sets[i][1] = test_sets[i][1].replace({0: 1, 1: 0})
 
-    for i in range(epochs): 
+    for i in range(epochs):
         print(f"EPOCH: {i+1}")
         # TRAINING
 
@@ -163,7 +173,7 @@ if __name__ == "__main__":
         clients[1][1].sendFragmentedWeightsToClients(frag_weights)
 
         nodes[0][0].cluster_weights = []
-        for k,v in nodes[0][0].cluster.items():
+        for k, v in nodes[0][0].cluster.items():
             nodes[0][0].cluster[k] = 0
 
         clients[0][1].sendWeightsToNode(clients[0][0].sum_weights, 10)
@@ -181,7 +191,7 @@ if __name__ == "__main__":
         clients[3][1].sendFragmentedWeightsToClients(frag_weights)
 
         nodes[1][0].cluster_weights = []
-        for k,v in nodes[1][0].cluster.items():
+        for k, v in nodes[1][0].cluster.items():
             nodes[1][0].cluster[k] = 0
 
         clients[2][1].sendWeightsToNode(clients[2][0].sum_weights, 10)
@@ -199,7 +209,7 @@ if __name__ == "__main__":
         clients[5][1].sendFragmentedWeightsToClients(frag_weights)
 
         nodes[2][0].cluster_weights = []
-        for k,v in nodes[2][0].cluster.items():
+        for k, v in nodes[2][0].cluster.items():
             nodes[2][0].cluster[k] = 0
 
         clients[4][1].sendWeightsToNode(clients[4][0].sum_weights, 10)

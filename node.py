@@ -22,6 +22,7 @@ from protocols.raft_protocol import RaftProtocol
 
 
 def get_keys(private_key_path, public_key_path):
+    os.makedirs("keys/", exist_ok=True)
     if os.path.exists(private_key_path) and os.path.exists(public_key_path):
         with open(private_key_path, 'rb') as f:
             private_key = serialization.load_pem_private_key(
@@ -63,6 +64,7 @@ def get_keys(private_key_path, public_key_path):
 
     return private_key, public_key
 
+
 def start_server(host, port, handle_message, num_node):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((host, port))
@@ -72,6 +74,7 @@ def start_server(host, port, handle_message, num_node):
     while True:
         client_socket, addr = server_socket.accept()
         threading.Thread(target=handle_message, args=(client_socket,)).start()
+
 
 class Node:
     def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.05):
@@ -286,7 +289,7 @@ class Node:
         
         filename = f"models/m0.npz"
         self.global_params_directory = filename
-
+        os.makedirs("models/", exist_ok=True)
         with open(filename, "wb") as f:
             np.savez(f, **weights_dict)
 
