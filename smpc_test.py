@@ -6,7 +6,7 @@ from client import apply_smpc, data_preparation, decrypt_list_of_lists  # , encr
 train_path = 'Airline Satisfaction/train.csv'
 test_path = 'Airline Satisfaction/test.csv'
 n_shares = 3
-
+dp = False
 
 train_sets = data_preparation(train_path, 1)
 test_sets = data_preparation(test_path, 1)
@@ -14,7 +14,7 @@ x_train, y_train = train_sets[0]
 x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
                                                   stratify=y_train)
 x_test, y_test = test_sets[0]
-flower_client = FlowerClient(256, x_train, x_val, x_test, y_train, y_val, y_test)
+flower_client = FlowerClient(256, x_train, x_val, x_test, y_train, y_val, y_test, dp, delta=1/(2*len(x_train)))
 
 old_params = flower_client.get_parameters({})
 res = old_params[:]

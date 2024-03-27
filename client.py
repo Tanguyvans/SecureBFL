@@ -106,8 +106,9 @@ def save_nodes_chain(nodes):
     for node in nodes:
         node[0].blockchain.save_chain_in_file(node[0].id)
 
-class Client: 
-    def __init__(self, id, host, port, batch_size, train, test):
+
+class Client:
+    def __init__(self, id, host, port, batch_size, train, test, dp=False):
         self.id = id
         self.host = host
         self.port = port
@@ -129,7 +130,8 @@ class Client:
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
                                                           stratify=y_train)
 
-        self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test)
+        self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
+                                          dp, delta=1/(2*len(x_train)))
 
     def start_server(self):
         start_server(self.host, self.port, self.handle_message, self.id)

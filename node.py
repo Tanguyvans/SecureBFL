@@ -77,7 +77,7 @@ def start_server(host, port, handle_message, num_node):
 
 
 class Node:
-    def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.05):
+    def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.05, dp=False):
         self.id = id
         self.host = host
         self.port = port
@@ -99,12 +99,14 @@ class Node:
         x_test, y_test = test
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
                                                           stratify=y_train)
-        self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test)
+        self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
+                                          dp, delta=1/(2*len(x_train)))
 
         self.blockchain = Blockchain()
-        if consensus_protocol == "pbft": 
+        if consensus_protocol == "pbft":
             self.consensus_protocol = PBFTProtocol(node=self, blockchain=self.blockchain)
-        elif consensus_protocol == "raft": 
+
+        elif consensus_protocol == "raft":
             self.consensus_protocol = RaftProtocol(node=self, blockchain=self.blockchain)
             threading.Thread(target=self.consensus_protocol.run).start()
 
@@ -115,43 +117,43 @@ class Node:
 
         data_length = int.from_bytes(client_socket.recv(4), byteorder='big')
         data = client_socket.recv(data_length)
-        
+
         message = pickle.loads(data)
 
         message_type = message.get("type")
 
-        if message_type == "frag_weights": 
+        if message_type == "frag_weights":
             message_id = message.get("id")
             weights = pickle.loads(message.get("value"))
-            for pos, cluster in enumerate(self.clusters): 
-                if message_id in cluster: 
-                    if cluster[message_id] == 0: 
+            for pos, cluster in enumerate(self.clusters):
+                if message_id in cluster:
+                    if cluster[message_id] == 0:
                         self.cluster_weights[pos].append(weights)
                         cluster[message_id] = 1
                         cluster["count"] += 1
 
-                    if cluster["count"] == cluster["tot"]:  
-                        aggregated_weights = self.aggregation_cluster(pos) 
+                    if cluster["count"] == cluster["tot"]:
+                        aggregated_weights = self.aggregation_cluster(pos)
                         message = self.create_update_request(aggregated_weights)
 
                         self.consensus_protocol.handle_message(message)
-                    
-        else: 
+
+        else:
             result = self.consensus_protocol.handle_message(message)
 
             if result == "added":
-                block = self.blockchain.blocks[-1] 
+                block = self.blockchain.blocks[-1]
                 model_type = block.model_type
 
-                if model_type == "update": 
+                if model_type == "update":
                     nb_updates = 0
-                    for block in self.blockchain.blocks[::-1]: 
-                        if block.model_type == "update": 
+                    for block in self.blockchain.blocks[::-1]:
+                        if block.model_type == "update":
                             nb_updates += 1
-                        else: 
-                            break 
+                        else:
+                            break
 
-                elif model_type == "global_model": 
+                elif model_type == "global_model":
 
                     print(f"updating GM {self.global_params_directory}")
                     self.broadcast_model_to_clients()
