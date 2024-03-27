@@ -73,6 +73,7 @@ class PBFTProtocol(ConsensusProtocol):
         self.prepare_counts[block_hash] += 1
 
         if self.is_prepared(block_hash): 
+            message["usefull"] = self.node.is_update_usefull(message["storage_reference"]) if message["model_type"] == "upadate" else True
             commit_message = {"type": "commit", "content": message}
             self.node.broadcast_message(commit_message)
             logging.info("Node %s prepared block to %s", self.node_id, self.node.peers)
@@ -88,22 +89,23 @@ class PBFTProtocol(ConsensusProtocol):
         if block_hash not in self.commit_counts: 
             self.commit_counts[block_hash] = {"count": 0, "senders": []}
 
-        if sender not in self.commit_counts[block_hash]["senders"]: 
+        if sender not in self.commit_counts[block_hash]["senders"] and message["usefull"] == True: 
             self.commit_counts[block_hash]["count"] += 1
             self.commit_counts[block_hash]["senders"].append(sender)
+
+        block = Block(
+            message["index"], 
+            message["model_type"],
+            message["storage_reference"], 
+            message["calculated_hash"], 
+            message["previous_hash"]
+        )
 
         if self.can_commit(block_hash):
             logging.info("Node %s committing block %s", self.node_id, block_hash)
 
             if self.validate_block(message):
-                block = Block(
-                    message["index"], 
-                    message["model_type"],
-                    message["storage_reference"], 
-                    message["calculated_hash"], 
-                    message["previous_hash"]
-                )
-
+                
                 self.blockchain.add_block(block)
 
                 logging.info("Node %s committed block %s", self.node_id, block_hash)

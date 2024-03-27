@@ -150,11 +150,11 @@ class Client:
     def train(self): 
         old_params = self.flower_client.get_parameters({})
         res = old_params[:]
-        for i in range(1):
+        for i in range(3):
             res = self.flower_client.fit(res, {})[0]
             loss = self.flower_client.evaluate(res, {})[0]
-            with open('output.txt', 'a') as f: 
-                f.write(f"client {self.id}: {loss} \n")
+        with open('output.txt', 'a') as f: 
+            f.write(f"client {self.id}: {loss} \n")
 
         encripted_lists = apply_smpc(res, len(self.connections)+1)
         self.frag_weights.append(encripted_lists.pop())

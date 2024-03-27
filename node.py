@@ -74,7 +74,7 @@ def start_server(host, port, handle_message, num_node):
         threading.Thread(target=handle_message, args=(client_socket,)).start()
 
 class Node:
-    def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.1):
+    def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.05):
         self.id = id
         self.host = host
         self.port = port
@@ -150,14 +150,14 @@ class Node:
 
                 elif model_type == "global_model": 
 
-                    self.global_params_directory = message.get("content")["storage_reference"]
+                    print(f"updating GM {self.global_params_directory}")
                     self.broadcast_model_to_clients()
 
         client_socket.close()
 
     def is_update_usefull(self, model_directory): 
 
-        print(f"node: {self.id} GM: {self.global_params_directory} global model: {self.evaluate_model(self.global_params_directory)[0]}, cluster model: {self.evaluate_model(model_directory)[0]} ")
+        print(f"node: {self.id} GM: {self.global_params_directory}, {model_directory} ")
         if self.evaluate_model(model_directory)[0] <= self.evaluate_model(self.global_params_directory)[0]*self.coef_usefull:
             return True
 

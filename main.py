@@ -13,8 +13,9 @@ if __name__ == "__main__":
     test_path = 'Airline Satisfaction/test.csv'
 
     numberOfClients = 6
-    poisonned_number = 0
-    epochs = 5
+    poisonned_number = 1
+    epochs = 20
+    ts = 20
 
     with open("output.txt", "w") as f: 
         f.write("")
@@ -101,7 +102,6 @@ if __name__ == "__main__":
     time.sleep(10)
 
     for i in range(epochs): 
-        time.sleep(10)
         frag_weights_1 = client1.train()
         frag_weights_2 = client2.train()
         frag_weights_3 = client3.train()
@@ -119,24 +119,26 @@ if __name__ == "__main__":
         client5.send_frag_clients(frag_weights_5)
         client6.send_frag_clients(frag_weights_6)
 
-        time.sleep(5)
+        time.sleep(ts)
         client1.send_frag_node()
         client2.send_frag_node()
         
-        time.sleep(5)
+        time.sleep(ts)
         client3.send_frag_node()
         client4.send_frag_node()
         
-        time.sleep(5)
+        time.sleep(ts)
         client5.send_frag_node()
         client6.send_frag_node()
 
-        time.sleep(5)
+        time.sleep(ts)
 
-        if i > 1 and i % 2 == 0: 
-            node1.create_global_model()
+        node1.create_global_model()
+        time.sleep(ts)
+        node2.global_params_directory = node1.global_params_directory
+        node3.global_params_directory = node1.global_params_directory
 
-    time.sleep(2)
+        time.sleep(ts)
 
     node1.blockchain.print_blockchain()
     node2.blockchain.print_blockchain()
