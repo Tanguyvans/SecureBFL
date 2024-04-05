@@ -14,39 +14,43 @@ if __name__ == "__main__":
 
     numberOfClients = 6
     poisonned_number = 1
-    epochs = 20
-    ts = 20
+    epochs = 5
+    ts = 15
     dp = True  # True if you want to apply differential privacy
 
     with open("output.txt", "w") as f:
         f.write("")
 
-    train_sets = data_preparation(train_path, numberOfClients)
-    test_sets = data_preparation(test_path, numberOfClients)
+    client_train_sets = data_preparation(train_path, numberOfClients)
+    client_test_sets = data_preparation(test_path, numberOfClients)
+
+    node_train_sets = data_preparation(train_path, numberOfClients)
+    node_test_sets = data_preparation(test_path, numberOfClients)
+
     for i in range(poisonned_number):
-        train_sets[i][1] = train_sets[i][1].replace({0: 1, 1: 0})
-        test_sets[i][1] = test_sets[i][1].replace({0: 1, 1: 0})
+        client_train_sets[i][1] = client_train_sets[i][1].replace({0: 1, 1: 0})
+        client_test_sets[i][1] = client_test_sets[i][1].replace({0: 1, 1: 0})
 
-    node1 = Node(id="n1", host="127.0.0.1", port=6010, consensus_protocol="pbft", batch_size=256, train=train_sets[0],
-                 test=test_sets[0], dp=dp)
-    node2 = Node(id="n2", host="127.0.0.1", port=6011, consensus_protocol="pbft", batch_size=256, train=train_sets[0],
-                 test=test_sets[0], dp=dp)
-    node3 = Node(id="n3", host="127.0.0.1", port=6012, consensus_protocol="pbft", batch_size=256, train=train_sets[0],
-                 test=test_sets[0], dp=dp)
+    node1 = Node(id="n1", host="127.0.0.1", port=6010, consensus_protocol="pbft", batch_size=256, train=node_train_sets[0],
+                 test=node_test_sets[0], dp=dp)
+    node2 = Node(id="n2", host="127.0.0.1", port=6011, consensus_protocol="pbft", batch_size=256, train=node_train_sets[0],
+                 test=node_test_sets[0], dp=dp)
+    node3 = Node(id="n3", host="127.0.0.1", port=6012, consensus_protocol="pbft", batch_size=256, train=node_train_sets[0],
+                 test=node_test_sets[0], dp=dp)
 
-    client1 = Client(id="c1", host="127.0.0.1", port=5010, batch_size=256, train=train_sets[0], test=test_sets[0],
+    client1 = Client(id="c1", host="127.0.0.1", port=5010, batch_size=256, train=client_train_sets[0], test=client_test_sets[0],
                      dp=dp)
-    client2 = Client(id="c2", host="127.0.0.1", port=5011, batch_size=256, train=train_sets[1], test=test_sets[1],
-                     dp=dp)
-
-    client3 = Client(id="c3", host="127.0.0.1", port=5012, batch_size=256, train=train_sets[2], test=test_sets[2],
-                     dp=dp)
-    client4 = Client(id="c4", host="127.0.0.1", port=5013, batch_size=256, train=train_sets[3], test=test_sets[3],
+    client2 = Client(id="c2", host="127.0.0.1", port=5011, batch_size=256, train=client_train_sets[1], test=client_test_sets[1],
                      dp=dp)
 
-    client5 = Client(id="c5", host="127.0.0.1", port=5014, batch_size=256, train=train_sets[4], test=test_sets[4],
+    client3 = Client(id="c3", host="127.0.0.1", port=5012, batch_size=256, train=client_train_sets[2], test=client_test_sets[2],
                      dp=dp)
-    client6 = Client(id="c6", host="127.0.0.1", port=5015, batch_size=256, train=train_sets[5], test=test_sets[5],
+    client4 = Client(id="c4", host="127.0.0.1", port=5013, batch_size=256, train=client_train_sets[3], test=client_test_sets[3],
+                     dp=dp)
+
+    client5 = Client(id="c5", host="127.0.0.1", port=5014, batch_size=256, train=client_train_sets[4], test=client_test_sets[4],
+                     dp=dp)
+    client6 = Client(id="c6", host="127.0.0.1", port=5015, batch_size=256, train=client_train_sets[5], test=client_test_sets[5],
                      dp=dp)
 
     client1.add_connections("c2", 5011)
