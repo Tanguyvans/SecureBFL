@@ -3,6 +3,8 @@ import threading
 import json
 import os
 import base64
+from math import floor, ceil
+import random
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
@@ -427,6 +429,29 @@ class Node:
             )
 
         self.clients[client_id] = {"address": client_address, "public_key": public_key}
+
+    def generate_clusters(self, min_number_of_clients): 
+        self.clusters = []
+        clients = [k for k in self.clients.keys()]
+        random.shuffle(clients)
+
+        number_of_clusters = floor(len(self.clients)/min_number_of_clients)
+        max_number_of_clients = ceil(len(self.clients)/number_of_clusters)
+
+        sol = [0]
+        n = len(self.clients)
+        for i in range(number_of_clusters): 
+            if n % min_number_of_clients == 0: 
+                sol.append(sol[-1] + min_number_of_clients)
+                n -= min_number_of_clients
+            else: 
+                sol.append(sol[-1] + max_number_of_clients)
+                n -= max_number_of_clients
+
+        for i in range(1, len(sol)): 
+            self.create_cluster(clients[sol[i-1]: sol[i]])
+
+        print(self.clusters)
 
     def create_cluster(self, clients): 
         self.clusters.append({client: 0 for client in clients})

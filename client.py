@@ -112,7 +112,6 @@ class Client:
         self.id = id
         self.host = host
         self.port = port
-        self.cluster = 0
 
         self.frag_weights = []
         self.sum_dataset_number = 0
@@ -209,6 +208,9 @@ class Client:
 
         self.frag_weights = []
     
+    def reset_connections(self): 
+        self.connections = {}
+
     def add_connections(self, id, address):
         with open(f"keys/{id}_public_key.pem", 'rb') as f:
             public_key = serialization.load_pem_public_key(
