@@ -55,7 +55,7 @@ class PBFTProtocol(ConsensusProtocol):
     def pre_prepare(self, message):
         logging.info("Node %s received pre-prepare for block: \n%s", self.node_id, message)
 
-        block = Block(message["index"], message["model_type"], message["storage_reference"], message["calculated_hash"],
+        block = Block(message["index"], message["model_type"], message["storage_reference"], message["calculated_hash"], message["participants"],
                       message["previous_hash"])
 
         self.prepare_counts[message["current_hash"]] = 0
@@ -98,6 +98,7 @@ class PBFTProtocol(ConsensusProtocol):
             message["model_type"],
             message["storage_reference"], 
             message["calculated_hash"], 
+            message["participants"],
             message["previous_hash"]
         )
 
@@ -152,10 +153,11 @@ class PBFTProtocol(ConsensusProtocol):
         model_type = content.get("model_type")
         storage_reference = content.get("storage_reference")
         calculated_hash = content.get("calculated_hash")
+        participants = content.get("participants")
         previous_hash_of_last_block = previous_blocks[-1].current_hash
 
         # create a new block from the client's request
-        new_block = Block(index_of_new_block, model_type, storage_reference, calculated_hash,
+        new_block = Block(index_of_new_block, model_type, storage_reference, calculated_hash, participants,
                           previous_hash_of_last_block)
 
         return new_block

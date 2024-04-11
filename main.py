@@ -49,7 +49,7 @@ if __name__ == "__main__":
     min_number_of_clients_in_cluster = 3
 
     poisonned_number = 0
-    epochs = 5
+    epochs = 1
     ts = 10
     dp = True  # True if you want to apply differential privacy
 
@@ -127,8 +127,9 @@ if __name__ == "__main__":
 
         time.sleep(ts)
 
+        print("done epoch")
 
-    # nodes[0].blockchain.print_blockchain()
+    nodes[0].blockchain.print_blockchain()
 
     for i in range(numberOfNodes):
         nodes[i].blockchain.save_chain_in_file(f"node{i+1}.txt")

@@ -26,7 +26,7 @@ class Blockchain:
             return False
 
     def add_genesis_block(self):
-        genesis_block = Block(0, "", "", "", "")
+        genesis_block = Block(0, "", "", "", ["1"], "")
         self.blocks.append(genesis_block)
   
     @property
@@ -47,5 +47,10 @@ class Blockchain:
                 f.write(f"model type:\t\t {str(block.model_type)} \n")
                 f.write(f"storage reference:\t\t {str(block.storage_reference)}\n")
                 f.write(f"calculated hash:\t\t {str(block.calculated_hash)}\n")
+                f.write(f"participants:\t")
+                if block.participants: 
+                    for participant in block.participants:
+                        f.write(f"\t{participant} ")
+                f.write("\n")
                 f.write(f"Hash:\t\t {str(block.current_hash)}\n")
                 f.write("\n\n================ \n")

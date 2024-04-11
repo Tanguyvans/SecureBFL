@@ -136,7 +136,10 @@ class Node:
 
                     if cluster["count"] == cluster["tot"]:
                         aggregated_weights = self.aggregation_cluster(pos)
-                        message = self.create_update_request(aggregated_weights)
+
+                        participants = [k for k in cluster.keys() if k not in ["count", "tot"]]
+
+                        message = self.create_update_request(aggregated_weights, participants)
 
                         self.consensus_protocol.handle_message(message)
 
@@ -303,7 +306,8 @@ class Node:
             "content": {
                 "storage_reference": filename,
                 "model_type": model_type,
-                "calculated_hash": self.calculate_model_hash(filename)
+                "calculated_hash": self.calculate_model_hash(filename),
+                "participants": ["1", "2"]
             }
         }
 
@@ -326,13 +330,14 @@ class Node:
             "content": {
                 "storage_reference": filename,
                 "model_type": model_type,
-                "calculated_hash": self.calculate_model_hash(filename)
+                "calculated_hash": self.calculate_model_hash(filename), 
+                "participants": ["1", "2"]
             }
         }
 
         self.consensus_protocol.handle_message(message)
 
-    def create_update_request(self, weights):
+    def create_update_request(self, weights, participants):
 
         self.flower_client.set_parameters(weights)
 
@@ -351,7 +356,8 @@ class Node:
             "content": {
                 "storage_reference": filename,
                 "model_type": model_type,
-                "calculated_hash": self.calculate_model_hash(filename)
+                "calculated_hash": self.calculate_model_hash(filename),
+                "participants": participants
             }
         }
 
