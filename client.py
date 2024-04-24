@@ -205,7 +205,9 @@ def data_preparation(filename, number_of_nodes=3):
     df['satisfaction'] = df['satisfaction'].map({'neutral or dissatisfied': 0, 'satisfied': 1})
     df = df.dropna()
 
-    num_samples = len(df)
+    df_shuffled = df.sample(frac=1, random_state=42).reset_index(drop=True)
+
+    num_samples = len(df_shuffled)
 
     split_size = num_samples // number_of_nodes
 

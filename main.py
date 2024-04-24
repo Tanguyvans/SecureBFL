@@ -76,14 +76,14 @@ if __name__ == "__main__":
 
     numberOfNodes = 3
     numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
-    min_number_of_clients_in_cluster = 2
+    min_number_of_clients_in_cluster = 3
 
     poisonned_number = 0
-    epochs = 1
+    epochs = 10
     ts = 10
     dp = False  # True if you want to apply differential privacy
 
-    type_ss = "shamir"  # "shamir" or "additif"
+    type_ss = "additif"  # "shamir" or "additif"
     k = 3  # The threshold : The minimum number of parts to reconstruct the secret (so with a polynomial of order k-1)
     m = min_number_of_clients_in_cluster  # The number of parts used to reconstruct the secret (M <= K)
 
