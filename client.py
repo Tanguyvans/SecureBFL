@@ -13,13 +13,49 @@ from flowerclient import FlowerClient
 from node import get_keys, start_server
 
 
+def calculate_y(x, poly):
+    """
+    Function to calculate the value of y from a polynomial and a value of x:
+    y = poly[0] + x*poly[1] + x^2*poly[2] + ...
+
+    :param x: the value of x
+    :param poly: the list of coefficients of the polynomial
+
+    :return: the value of y
+    """
+    y = sum([poly[i] * x**i for i in range(len(poly))])
+    return y
+
+
 def encrypt(x, n_shares=2):
     shares = [random.uniform(-5, 5) for _ in range(n_shares - 1)]
     shares.append(x - sum(shares))
     return tuple(shares)
 
 
-def apply_smpc(input_list, n_shares=2):
+def apply_smpc(input_list, n_shares=2, type_ss="additif", seuil=3, m=3):
+    if type_ss == "additif":
+        return apply_additif(input_list, n_shares), None
+
+    elif type_ss == "shamir":
+        new_clients = [[] for i in range(m)]
+        dic_shapes = []
+        for layer_weights in input_list:
+            points = apply_poly(layer_weights.flatten(), n_shares, seuil)
+            x, y = points
+            for i in range(m):
+                # We use M parts to reconstruct the secret such that M <= K
+                # with K the number necessary to reconstruct the secret even if we have N parts (because N clients)
+                new_clients[i].append((x[i], y[i]))
+
+            dic_shapes.append(layer_weights.shape)
+        return new_clients, dic_shapes
+
+    else:
+        raise ValueError("Type of secret sharing not recognized")
+
+
+def apply_additif(input_list, n_shares=2):
     """
     Function to apply SMPC to a list of lists
 
@@ -54,9 +90,53 @@ def apply_smpc(input_list, n_shares=2):
     return encrypted_list
 
 
-def decrypt_list_of_lists(encrypted_list):
+def apply_poly(S, N, K):
     """
-    Function to decrypt a list of lists encrypted with SMPC
+    Function to perform secret sharing algorithm and encode the given secret when the secret is a tensor of values
+    :param S: The secret to share (a tensor of values of type numpy.ndarray)
+    :param N: the number of parts to divide the secret (so the number of participants)
+    :param K: the minimum number of parts to reconstruct the secret, called threshold (so with a polynomial of order K-1)
+
+    :return: the points generated from the polynomial we created for each part
+    """
+    # A tensor of polynomials to store the coefficients of each polynomial
+    # The element i of the column 0 corresponds to the constant of the polynomial i which is the secret S_i that we want to encrypt
+    poly = np.array([[S[i]] + [0] * (K - 1) for i in range(len(S))])
+
+    # Chose randomly K - 1 numbers for each row except the first column which is the secret
+    poly[:, 1:] = np.random.randint(1, 996, np.shape(poly[:, 1:])) + 1
+
+    # Generate N points for each polynomial we created
+    points = np.array([
+        [
+            (x, calculate_y(x, poly[i])) for x in range(1, N + 1)
+        ] for i in range(len(S))
+    ]).T
+    return points
+
+
+def decrypt_list_of_lists(encrypted_list, type_ss="additif", dico_shapes=None, m=3):
+    """
+    Function to decrypt a list of lists encrypted with secret sharing
+    :param encrypted_list: list of lists to decrypt
+    :param type_ss: type of secret sharing
+    :param dico_shapes:  list of shapes of the original secret (only for Shamir secret sharing)
+    :param m: number of parts used to reconstruct the secret (M <= K)
+    :return:
+    """
+    if type_ss == "additif":
+        return decrypt_additif(encrypted_list)
+
+    elif type_ss == "shamir":
+        return decrypt_shamir(encrypted_list, dico_shapes, m)
+
+    else:
+        raise ValueError("Type of secret sharing not recognized")
+
+
+def decrypt_additif(encrypted_list):
+    """
+    Function to decrypt a list of lists encrypted with additif secret sharing
     :param encrypted_list:
     :return:
     """
@@ -71,6 +151,48 @@ def decrypt_list_of_lists(encrypted_list):
         decrypted_list.append(sum_array)
 
     return decrypted_list
+
+
+def generate_secret_shamir(x, y, m):
+    """
+    Function to generate the secret from the given points
+    :param x: list of x
+    :param y: list of y
+    :param m: number of points to use for the reconstruction
+
+    :return: the secret
+    """
+    # Initialisation of the answer
+    ans = 0
+
+    # loop to go through the given points
+    for i in range(m):
+        l = y[i]
+        for j in range(m):
+            # Compute the Lagrange polynomial
+            if i != j:
+
+                temp = -x[j] / (x[i] - x[j])  # L_i(x=0)
+                l *= temp
+
+        ans += l
+
+    # return the secret
+    return ans
+
+
+def decrypt_shamir(encrypted_list, dic_shapes, m=3):
+    # Secret Reconstruction
+    secret_dic = []
+    for layer in range(len(encrypted_list[0])):
+        x_combine = np.array([encrypted_list[i][layer][0] for i in range(m)]).T
+        y_combine = np.array([encrypted_list[i][layer][1] for i in range(m)]).T
+
+        secret_dic.append(
+            np.round([generate_secret_shamir(x_combine[i], y_combine[i], m) for i in range(len(x_combine))],
+                                     4).reshape(dic_shapes[layer])
+        )
+    return secret_dic
 
 
 def data_preparation(filename, number_of_nodes=3):
@@ -108,10 +230,14 @@ def save_nodes_chain(nodes):
 
 
 class Client:
-    def __init__(self, id, host, port, batch_size, train, test, dp=False):
+    def __init__(self, id, host, port, batch_size, train, test, dp=False, type_ss="additif", seuil=3, m=3):
         self.id = id
         self.host = host
         self.port = port
+
+        self.type_ss = type_ss
+        self.seuil = seuil
+        self.m = m
 
         self.frag_weights = []
         self.sum_dataset_number = 0
@@ -130,7 +256,7 @@ class Client:
                                                           stratify=y_train)
 
         self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
-                                          dp, delta=1/(2*len(x_train)))
+                                          dp, delta=1/(2 * len(x_train)))
 
     def start_server(self):
         start_server(self.host, self.port, self.handle_message, self.id)
@@ -162,19 +288,21 @@ class Client:
             with open('output.txt', 'a') as f:
                 f.write(f"client {self.id}: {loss} \n")
 
-        encripted_lists = apply_smpc(res, len(self.connections)+1)
-        self.frag_weights.append(encripted_lists.pop())
+        # Apply SMPC (warning : dico_shapes is initialized only after the first training)
+        encrypted_lists, self.dico_shapes = apply_smpc(res, len(self.connections) + 1, self.type_ss, self.seuil, self.m)
 
-        return encripted_lists
+        # we keep the last share of the secret for this client and send the others to the other clients
+        self.frag_weights.append(encrypted_lists.pop())
+
+        return encrypted_lists
     
     def send_frag_clients(self, frag_weights): 
         i = 0
-        for k, v in self.connections.items(): 
+        for k, v in self.connections.items():
             address = v.get('address')
 
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect(('127.0.0.1', address))
-
             serialized_data = pickle.dumps(frag_weights[i])
             message = {"type": "frag_weights", "value": serialized_data}
 
@@ -231,7 +359,7 @@ class Client:
 
     @property
     def sum_weights(self): 
-        return decrypt_list_of_lists(self.frag_weights)
+        return decrypt_list_of_lists(self.frag_weights, self.type_ss, self.dico_shapes, self.m)
 
     def get_keys(self, private_key_path, public_key_path):
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
