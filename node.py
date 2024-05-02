@@ -23,6 +23,33 @@ from protocols.pbft_protocol import PBFTProtocol
 from protocols.raft_protocol import RaftProtocol
 
 
+def generate_secret_shamir(x, y, m):
+    """
+    Function to generate the secret from the given points
+    :param x: list of x
+    :param y: list of y
+    :param m: number of points to use for the reconstruction
+
+    :return: the secret
+    """
+    # Initialisation of the answer
+    ans = 0
+
+    # loop to go through the given points
+    for i in range(m):
+        l = y[i]
+        for j in range(m):
+            # Compute the Lagrange polynomial
+            if i != j:
+                temp = -x[j] / (x[i] - x[j])  # L_i(x=0)
+                l *= temp
+
+        ans += l
+
+    # return the secret
+    return ans
+
+
 def get_keys(private_key_path, public_key_path):
     os.makedirs("keys/", exist_ok=True)
     if os.path.exists(private_key_path) and os.path.exists(public_key_path):
@@ -78,8 +105,59 @@ def start_server(host, port, handle_message, num_node):
         threading.Thread(target=handle_message, args=(client_socket,)).start()
 
 
+def combine_shares_node(secret_list):
+    secret_dic_final = {}
+    for id_client in range(len(secret_list)):
+        for x, list_weights in secret_list[id_client].items():
+            if x in secret_dic_final:
+                for layer in range(len(list_weights)):
+                    secret_dic_final[x][layer] += list_weights[layer]
+            else:
+                secret_dic_final[x] = list_weights
+    return secret_dic_final
+
+
+def decrypt_shamir_node(secret_dic_final, secret_shape, m):
+    x_combine = list(secret_dic_final.keys())
+    y_combine = list(secret_dic_final.values())
+    decrypted_result = []
+    for layer in range(len(y_combine[0])):
+        list_x = []
+        list_y = []
+        for i in range(m):  # (len(x_combine)):
+            y = y_combine[i][layer]
+            x = np.ones(y.shape) * x_combine[i]
+            list_x.append(x)
+            list_y.append(y)
+
+        all_x_layer = np.array(list_x).T
+        all_y_layer = np.array(list_y).T
+
+        decrypted_result.append(
+            np.round(
+                [generate_secret_shamir(all_x_layer[i], all_y_layer[i], m) for i in range(len(all_x_layer))],
+                4).reshape(secret_shape[layer]) / len(x_combine)
+        )
+
+    return decrypted_result
+
+
+def aggregate_shamir(secret_list, secret_shape, m):
+    """
+
+    :param secret_list: list of shares of each client, so secret_list[id_client][x][layer]
+    :param secret_shape: list of shapes of the layers
+    :param m: number of shares to use for the reconstruction of the secret
+    :return: dictionary of the secret, so secret_dic_final[x] = [y1, y2, y3, y4] if we have 4 layers.
+    where x is the value of the x coordinate, and y1, y2, y3, y4 are the values of the y coordinate for each layer
+    """
+    secret_dic_final = combine_shares_node(secret_list)
+    return decrypt_shamir_node(secret_dic_final, secret_shape, m)
+
+
 class Node:
-    def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.05, dp=False):
+    def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.05,
+                 dp=False, ss_type="additif", m=3):
         self.id = id
         self.host = host
         self.port = port
@@ -103,6 +181,9 @@ class Node:
                                                           stratify=y_train)
         self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
                                           dp, delta=1/(2*len(x_train)))
+        self.ss_type = ss_type
+        self.secret_shape = None
+        self.m = m
 
         self.blockchain = Blockchain()
         if consensus_protocol == "pbft":
@@ -119,7 +200,6 @@ class Node:
 
         data_length = int.from_bytes(client_socket.recv(4), byteorder='big')
         data = client_socket.recv(data_length)
-
         message = pickle.loads(data)
 
         message_type = message.get("type")
@@ -127,10 +207,13 @@ class Node:
         if message_type == "frag_weights":
             message_id = message.get("id")
             weights = pickle.loads(message.get("value"))
+            self.secret_shape = message.get("list_shapes")
+
             for pos, cluster in enumerate(self.clusters):
                 if message_id in cluster:
                     if cluster[message_id] == 0:
                         self.cluster_weights[pos].append(weights)
+
                         cluster[message_id] = 1
                         cluster["count"] += 1
 
@@ -365,12 +448,14 @@ class Node:
 
         return message
 
-    def aggregation_cluster(self, pos): 
-        weights = []
-        for i in range(len(self.cluster_weights[pos])): 
-            weights.append((self.cluster_weights[pos][i], 20))
-
-        aggregated_weights = aggregate(weights)
+    def aggregation_cluster(self, pos):
+        if self.ss_type == "additif":
+            aggregated_weights = aggregate(
+                [(self.cluster_weights[pos][i], 20) for i in range(len(self.cluster_weights[pos]))]
+            )
+        else:
+            # shamir secret sharing
+            aggregated_weights = aggregate_shamir(self.cluster_weights[pos], self.secret_shape, self.m)
 
         loss = self.flower_client.evaluate(aggregated_weights, {})[0]
 

@@ -10,7 +10,7 @@ warnings.filterwarnings("ignore")
 
 
 # %%
-def create_nodes(train_sets, test_sets, number_of_nodes, dp=True):
+def create_nodes(train_sets, test_sets, number_of_nodes, dp=True, ss_type="additif", m=3):
     nodes = []
 
     for i in range(number_of_nodes): 
@@ -23,14 +23,16 @@ def create_nodes(train_sets, test_sets, number_of_nodes, dp=True):
                 batch_size=256,
                 train=train_sets[0],
                 test=test_sets[0],
-                dp=dp
+                dp=dp,
+                ss_type=ss_type,
+                m=m,
             )
         )
         
     return nodes
 
 
-def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", seuil=3, m=3):
+def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", threshold=3, m=3):
     clients = {}
     for i in range(number_of_clients): 
         clients[f"c{node}_{i+1}"] = Client(
@@ -42,7 +44,7 @@ def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type
             test=test_sets[0],
             dp=dp,
             type_ss=type_ss,
-            seuil=seuil,
+            threshold=threshold,
             m=m)
 
     return clients
@@ -70,13 +72,13 @@ def cluster_generation(nodes, clients, min_number_of_clients_in_cluster):
 if __name__ == "__main__":
     # %%
     logging.basicConfig(level=logging.DEBUG)
-
+    # %%
     train_path = 'Airline Satisfaction/train.csv'
     test_path = 'Airline Satisfaction/test.csv'
 
     numberOfNodes = 3
     numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
-    min_number_of_clients_in_cluster = 2
+    min_number_of_clients_in_cluster = 3
 
     poisonned_number = 0
     epochs = 1
@@ -108,7 +110,7 @@ if __name__ == "__main__":
         client_test_sets[i][1] = client_test_sets[i][1].replace({0: 1, 1: 0})
 
     # %%
-    nodes = create_nodes(node_train_sets, node_test_sets, numberOfNodes, dp=dp)
+    nodes = create_nodes(node_train_sets, node_test_sets, numberOfNodes, dp=dp, ss_type=type_ss, m=m)
 
     # %%## client to node connections ###
     clients = []
@@ -131,7 +133,7 @@ if __name__ == "__main__":
             if i != j: 
                 node_i.add_peer(peer_id=node_j.id, peer_address=("localhost", node_j.port))
         ### node to client ###
-        for client_j in clients[i].values(): 
+        for client_j in clients[i].values():
             node_i.add_client(client_id=client_j.id, client_address=("localhost", client_j.port))
 
     # %% run threads ###
@@ -142,21 +144,23 @@ if __name__ == "__main__":
 
     nodes[0].create_first_global_model_request()
     time.sleep(10)
-
+    # %% training and SMPC
     for epoch in range(epochs): 
         ### Creation of the clusters + client to client connections ###
         cluster_generation(nodes, clients, min_number_of_clients_in_cluster)
 
         ### training ###
         for i in range(numberOfNodes):
+            print(f"Node {i + 1} : Training\n")
             for client in clients[i].values():
-                frag_weights = client.train()
+                frag_weights = client.train()  # returns the shares to be sent to the other clients donc liste de la forme [(x1, y1), (x2, y2), ...]
                 client.send_frag_clients(frag_weights)
 
         time.sleep(ts)
 
         ### SMPC ###
         for i in range(numberOfNodes):
+            print(f"Node {i + 1} : SMPC\n")
             for client in clients[i].values():
                 client.send_frag_node()
                 time.sleep(ts)
@@ -174,3 +178,4 @@ if __name__ == "__main__":
     # %%
     for i in range(numberOfNodes):
         nodes[i].blockchain.save_chain_in_file(f"node{i + 1}.txt")
+

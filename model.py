@@ -14,9 +14,8 @@ class Model(nn.Module):
         # self.layer_7 = nn.Linear(120, 120)
         # self.layer_out = nn.Linear(120, 1) 
 
-        self.layer_1 = nn.Linear(22, 5) 
-        self.layer_out = nn.Linear(5, 1) 
-        
+        self.layer_1 = nn.Linear(22, 5)
+        self.layer_out = nn.Linear(5, 1)
         self.relu = nn.ReLU()
         
     def forward(self, inputs):

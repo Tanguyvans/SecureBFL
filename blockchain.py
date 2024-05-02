@@ -22,6 +22,7 @@ class Blockchain:
 
         if block.cryptographic_hash == hash and block.calculated_hash == hash_model: 
             return True
+
         else: 
             return False
 

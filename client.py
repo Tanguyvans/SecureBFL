@@ -10,7 +10,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
 from flowerclient import FlowerClient
-from node import get_keys, start_server
+from node import get_keys, start_server, generate_secret_shamir
 
 
 def calculate_y(x, poly):
@@ -23,7 +23,7 @@ def calculate_y(x, poly):
 
     :return: the value of y
     """
-    y = sum([poly[i] * x**i for i in range(len(poly))])
+    y = sum([poly[i] * x ** i for i in range(len(poly))])
     return y
 
 
@@ -33,23 +33,29 @@ def encrypt(x, n_shares=2):
     return tuple(shares)
 
 
-def apply_smpc(input_list, n_shares=2, type_ss="additif", seuil=3, m=3):
+def apply_shamir(input_list, n_shares=2, k=3):
+    list_clients = [[]for i in range(n_shares)]
+    for weights_layer in input_list:
+        y_i = apply_poly(weights_layer.flatten(), n_shares, k)[1]
+        for i in range(n_shares):
+            list_clients[i].append(y_i[i])
+
+    return list_clients
+
+
+def apply_smpc(input_list, n_shares=2, type_ss="additif", threshold=3, m=3):
     if type_ss == "additif":
         return apply_additif(input_list, n_shares), None
 
     elif type_ss == "shamir":
-        new_clients = [[] for i in range(m)]
-        dic_shapes = []
-        for layer_weights in input_list:
-            points = apply_poly(layer_weights.flatten(), n_shares, seuil)
-            x, y = points
-            for i in range(m):
-                # We use M parts to reconstruct the secret such that M <= K
-                # with K the number necessary to reconstruct the secret even if we have N parts (because N clients)
-                new_clients[i].append((x[i], y[i]))
+        secret_shape = [weights_layer.shape for weights_layer in input_list]
 
-            dic_shapes.append(layer_weights.shape)
-        return new_clients, dic_shapes
+        encrypted_result = apply_shamir(input_list, n_shares=n_shares, k=threshold)
+        indices = [i for i in range(len(encrypted_result))]  # We get the values of x associated with each y.
+        list_x = [i + 1 for i in range(len(encrypted_result))]
+        # random.shuffle(indices)
+        list_shares = [(list_x[id_client], encrypted_result[id_client])for id_client in indices]
+        return list_shares, secret_shape
 
     else:
         raise ValueError("Type of secret sharing not recognized")
@@ -115,12 +121,11 @@ def apply_poly(S, N, K):
     return points
 
 
-def decrypt_list_of_lists(encrypted_list, type_ss="additif", dico_shapes=None, m=3):
+def decrypt_list_of_lists(encrypted_list, type_ss="additif"):
     """
     Function to decrypt a list of lists encrypted with secret sharing
     :param encrypted_list: list of lists to decrypt
     :param type_ss: type of secret sharing
-    :param dico_shapes:  list of shapes of the original secret (only for Shamir secret sharing)
     :param m: number of parts used to reconstruct the secret (M <= K)
     :return:
     """
@@ -128,18 +133,13 @@ def decrypt_list_of_lists(encrypted_list, type_ss="additif", dico_shapes=None, m
         return decrypt_additif(encrypted_list)
 
     elif type_ss == "shamir":
-        return decrypt_shamir(encrypted_list, dico_shapes, m)
+        return sum_shares_shamir(encrypted_list)
 
     else:
         raise ValueError("Type of secret sharing not recognized")
 
 
 def decrypt_additif(encrypted_list):
-    """
-    Function to decrypt a list of lists encrypted with additif secret sharing
-    :param encrypted_list:
-    :return:
-    """
     decrypted_list = []
     n_shares = len(encrypted_list)
 
@@ -153,46 +153,30 @@ def decrypt_additif(encrypted_list):
     return decrypted_list
 
 
-def generate_secret_shamir(x, y, m):
-    """
-    Function to generate the secret from the given points
-    :param x: list of x
-    :param y: list of y
-    :param m: number of points to use for the reconstruction
-
-    :return: the secret
-    """
-    # Initialisation of the answer
-    ans = 0
-
-    # loop to go through the given points
-    for i in range(m):
-        l = y[i]
-        for j in range(m):
-            # Compute the Lagrange polynomial
-            if i != j:
-
-                temp = -x[j] / (x[i] - x[j])  # L_i(x=0)
-                l *= temp
-
-        ans += l
-
-    # return the secret
-    return ans
-
-
-def decrypt_shamir(encrypted_list, dic_shapes, m=3):
+def decrypt_shamir(encrypted_list, dic_shapes):
     # Secret Reconstruction
-    secret_dic = []
+    secret_list = []
+    m = len(encrypted_list)
     for layer in range(len(encrypted_list[0])):
         x_combine = np.array([encrypted_list[i][layer][0] for i in range(m)]).T
         y_combine = np.array([encrypted_list[i][layer][1] for i in range(m)]).T
-
-        secret_dic.append(
+        secret_list.append(
             np.round([generate_secret_shamir(x_combine[i], y_combine[i], m) for i in range(len(x_combine))],
-                                     4).reshape(dic_shapes[layer])
+                     4).reshape(dic_shapes[layer])
         )
-    return secret_dic
+    return secret_list
+
+
+def sum_shares_shamir(encrypted_list):
+    result_som = {}  # sum for a given client
+    for (x, list_weights) in encrypted_list:
+        if x in result_som:
+            for layer in range(len(list_weights)):
+                result_som[x][layer] += list_weights[layer]
+        else:
+            result_som[x] = list_weights
+
+    return result_som
 
 
 def data_preparation(filename, number_of_nodes=3):
@@ -205,16 +189,17 @@ def data_preparation(filename, number_of_nodes=3):
     df['satisfaction'] = df['satisfaction'].map({'neutral or dissatisfied': 0, 'satisfied': 1})
     df = df.dropna()
 
-    num_samples = len(df)
+    df_shuffled = df.sample(frac=1, random_state=42).reset_index(drop=True)
 
+    num_samples = len(df_shuffled)
     split_size = num_samples // number_of_nodes
 
     multi_df = []
     for i in range(number_of_nodes):
-        if i < number_of_nodes-1:
-            subset = df.iloc[i*split_size:(i+1)*split_size]
+        if i < number_of_nodes - 1:
+            subset = df.iloc[i * split_size:(i + 1) * split_size]
         else:
-            subset = df.iloc[i*split_size:]
+            subset = df.iloc[i * split_size:]
 
         x_s = subset.drop(['satisfaction'], axis=1)
         y_s = subset[['satisfaction']]
@@ -230,14 +215,15 @@ def save_nodes_chain(nodes):
 
 
 class Client:
-    def __init__(self, id, host, port, batch_size, train, test, dp=False, type_ss="additif", seuil=3, m=3):
+    def __init__(self, id, host, port, batch_size, train, test, dp=False, type_ss="additif", threshold=3, m=3):
         self.id = id
         self.host = host
         self.port = port
 
         self.type_ss = type_ss
-        self.seuil = seuil
+        self.threshold = threshold
         self.m = m
+        self.list_shapes = None
 
         self.frag_weights = []
         self.sum_dataset_number = 0
@@ -256,7 +242,7 @@ class Client:
                                                           stratify=y_train)
 
         self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
-                                          dp, delta=1/(2 * len(x_train)))
+                                          dp, delta=1 / (2 * len(x_train)))
 
     def start_server(self):
         start_server(self.host, self.port, self.handle_message, self.id)
@@ -280,29 +266,37 @@ class Client:
         client_socket.close()
 
     def train(self):
+        """
+        Function to train the model
+        :return:
+        """
         old_params = self.flower_client.get_parameters({})
         res = old_params[:]
         for i in range(3):
+            # why 3 iterations?
             res = self.flower_client.fit(res, {})[0]
             loss = self.flower_client.evaluate(res, {})[0]
             with open('output.txt', 'a') as f:
                 f.write(f"client {self.id}: {loss} \n")
 
-        # Apply SMPC (warning : dico_shapes is initialized only after the first training)
-        encrypted_lists, self.dico_shapes = apply_smpc(res, len(self.connections) + 1, self.type_ss, self.seuil, self.m)
-
+        # Apply SMPC (warning : list_shapes is initialized only after the first training)
+        print(len(self.connections) + 1)
+        encrypted_lists, self.list_shapes = apply_smpc(res, len(self.connections) + 1, self.type_ss, self.threshold, self.m)
         # we keep the last share of the secret for this client and send the others to the other clients
         self.frag_weights.append(encrypted_lists.pop())
-
         return encrypted_lists
-    
-    def send_frag_clients(self, frag_weights): 
-        i = 0
-        for k, v in self.connections.items():
+
+    def send_frag_clients(self, frag_weights):
+        """
+        function to send the shares of the secret to the other clients
+        :param frag_weights: list of shares of the secret (one share for each other client)
+        """
+        for i, (k, v) in enumerate(self.connections.items()):
             address = v.get('address')
 
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect(('127.0.0.1', address))
+
             serialized_data = pickle.dumps(frag_weights[i])
             message = {"type": "frag_weights", "value": serialized_data}
 
@@ -314,16 +308,15 @@ class Client:
 
             # close the socket after sending
             client_socket.close()
-            i += 1
 
-    def send_frag_node(self): 
+    def send_frag_node(self):
         address = self.node.get('address')
 
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect(('127.0.0.1', address))
 
-        serialized_data = pickle.dumps(self.sum_weights)
-        message = {"type": "frag_weights", "id": self.id, "value": serialized_data}
+        serialized_data = pickle.dumps(self.sum_weights)  # The values summed on the client side and sent to the node.
+        message = {"type": "frag_weights", "id": self.id, "value": serialized_data, "list_shapes": self.list_shapes}
 
         serialized_message = pickle.dumps(message)
 
@@ -335,8 +328,8 @@ class Client:
         client_socket.close()
 
         self.frag_weights = []
-    
-    def reset_connections(self): 
+
+    def reset_connections(self):
         self.connections = {}
 
     def add_connections(self, id, address):
@@ -358,8 +351,8 @@ class Client:
         self.node = {"address": address, "public_key": public_key}
 
     @property
-    def sum_weights(self): 
-        return decrypt_list_of_lists(self.frag_weights, self.type_ss, self.dico_shapes, self.m)
+    def sum_weights(self):
+        return decrypt_list_of_lists(self.frag_weights, self.type_ss)
 
     def get_keys(self, private_key_path, public_key_path):
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)

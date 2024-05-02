@@ -16,6 +16,12 @@ Run the following command to install the required dependencies from the requirem
 
 pip install -r requirements.txt
 
+### TODO
+
+- [ ] Applify the evaluation metrics (only loss is implemented)
+- [ ] Find and use another dataset
+- [ ] Apply other smpc techniques
+
 ### Run the Main Script:
 
 Execute the main script main.py to initiate the DFL architecture and start the federated learning process:
