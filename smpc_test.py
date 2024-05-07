@@ -1,37 +1,117 @@
 # %%
 from flowerclient import FlowerClient
 from sklearn.model_selection import train_test_split
-from client import (apply_smpc, data_preparation, decrypt_list_of_lists, decrypt_shamir, encrypt, decrypt_additif,
-                    apply_shamir, sum_shares_shamir)
+from client import (apply_smpc, data_preparation, sum_shares,
+                    apply_shamir, sum_shares_shamir, apply_additif, sum_shares_additif)
 from node import aggregate_shamir, decrypt_shamir_node, combine_shares_node
 import numpy as np
 import random
 
 
-def ss_shamir(list_secrets, k, n_shares=3):
-    # On va simuler le partage de secret dans un ordre aléatoire entre les clients
+# %% Functions to implement the additif secret sharing
+def encrypt_value(x, n_shares=3):
+    """
+    Function to encrypt a value with additif secret sharing
+    :param x: the value to encrypt
+    :param n_shares: the number of parts to divide the secret (so the number of participants)
+    :return: the list of shares for each client
+    """
+    shares = [random.uniform(-5, 5) for _ in range(n_shares - 1)]
+    shares.append(x - sum(shares))
+    return tuple(shares)
+
+
+def apply_additif0(input_list, n_shares=3):
+    """
+    Function to apply SMPC to a list of lists
+
+    :param input_list: List of lists to encrypt
+    :param n_shares: Number of shares to create
+    :return: The list of shares for each client
+    """
+    encrypted_list = [[] for i in range(n_shares)]
+    for inner_list in input_list:
+        if isinstance(inner_list[0], np.ndarray):
+            encrypted_inner_list = [[] for i in range(n_shares)]
+            for inner_inner_list in inner_list:
+                encrypted_inner_inner_list = [[] for i in range(n_shares)]
+                for x in inner_inner_list:
+                    crypted_tuple = encrypt_value(x, n_shares)
+                    for i in range(n_shares):
+                        encrypted_inner_inner_list[i].append(crypted_tuple[i])
+
+                for i in range(n_shares):
+                    encrypted_inner_list[i].append(encrypted_inner_inner_list[i])
+        else:
+            encrypted_inner_list = [[] for i in range(n_shares)]
+            for x in inner_list:
+                crypted_tuple = encrypt_value(x, n_shares)
+
+                for i in range(n_shares):
+                    encrypted_inner_list[i].append(crypted_tuple[i])
+
+        for i in range(n_shares):
+            encrypted_list[i].append(np.array(encrypted_inner_list[i]))
+
+    return encrypted_list
+
+
+def sum_shares_additif0(encrypted_list):
+    """
+    Function to sum the shares of the secret for each client
+    :param encrypted_list: list of lists to decrypt
+    :return: the decrypted list
+    """
+    decrypted_list = []
+    n_shares = len(encrypted_list)
+
+    for i in range(len(encrypted_list[0])):
+        sum_array = np.add(encrypted_list[0][i], encrypted_list[1][i])
+        for j in range(2, n_shares):
+            sum_array = np.add(sum_array, encrypted_list[j][i])
+
+        decrypted_list.append(sum_array)
+
+    return decrypted_list
+
+
+# Function to implement the Shamir secret sharing
+def ss_shamir(list_secrets, k=3, n_shares=3):
+    """
+    Function implementing Shamir's secret sharing by simulating the sharing of secrets between clients
+    :param list_secrets: list of secrets for each client
+    :param k: The threshold : The minimum number of parts to reconstruct the secret (so with a polynomial of order k-1)
+    :param n_shares: The number of parts to divide the secret (so the number of participants)
+    :return: the list of shares for each client
+    """
+    # We will simulate the sharing of the secret in a random order between the clients
     list_clients = [[] for i in range(n_shares)]
-    # shamir : [num_client][layer][coordonnee]
     # additif secret sharing : [num_client][layer][line_tensor]
     secret_shape = [weights_layer.shape for weights_layer in list_secrets[0]]
     for i, secret_client in enumerate(list_secrets):
         encrypted_result = apply_shamir(secret_client, n_shares=n_shares, k=k)
-        indices = [i for i in range(len(encrypted_result))]  # on fait une liste des indices pour les mélanger
-        list_x = [i + 1 for i in range(len(encrypted_result))]  # on récupère les valeurs de x associées à chaque y
-        random.shuffle(indices)  # on mélange les indices pour distribuer les parts de manière aléatoire
+        indices = [i for i in range(len(encrypted_result))]  # We make a list of indices to shuffle them
+        list_x = [i + 1 for i in range(len(encrypted_result))]  # We get the values of x associated with each y.
+        random.shuffle(indices)  # We shuffle the indices to distribute the shares randomly.
         for id_client in indices:
             list_clients[i].append((list_x[id_client], encrypted_result[id_client]))
     return list_clients, secret_shape
 
 
+# Function to aggregate the shares of the secret cluster side
 def aggregation_cluster(cluster_weight, secret_shape, m, clusters):
+    """
+    Function to aggregate the shares of the secret cluster side? This is a copy of the function in the Node class.
+    :param cluster_weight: All of the parts received by a cluster
+    :param secret_shape: list of the shapes of the secret
+    :param m: The number of parts used to reconstruct the secret (M <= K)
+    :param clusters: the dictionary of the clusters
+    :return: the aggregated weights
+    """
     # cluster_weights[id_share][1][layer]
 
     aggregated_weights = aggregate_shamir(cluster_weight, secret_shape, m)
 
-    #loss = self.flower_client.evaluate(aggregated_weights, {})[0]
-
-    cluster_weight = []
     for k, v in clusters.items():
         if k != "tot":
             clusters[k] = 0
@@ -48,7 +128,7 @@ if __name__ == '__main__':
     k = 3
     m = 3
     dp = False
-    type_ss = "shamir"  # "shamir" or "additif"
+    type_ss = "additif"  # "shamir" or "additif"
     # %%
     train_sets = data_preparation(train_path, 1)
     test_sets = data_preparation(test_path, 1)
@@ -98,26 +178,12 @@ if __name__ == '__main__':
     }
     res = list(state_dict.values())
     # %%
-    # encrypted_result[num_client][layer][coordonnee]
-    encrypted_result, dic_shapes = apply_smpc(res, n_shares, type_ss, k, m)
-    # a = encrypted_result.pop()
-    # %%
-    decrypted_result = decrypt_list_of_lists(encrypted_result, type_ss)
+    encrypted_result, dic_shapes = apply_smpc(res, n_shares, type_ss, k)
 
     # %%
-    print("Liste de listes originale :")
-    print(res)
+    decrypted_result = sum_shares(encrypted_result, type_ss)
 
-    # %%
-    # print("\nListe de listes chiffrée :")
-    # print(encrypted_result[0])
-    # print(encrypted_result[1])
-    # print(encrypted_result[2])
-
-    print("\nListe de listes déchiffré :")
-    print(decrypted_result)
-
-    # %% verifier qu'on obtient bien le même résultat
+    # %% Check that we get the same result
     for layer, val in enumerate(res):
         print(f"Layer {layer} : {(np.round(np.float64(val),4) == decrypted_result[layer]).all()}")
 
@@ -129,38 +195,22 @@ if __name__ == '__main__':
     ####################################################################################################################
     # %% test du additif secret sharing
     # encrypted_list[num_client][layer][line_tensor],
-    encrypted_list = [[] for i in range(n_shares)]
-    for weights_layer in res:
-        # verifier si c'est bien une matrice
-        if isinstance(weights_layer[0], np.ndarray):
-            # liste pour la couche donnée où chaque élement est une share pour un client.
-            encrypted_layer = [[] for i in range(n_shares)]  # crypter un tenseur de poids
-            for line in weights_layer:
-                # liste pour une ligne d'un tenseur de poids d'une couche donnée où chaque élement est une share pour un client.
-                encrypted_line = [[] for i in range(n_shares)]
-                for elem in line:
-                    # On crée un tuple où chaque élement est une share pour un client et leur somme est égale à elem
-                    crypted_tuple = encrypt(elem, n_shares)
-                    for i in range(n_shares):
-                        # On a calculé les parts d'un element pour une ligne d'un tenseur de poids
-                        # On ajoute chaque part d'un element à la ligne correspondante du client i
-                        encrypted_line[i].append(crypted_tuple[i])
+    encrypted_list1 = apply_additif0(res, n_shares)
 
-                # Pour une couche donnée, on attribue au client i la ligne cryptée
-                for i in range(n_shares):
-                    encrypted_layer[i].append(encrypted_line[i])
-        else:
-            encrypted_layer = [[] for i in range(n_shares)]
-            for x in weights_layer:
-                crypted_tuple = encrypt(x, n_shares)
+    # %% Implement the additif secret sharing shorter
+    encrypted_list2 = apply_additif(res, n_shares)
 
-                for i in range(n_shares):
-                    encrypted_layer[i].append(crypted_tuple[i])
+    # %% We recombine the shares to decrypt the secret
+    decrypted_result1 = sum_shares_additif0(encrypted_list1)
+    decrypted_result2 = sum_shares_additif(encrypted_list2)
 
-        # Au final, chaque client i a une part de chaque ligne de la couche donnée
-        # Car on ajoute pour le client i, l'encrypted_layer qu'on a préparé pour ce client
-        for i in range(n_shares):
-            encrypted_list[i].append(np.array(encrypted_layer[i]))
+    # %%
+    precision = 2
+    for layer, val in enumerate(decrypted_result2):
+        print(
+            f"Layer {layer} : {(np.round(np.float64(val), precision) == np.round(decrypted_result1[layer], precision)).all()}")
+        if not (np.round(np.float64(val), precision) == np.round(decrypted_result1[layer], precision)).all():
+            break
 
     ####################################################################################################################
     ####################################################################################################################
@@ -168,42 +218,33 @@ if __name__ == '__main__':
     ####################################################################################################################
     ####################################################################################################################
     ####################################################################################################################
-    # %% voir si on choisit bien les parts pour le secret sharing de Shamir
-    a = decrypt_additif([encrypted_list[0], encrypted_list[1], encrypted_list[2]])
-    b = decrypt_shamir([encrypted_result[0], encrypted_result[1]], dic_shapes)
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-    # %% test de l'addition de polynomes et donc l'addition de shamir secret sharing
+    # %% test de l'addition de polynômes et donc l'addition de shamir secret sharing
+    # run these lines only if you have chosen the shamir secret sharing type
     S1 = res
     S2 = res
     S3 = res
     list_secrets = [S1, S2, S3]
-    # %% tester sur un dictionnaire simple state_dict
+    # %% Test on a simple dictionary state_dict
     if m < k:
-        print('Les points sont moins que le seuil de ' + str(k) + ', plus de points sont nécessaires')
+        print('There are fewer points than the threshold of ' + str(k) + ' required, more points are needed')
 
-    # %%Secret sharing
+    # %% Secret sharing
     list_clients, secret_shape = ss_shamir(list_secrets, k, n_shares)
 
-    # %% on va faire pour un client donné la somme des parts qu'il a reçu pour chaque valeur de x
+    # %% For each client, we sum the shares he received for each value of x
     secrets_result = []
     for id_client in range(len(list_clients)):
         result_som = sum_shares_shamir(list_clients[id_client])
         secrets_result.append(result_som)
-    # %% on somme maintenant les sommes des 3 clients pour chaque valeur de x afin d'avoir un seul model à déchiffrer
-    # On réunit les parts reçues au node.
-
+    # %% We sum the sums of the 3 clients for each value of x in order to have a single model to decrypt.
+    # We combine the parts received at the node.
     dico_secrets_combined = combine_shares_node(secrets_result)
 
-    # %% on va decoder le secret final coté node
+    # %% We will decode the final secret on the node side
     # Secret Reconstruction
     decrypted_result = decrypt_shamir_node(dico_secrets_combined, secret_shape, m)
 
-    # %% verifier qu'on obtient bien le même résultat
+    # %% Check that we get the same result
     for layer, val in enumerate(decrypted_result):
         print(f"Layer {layer} : {(val == decrypted_result[layer]).all()}")
 
@@ -212,28 +253,29 @@ if __name__ == '__main__':
     ####################################################################################################################
     ####################################################################################################################
     ####################################################################################################################
-    # %% tester direct avec les classes client et node
+
+    # %% Test directly with the client and node classes
     list_frag_weights = [[] for i in range(n_shares)]
+
     #%%#############################  client 1 ################################
     for id_client, frag_weights in enumerate(list_frag_weights):
         print(f"Client {id_client} :")
         indices = [i for i in range(n_shares) if i != id_client]
         ############# train() function #############
-        encrypted_lists, list_shapes = apply_smpc(res, n_shares, type_ss, k, m)
+        encrypted_lists, list_shapes = apply_smpc(res, n_shares, type_ss, k)
         # we keep the last share of the secret for this client and send the others to the other clients
         a = encrypted_lists.pop()
-        print(f"in train, the id {id_client} keeps the share = {a[0]} for him.\n")
+        print(f"In train, the id {id_client} keeps the share = {a[0]} for him.\n")
         list_frag_weights[id_client].append(a)
 
         ####### send_frag_clients() function #######
         print(
-            f"in send_frag_clients, the id {id_client} sends the frag_weights = {[share[0] for share in encrypted_lists]}\n")
+            f"In send_frag_clients, the id {id_client} sends the frag_weights = {[share[0] for share in encrypted_lists]}\n")
 
         for other_client in indices:
             ########### handle_message() function ###########
-            #if message["type"] == "frag_weights":
             weights = encrypted_lists[0]
-            print(f"client {other_client} received weights from {id_client} : {weights}")
+            print(f"Client {other_client} received weights from {id_client} : {weights}")
             list_frag_weights[other_client].append(weights)
             del encrypted_lists[0]
 
@@ -250,12 +292,13 @@ if __name__ == '__main__':
         print("len(list_frag_weights[id_client]) = ", len(list_frag_weights[id_client]))
         a = sum_shares_shamir(list_frag_weights[id_client])
         print(
-            f"in send_frag_node for the id {id_client}, self.frag_weights = {[share[0] for share in list_frag_weights[id_client]]}\n"
-            f"len(self.frag_weights)={len(list_frag_weights[id_client])} vaut logiquement 3 si tout va bien\n"
-            f"len(self.frag_weights[0][0]) doit valoir 2 car tuple (x,y)  et vaut {len(list_frag_weights[id_client][0])}\n"
-            f"a[abscisse][layer] donc type(a) doit être un dico de taille 3 si 3 abscisses diff reçus : len(a) = {len(a)}, type(a) = {type(a)}\n")
+            f"In send_frag_node for the id {id_client}, self.frag_weights = {[share[0] for share in list_frag_weights[id_client]]}\n"
+            f"len(self.frag_weights)={len(list_frag_weights[id_client])} should be equal to 3 if everything is fine\n"
+            f"len(self.frag_weights[0][0]) should be equal to 2 because it's a tuple (x,y) and is equal to {len(list_frag_weights[id_client][0])}\n"
+            f"a[abscisse][layer] so type(a) should be a dict of size 3 if 3 different abscissas received : len(a) = {len(a)}, type(a) = {type(a)}\n"
+        )
 
-        print(f"serialized_data: {len(a)} == nbr_abcisse and {len(list(a.values())[0])} == nbr_layers\n")
+        print(f"Serialized_data: {len(a)} == nbr_abcisse and {len(list(a.values())[0])} == nbr_layers\n")
 
 
         list_frag_weights[id_client] = []
@@ -271,19 +314,15 @@ if __name__ == '__main__':
                     cluster_weights[pos].append(weights)
                     test_abscisse = list(weights.keys())[0]
                     print(
-                        f"logiquement, pour le cluster {pos}, weights correspond au result_som du client {id_client} donc weights[abcisse][layer],"
-                        f"donc type(weights), len(weights[{test_abscisse}]) doivent être égaux à (dict, 4) : ({type(weights)}, {len(weights[test_abscisse])}\n)")
-                    if len(weights[test_abscisse]) > 4:
-                        print(
-                            f"et taille des couches : {len(weights[test_abscisse][-1])} and len(weights[test_abscisse][-1][0] = {len(weights[test_abscisse][-1][0])}")
-                    else:
-                        print("ok ok")
+                        f"Logically, for the cluster {pos}, weights should correspond to the result_som of client {id_client} so weights[abscissa][layer],"
+                        f"so type(weights), len(weights[{test_abscisse}]) should be equal to (dict, 4) : ({type(weights)}, {len(weights[test_abscisse])}\n)"
+                    )
+
                     cluster[id_client] = 1
                     cluster["count"] += 1
 
                 if cluster["count"] == cluster["tot"]:
                     print(
-                        "On est là",
                         len(cluster_weights), len(cluster_weights[pos]), len(cluster_weights[pos][0]), len(cluster_weights[pos][0][1])
                     )
                     aggregated_weights = aggregation_cluster(cluster_weights[pos], list_shapes, m, clusters[pos])

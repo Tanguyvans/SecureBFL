@@ -1,5 +1,5 @@
 import pickle
-import random
+# import random
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
@@ -10,40 +10,19 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
 from flowerclient import FlowerClient
-from node import get_keys, start_server, generate_secret_shamir
+from node import get_keys, start_server
 
 
-def calculate_y(x, poly):
+# %% list of functions to apply secret sharing algorithm
+def apply_smpc(input_list, n_shares=2, type_ss="additif", threshold=3):
     """
-    Function to calculate the value of y from a polynomial and a value of x:
-    y = poly[0] + x*poly[1] + x^2*poly[2] + ...
-
-    :param x: the value of x
-    :param poly: the list of coefficients of the polynomial
-
-    :return: the value of y
+    Function to apply secret sharing algorithm and encode the given secret
+    :param input_list: list of values to share
+    :param n_shares: the number of parts to divide the secret (so the number of participants)
+    :param type_ss: the type of secret sharing algorithm to use (by default additif)
+    :param threshold: the minimum number of parts to reconstruct the secret (so with a polynomial of order threshold-1)
+    :return: the list of shares for each client and the shape of the secret
     """
-    y = sum([poly[i] * x ** i for i in range(len(poly))])
-    return y
-
-
-def encrypt(x, n_shares=2):
-    shares = [random.uniform(-5, 5) for _ in range(n_shares - 1)]
-    shares.append(x - sum(shares))
-    return tuple(shares)
-
-
-def apply_shamir(input_list, n_shares=2, k=3):
-    list_clients = [[]for i in range(n_shares)]
-    for weights_layer in input_list:
-        y_i = apply_poly(weights_layer.flatten(), n_shares, k)[1]
-        for i in range(n_shares):
-            list_clients[i].append(y_i[i])
-
-    return list_clients
-
-
-def apply_smpc(input_list, n_shares=2, type_ss="additif", threshold=3, m=3):
     if type_ss == "additif":
         return apply_additif(input_list, n_shares), None
 
@@ -61,39 +40,74 @@ def apply_smpc(input_list, n_shares=2, type_ss="additif", threshold=3, m=3):
         raise ValueError("Type of secret sharing not recognized")
 
 
-def apply_additif(input_list, n_shares=2):
+# Functions for additif secret sharing
+
+def encrypt_tensor(secret, n_shares=3):
     """
-    Function to apply SMPC to a list of lists
-
-    :param input_list: list of lists to encrypt
-    :param n_shares: number of shares to create
-    :return:
+    Function to encrypt a tensor of values with additif secret sharing
+    :param secret: the tensor of values to encrypt
+    :param n_shares: the number of parts to divide the secret (so the number of participants)
+    :return: the list of shares for each client where each share is a tensor of values
     """
-    encrypted_list = [[] for i in range(n_shares)]
-    for inner_list in input_list:
-        if isinstance(inner_list[0], np.ndarray):
-            encrypted_inner_list = [[] for i in range(n_shares)]
-            for inner_inner_list in inner_list:
-                encrypted_inner_inner_list = [[] for i in range(n_shares)]
-                for x in inner_inner_list:
-                    crypted_tuple = encrypt(x, n_shares)
-                    for i in range(n_shares):
-                        encrypted_inner_inner_list[i].append(crypted_tuple[i])
+    shares = [np.random.randint(-5, 5, size=secret.shape) for _ in range(n_shares - 1)]
 
-                for i in range(n_shares):
-                    encrypted_inner_list[i].append(encrypted_inner_inner_list[i])
-        else:
-            encrypted_inner_list = [[] for i in range(n_shares)]
-            for x in inner_list:
-                crypted_tuple = encrypt(x, n_shares)
+    # The last part is deduced from the sum of the previous parts to guarantee additivity
+    shares.append(secret - sum(shares))
 
-                for i in range(n_shares):
-                    encrypted_inner_list[i].append(crypted_tuple[i])
+    return shares
 
+
+def apply_additif(input_list, n_shares=3):
+    """
+    Function to apply secret sharing algorithm and encode the given secret when the secret is a tensor of values
+    :param input_list: The secret to share (a tensor of values of type numpy.ndarray)
+    :param n_shares: the number of parts to divide the secret (so the number of participants)
+    :return: the list of shares for each client where each share is a list of tensors (one tensor for each layer)
+
+    """
+    encrypted_list = [[] for _ in range(n_shares)]
+    for weights_layer in input_list:
+        # List for the given layer where each element is a share for a client.
+        encrypted_layer = encrypt_tensor(weights_layer, n_shares)  # crypter un tenseur de poids
+
+        # For each layer, each client i has a part of each row of the given layer
+        # because we add for client i, the encrypted_layer we prepared for this client
         for i in range(n_shares):
-            encrypted_list[i].append(np.array(encrypted_inner_list[i]))
+            encrypted_list[i].append(np.array(encrypted_layer[i]))
 
     return encrypted_list
+
+
+# Functions for shamir secret sharing
+def calculate_y(x, poly):
+    """
+    Function to calculate the value of y from a polynomial and a value of x:
+    y = poly[0] + x*poly[1] + x^2*poly[2] + ...
+
+    :param x: the value of x
+    :param poly: the list of coefficients of the polynomial
+
+    :return: the value of y
+    """
+    y = sum([poly[i] * x ** i for i in range(len(poly))])
+    return y
+
+
+def apply_shamir(input_list, n_shares=2, k=3):
+    """
+    Function to apply shamir's secret sharing algorithm
+    :param input_list: secret to share (a list of tensors of values of type numpy.ndarray)
+    :param n_shares: the number of parts to divide the secret (so the number of participants)
+    :param k: the minimum number of parts to reconstruct the secret, called threshold (so with a polynomial of order k-1)
+    :return: the list of shares for each client
+    """
+    list_clients = [[]for i in range(n_shares)]
+    for weights_layer in input_list:
+        y_i = apply_poly(weights_layer.flatten(), n_shares, k)[1]
+        for i in range(n_shares):
+            list_clients[i].append(y_i[i])
+
+    return list_clients
 
 
 def apply_poly(S, N, K):
@@ -106,7 +120,8 @@ def apply_poly(S, N, K):
     :return: the points generated from the polynomial we created for each part
     """
     # A tensor of polynomials to store the coefficients of each polynomial
-    # The element i of the column 0 corresponds to the constant of the polynomial i which is the secret S_i that we want to encrypt
+    # The element i of the column 0 corresponds to the constant of the polynomial i which is the secret S_i
+    # that we want to encrypt
     poly = np.array([[S[i]] + [0] * (K - 1) for i in range(len(S))])
 
     # Chose randomly K - 1 numbers for each row except the first column which is the secret
@@ -121,16 +136,17 @@ def apply_poly(S, N, K):
     return points
 
 
-def decrypt_list_of_lists(encrypted_list, type_ss="additif"):
+# %% Functions to decrypt the secret
+def sum_shares(encrypted_list, type_ss="additif"):
     """
-    Function to decrypt a list of lists encrypted with secret sharing
+    Function to sum the parts received by an entity
     :param encrypted_list: list of lists to decrypt
-    :param type_ss: type of secret sharing
+    :param type_ss: type of secret sharing algorithm used
     :param m: number of parts used to reconstruct the secret (M <= K)
-    :return:
+    :return: the sum of the parts received
     """
     if type_ss == "additif":
-        return decrypt_additif(encrypted_list)
+        return sum_shares_additif(encrypted_list)
 
     elif type_ss == "shamir":
         return sum_shares_shamir(encrypted_list)
@@ -139,35 +155,32 @@ def decrypt_list_of_lists(encrypted_list, type_ss="additif"):
         raise ValueError("Type of secret sharing not recognized")
 
 
-def decrypt_additif(encrypted_list):
+def sum_shares_additif(encrypted_list):
+    """
+    Function to sum the parts received by an entity when the secret sharing algorithm used is additif.
+    :param encrypted_list: list of shares to sum
+    :return: the sum of the parts received
+    so decrypted_list[layer] = sum([weights_1[layer], weights_2[layer], ..., weights_n[layer]])
+    """
     decrypted_list = []
     n_shares = len(encrypted_list)
 
-    for i in range(len(encrypted_list[0])):
-        sum_array = np.add(encrypted_list[0][i], encrypted_list[1][i])
-        for j in range(2, n_shares):
-            sum_array = np.add(sum_array, encrypted_list[j][i])
+    for layer in range(len(encrypted_list[0])):  # for each layer
+        # We sum each part of the given layer
+        sum_array = sum([encrypted_list[i][layer] for i in range(n_shares)])
 
         decrypted_list.append(sum_array)
 
     return decrypted_list
 
 
-def decrypt_shamir(encrypted_list, dic_shapes):
-    # Secret Reconstruction
-    secret_list = []
-    m = len(encrypted_list)
-    for layer in range(len(encrypted_list[0])):
-        x_combine = np.array([encrypted_list[i][layer][0] for i in range(m)]).T
-        y_combine = np.array([encrypted_list[i][layer][1] for i in range(m)]).T
-        secret_list.append(
-            np.round([generate_secret_shamir(x_combine[i], y_combine[i], m) for i in range(len(x_combine))],
-                     4).reshape(dic_shapes[layer])
-        )
-    return secret_list
-
-
 def sum_shares_shamir(encrypted_list):
+    """
+    Function to sum the parts received by an entity when the secret sharing algorithm used is Shamir.
+    In this case, we sum points.
+    :param encrypted_list: list of shares to sum where each element is a tuple (x, y) with x a abscissa and y all of the y received for this x.
+    :return: the sum of the parts received so result_som[x] = sum([y_1, y_2, ..., y_n])
+    """
     result_som = {}  # sum for a given client
     for (x, list_weights) in encrypted_list:
         if x in result_som:
@@ -179,6 +192,7 @@ def sum_shares_shamir(encrypted_list):
     return result_som
 
 
+# %% Other functions
 def data_preparation(filename, number_of_nodes=3):
     df = pd.read_csv(filename)
     df = df.drop(['Unnamed: 0', 'id'], axis=1)
@@ -281,7 +295,7 @@ class Client:
 
         # Apply SMPC (warning : list_shapes is initialized only after the first training)
         print(len(self.connections) + 1)
-        encrypted_lists, self.list_shapes = apply_smpc(res, len(self.connections) + 1, self.type_ss, self.threshold, self.m)
+        encrypted_lists, self.list_shapes = apply_smpc(res, len(self.connections) + 1, self.type_ss, self.threshold)
         # we keep the last share of the secret for this client and send the others to the other clients
         self.frag_weights.append(encrypted_lists.pop())
         return encrypted_lists
@@ -352,7 +366,7 @@ class Client:
 
     @property
     def sum_weights(self):
-        return decrypt_list_of_lists(self.frag_weights, self.type_ss)
+        return sum_shares(self.frag_weights, self.type_ss)
 
     def get_keys(self, private_key_path, public_key_path):
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
