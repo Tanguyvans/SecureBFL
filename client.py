@@ -192,16 +192,71 @@ def sum_shares_shamir(encrypted_list):
     return result_som
 
 
+def create_sequences(data, seq_length):
+    """
+    Function to preprocess sequential data to make it usable for training neural networks.
+    It transforms raw data into input-target pairs
+
+    :param data: the dataframe containing the data or the numpy array containing the data
+    :param seq_length: The length of the input sequences. It is the number of consecutive data points used as input to predict the next data point.
+    :return: the numpy arrays of the inputs and the targets,
+    where the inputs are sequences of consecutive data points and the targets are the immediate next data points.
+    """
+    if len(data) < seq_length:
+        raise ValueError("The length of the data is less than the sequence length")
+
+    xs, ys = [], []
+    # Iterate over data indices
+    for i in range(len(data) - seq_length):
+        if type(data) is pd.DataFrame:
+            # Define inputs
+            x = data.iloc[i:i + seq_length]
+
+            # Define target
+            y = data.iloc[i + seq_length]
+
+        else:
+            # Define inputs
+            x = data[i:i + seq_length]
+
+            # Define target
+            y = data[i + seq_length]
+
+        xs.append(x)
+        ys.append(y)
+
+    return np.array(xs), np.array(ys)
+
+
+def get_dataset(filename, name_dataset="Airline Satisfaction"):
+    if name_dataset == "Airline Satisfaction":
+        df = pd.read_csv(filename)
+        df = df.drop(['Unnamed: 0', 'id'], axis=1)
+        df['Gender'] = df['Gender'].map({'Male': 0, 'Female': 1})
+        df['Customer Type'] = df['Customer Type'].map({'disloyal Customer': 0, 'Loyal Customer': 1})
+        df['Type of Travel'] = df['Type of Travel'].map({'Personal Travel': 0, 'Business travel': 1})
+        df['Class'] = df['Class'].map({'Eco': 0, 'Eco Plus': 1, 'Business': 2})
+        df['satisfaction'] = df['satisfaction'].map({'neutral or dissatisfied': 0, 'satisfied': 1})
+        df = df.dropna()
+
+    elif name_dataset == "Energy":
+        df = pd.read_pickle(filename)
+        df["ID"] = df["ID"].astype("category")
+        df["time_code"] = df["time_code"].astype("uint16")
+        df = df.set_index("date_time")
+
+        # Electricity consumption per hour (date with hour in the index)
+        df = df["consumption"].resample("60min", label='right', closed='right').sum().to_frame()
+
+    else:
+        raise ValueError("Dataset not recognized")
+
+    return df
+
+
 # %% Other functions
-def data_preparation(filename, number_of_nodes=3):
-    df = pd.read_csv(filename)
-    df = df.drop(['Unnamed: 0', 'id'], axis=1)
-    df['Gender'] = df['Gender'].map({'Male': 0, 'Female': 1})
-    df['Customer Type'] = df['Customer Type'].map({'disloyal Customer': 0, 'Loyal Customer': 1})
-    df['Type of Travel'] = df['Type of Travel'].map({'Personal Travel': 0, 'Business travel': 1})
-    df['Class'] = df['Class'].map({'Eco': 0, 'Eco Plus': 1, 'Business': 2})
-    df['satisfaction'] = df['satisfaction'].map({'neutral or dissatisfied': 0, 'satisfied': 1})
-    df = df.dropna()
+def data_preparation0(filename, name_dataset="Airline Satisfaction", number_of_nodes=3):
+    df = get_dataset(filename, name_dataset)
 
     df_shuffled = df.sample(frac=1, random_state=42).reset_index(drop=True)
 
@@ -209,16 +264,71 @@ def data_preparation(filename, number_of_nodes=3):
     split_size = num_samples // number_of_nodes
 
     multi_df = []
+    multi_df_test = []
     for i in range(number_of_nodes):
         if i < number_of_nodes - 1:
             subset = df.iloc[i * split_size:(i + 1) * split_size]
+
         else:
             subset = df.iloc[i * split_size:]
 
-        x_s = subset.drop(['satisfaction'], axis=1)
-        y_s = subset[['satisfaction']]
+        if name_dataset == "Airline Satisfaction":
+            # x are the features and y the target
+            x_s = subset.drop(['satisfaction'], axis=1)
+            y_s = subset[['satisfaction']]
+            multi_df.append([x_s, y_s])
 
-        multi_df.append([x_s, y_s])
+        elif name_dataset == "Energy":
+            window_size = 90
+            x_s, y_s = create_sequences(subset["2009-07-15": "2010-07-14"], window_size)
+            multi_df.append([x_s, y_s])
+
+            x_s, y_s = create_sequences(subset["2010-07-14": "2010-07-21"], window_size)
+            multi_df_test.append([x_s, y_s])
+
+        else:
+            raise ValueError("Dataset not recognized")
+
+    return (multi_df, multi_df_test) if name_dataset == "Energy" else multi_df
+
+
+def data_preparation(data, name_dataset, number_of_nodes=3):
+    multi_df = []
+    if name_dataset == "Airline Satisfaction":
+        df_shuffled = data.sample(frac=1, random_state=42).reset_index(drop=True)
+
+        num_samples = len(df_shuffled)
+        split_size = num_samples // number_of_nodes
+        for i in range(number_of_nodes):
+            if i < number_of_nodes - 1:
+                subset = data.iloc[i * split_size:(i + 1) * split_size]
+
+            else:
+                subset = data.iloc[i * split_size:]
+
+            # x are the features and y the target
+            x_s = subset.drop(['satisfaction'], axis=1)
+            y_s = subset[['satisfaction']]
+
+            multi_df.append([x_s, y_s])
+
+    elif name_dataset == "Energy":
+        num_samples = len(data[0])
+        split_size = num_samples // number_of_nodes
+        for i in range(number_of_nodes):
+            if i < number_of_nodes - 1:
+                # data : (x, y)
+                x_s = data[0][i * split_size:(i + 1) * split_size]
+                y_s = data[1][i * split_size:(i + 1) * split_size]
+
+            else:
+                x_s = data[0][i * split_size:]
+                y_s = data[1][i * split_size:]
+
+            multi_df.append([x_s, y_s])
+
+    else:
+        raise ValueError("Dataset not recognized")
 
     return multi_df
 
@@ -229,7 +339,8 @@ def save_nodes_chain(nodes):
 
 
 class Client:
-    def __init__(self, id, host, port, batch_size, train, test, dp=False, type_ss="additif", threshold=3, m=3):
+    def __init__(self, id, host, port, batch_size, train, test, dp=False, type_ss="additif", threshold=3, m=3,
+                 name_dataset="Airline Satisfaction", model_choice="simplenet"):
         self.id = id
         self.host = host
         self.port = port
@@ -253,10 +364,11 @@ class Client:
         x_train, y_train = train
         x_test, y_test = test
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
-                                                          stratify=y_train)
+                                                          stratify=y_train if name_dataset == "Airline Satisfaction" else None)
 
         self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
-                                          dp, delta=1 / (2 * len(x_train)))
+                                          dp, delta=1 / (2 * len(x_train)),
+                                          name_dataset=name_dataset, model_choice=model_choice)
 
     def start_server(self):
         start_server(self.host, self.port, self.handle_message, self.id)
@@ -294,7 +406,6 @@ class Client:
                 f.write(f"client {self.id}: {loss} \n")
 
         # Apply SMPC (warning : list_shapes is initialized only after the first training)
-        print(len(self.connections) + 1)
         encrypted_lists, self.list_shapes = apply_smpc(res, len(self.connections) + 1, self.type_ss, self.threshold)
         # we keep the last share of the secret for this client and send the others to the other clients
         self.frag_weights.append(encrypted_lists.pop())
@@ -312,8 +423,10 @@ class Client:
             client_socket.connect(('127.0.0.1', address))
 
             serialized_data = pickle.dumps(frag_weights[i])
+
             message = {"type": "frag_weights", "value": serialized_data}
 
+            # print("message", message)
             serialized_message = pickle.dumps(message)
 
             # Send the length of the message first

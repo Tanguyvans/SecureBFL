@@ -171,7 +171,8 @@ def start_server(host, port, handle_message, num_node):
 
 class Node:
     def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.05,
-                 dp=False, ss_type="additif", m=3):
+                 dp=False, ss_type="additif", m=3,
+                 name_dataset="Airline Satisfaction", model_choice="simplenet"):
         self.id = id
         self.host = host
         self.port = port
@@ -192,9 +193,10 @@ class Node:
         x_train, y_train = train
         x_test, y_test = test
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
-                                                          stratify=y_train)
+                                                          stratify=y_train if name_dataset == "Airline Satisfaction" else None)
         self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
-                                          dp, delta=1/(2*len(x_train)))
+                                          dp, delta=1/(2*len(x_train)),
+                                          name_dataset=name_dataset, model_choice=model_choice)
         self.ss_type = ss_type
         self.secret_shape = None
         self.m = m

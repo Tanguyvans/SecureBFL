@@ -25,7 +25,7 @@ def dataPreparation(filename, numberOfNodes=3):
         else:
             subset = df.iloc[i*split_size:]
 
-        X_s = subset.drop(['satisfaction'],axis=1)
+        X_s = subset.drop(['satisfaction'], axis=1)
         y_s = subset[['satisfaction']]
 
         # X_s = df.drop(['satisfaction'],axis=1)
@@ -115,8 +115,8 @@ def saveNodesChain(nodes):
 
 
 if __name__ == "__main__":
-    train_path = 'Airline Satisfaction/train.csv'
-    test_path = 'Airline Satisfaction/test.csv'
+    train_path = 'Data/Airline Satisfaction/train.csv'
+    test_path = 'Data/Airline Satisfaction/test.csv'
 
     numberOfClients = 6
     poisonned_number = 0

@@ -1,7 +1,7 @@
 # %%
 from flowerclient import FlowerClient
 from sklearn.model_selection import train_test_split
-from client import (apply_smpc, data_preparation, sum_shares,
+from client import (apply_smpc, get_dataset, data_preparation, sum_shares,
                     apply_shamir, sum_shares_shamir, apply_additif, sum_shares_additif)
 from node import aggregate_shamir, decrypt_shamir_node, combine_shares_node
 import numpy as np
@@ -122,16 +122,21 @@ def aggregation_cluster(cluster_weight, secret_shape, m, clusters):
 # %%
 if __name__ == '__main__':
     # %%
-    train_path = 'Airline Satisfaction/train.csv'
-    test_path = 'Airline Satisfaction/test.csv'
+    train_path = 'Data/Airline Satisfaction/train.csv'
+    test_path = 'Data/Airline Satisfaction/test.csv'
     n_shares = 3
     k = 3
     m = 3
     dp = False
     type_ss = "additif"  # "shamir" or "additif"
+    name_dataset = "Airline Satisfaction"
+    model_choice = "simplenet" if name_dataset == "Airline Satisfaction" else "LSTM"
     # %%
-    train_sets = data_preparation(train_path, 1)
-    test_sets = data_preparation(test_path, 1)
+    df_train = get_dataset(train_path, name_dataset)
+    df_test = get_dataset(test_path, name_dataset)
+
+    train_sets = data_preparation(df_train, name_dataset, 1)
+    test_sets = data_preparation(df_test, name_dataset, 1)
 
     # %%
     x_train, y_train = train_sets[0]
@@ -140,7 +145,8 @@ if __name__ == '__main__':
     x_test, y_test = test_sets[0]
 
     # %%
-    flower_client = FlowerClient(256, x_train, x_val, x_test, y_train, y_val, y_test, dp, delta=1/(2 * len(x_train)))
+    flower_client = FlowerClient(256, x_train, x_val, x_test, y_train, y_val, y_test, dp, delta=1/(2 * len(x_train)),
+                                 name_dataset=name_dataset, model_choice=model_choice)
 
     # %%
     old_params = flower_client.get_parameters({})

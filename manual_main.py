@@ -11,8 +11,8 @@ warnings.filterwarnings("ignore")
 if __name__ == "__main__": 
     logging.basicConfig(level=logging.DEBUG)
 
-    train_path = 'Airline Satisfaction/train.csv'
-    test_path = 'Airline Satisfaction/test.csv'
+    train_path = 'Data/Airline Satisfaction/train.csv'
+    test_path = 'Data/Airline Satisfaction/test.csv'
 
     numberOfNodes = 3
     numberOfClients = 6
