@@ -12,3 +12,4 @@ output.txt
 *.pyc
 client_test.py
 *__pycache__
+Data/*
