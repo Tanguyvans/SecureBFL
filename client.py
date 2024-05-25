@@ -374,9 +374,24 @@ class Client:
         start_server(self.host, self.port, self.handle_message, self.id)
 
     def handle_message(self, client_socket):
-        data_length = int.from_bytes(client_socket.recv(4), byteorder='big')
-        data = client_socket.recv(data_length)
+        data_length_bytes = client_socket.recv(4)
+        if not data_length_bytes:
+            return  # No data received, possibly handle this case as an error or log it
+        data_length = int.from_bytes(data_length_bytes, byteorder='big')
 
+        # Now read exactly data_length bytes
+        data = b''
+        while len(data) < data_length:
+            packet = client_socket.recv(data_length - len(data))
+            if not packet:
+                break  # Connection closed, handle this case if necessary
+            data += packet
+
+        if len(data) < data_length:
+            # Log this situation as an error or handle it appropriately
+            print("Data was truncated or connection was closed prematurely.")
+            return
+        
         message = pickle.loads(data)
 
         message_type = message.get("type")
@@ -404,7 +419,7 @@ class Client:
             loss = self.flower_client.evaluate(res, {})[0]
             with open('output.txt', 'a') as f:
                 f.write(f"client {self.id}: {loss} \n")
-
+        print(f"client {self.id}: {loss} \n")
         # Apply SMPC (warning : list_shapes is initialized only after the first training)
         encrypted_lists, self.list_shapes = apply_smpc(res, len(self.connections) + 1, self.type_ss, self.threshold)
         # we keep the last share of the secret for this client and send the others to the other clients

@@ -158,9 +158,6 @@ if __name__ == "__main__":
         clients.append(node_clients)
         for client_id, client in node_clients.items(): 
             client.update_node_connection(nodes[i].id, nodes[i].port)
-            # for client_id_2, client_2 in node_clients.items(): 
-            #     if client_id != client_id_2: 
-            #         client.add_connections(client_id_2, client_2.port)
 
     # %% All nodes connections ###
     for i in range(numberOfNodes): 
@@ -194,7 +191,7 @@ if __name__ == "__main__":
             for client in clients[i].values():
                 frag_weights = client.train()  # returns the shares to be sent to the other clients donc liste de la forme [(x1, y1), (x2, y2), ...]
                 client.send_frag_clients(frag_weights)
-
+        
         time.sleep(ts)
 
         ### SMPC ###
@@ -204,13 +201,15 @@ if __name__ == "__main__":
                 client.send_frag_node()
                 time.sleep(ts)
 
-        ### global model creation
-        nodes[0].create_global_model()
-        time.sleep(ts)
-        for i in range(1, numberOfNodes):
-            nodes[i].global_params_directory = nodes[0].global_params_directory
+        print("### NODE ###")
 
-        time.sleep(ts)
+        # ### global model creation
+        # nodes[0].create_global_model()
+        # time.sleep(ts)
+        # for i in range(1, numberOfNodes):
+        #     nodes[i].global_params_directory = nodes[0].global_params_directory
+
+        # time.sleep(ts)
 
     nodes[0].blockchain.print_blockchain()
 

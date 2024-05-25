@@ -213,12 +213,28 @@ class Node:
         start_server(self.host, self.port, self.handle_message, self.id)
 
     def handle_message(self, client_socket):
+        # First, read the length of the data
+        data_length_bytes = client_socket.recv(4)
+        if not data_length_bytes:
+            return  # No data received, possibly handle this case as an error or log it
+        data_length = int.from_bytes(data_length_bytes, byteorder='big')
 
-        data_length = int.from_bytes(client_socket.recv(4), byteorder='big')
-        data = client_socket.recv(data_length)
+        # Now read exactly data_length bytes
+        data = b''
+        while len(data) < data_length:
+            packet = client_socket.recv(data_length - len(data))
+            if not packet:
+                break  # Connection closed, handle this case if necessary
+            data += packet
+
+        if len(data) < data_length:
+            # Log this situation as an error or handle it appropriately
+            print("Data was truncated or connection was closed prematurely.")
+            return
+
         message = pickle.loads(data)
-
         message_type = message.get("type")
+
 
         if message_type == "frag_weights":
             message_id = message.get("id")
