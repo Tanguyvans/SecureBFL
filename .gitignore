@@ -13,3 +13,4 @@ output.txt
 client_test.py
 *__pycache__
 Data/*
+test.py
