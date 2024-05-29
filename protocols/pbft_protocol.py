@@ -106,8 +106,10 @@ class PBFTProtocol(ConsensusProtocol):
             logging.info("Node %s committing block %s", self.node_id, block_hash)
 
             if self.validate_block(message):
-                
                 self.blockchain.add_block(block)
+
+                if message["model_type"] == "global_model": 
+                    self.node.global_params_directory = message["storage_reference"]
 
                 logging.info("Node %s committed block %s", self.node_id, block_hash)
 
@@ -139,13 +141,14 @@ class PBFTProtocol(ConsensusProtocol):
         if previous_block and block_data["previous_hash"] != previous_block.current_hash:
             return False
 
-        # if block_data["model_type"] == "update": 
-        #     return self.node.is_update_usefull(block_data["storage_reference"])
+        if block_data["model_type"] == "update": 
+            return self.node.is_update_usefull(block_data["storage_reference"])
         
-        # if block_data["index"] > 2 and block_data["model_type"] == "global_model": 
-        #     return self.node.is_global_valid(block_data["calculated_hash"])
-
-        return True
+        if block_data["model_type"] == "global_model": 
+            return True
+            # return self.node.is_global_valid(block_data["calculated_hash"])
+        
+        return False
 
     def create_block_from_request(self, content):
         previous_blocks = self.blockchain.blocks

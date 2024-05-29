@@ -170,7 +170,7 @@ def start_server(host, port, handle_message, num_node):
 
 
 class Node:
-    def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.05,
+    def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.01,
                  dp=False, ss_type="additif", m=3,
                  name_dataset="Airline Satisfaction", model_choice="simplenet"):
         self.id = id
@@ -281,12 +281,12 @@ class Node:
         client_socket.close()
 
     def is_update_usefull(self, model_directory): 
-
         print(f"node: {self.id} GM: {self.global_params_directory}, {model_directory} ")
         if self.evaluate_model(model_directory)[0] <= self.evaluate_model(self.global_params_directory)[0]*self.coef_usefull:
+            print(f"usefull {self.evaluate_model(model_directory)[0]}, {self.evaluate_model(self.global_params_directory)[0]}")
             return True
-
         else: 
+            print("not usefull")
             return False
 
     def get_weights(self, len_dataset=10):

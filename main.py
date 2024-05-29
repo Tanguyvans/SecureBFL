@@ -91,7 +91,7 @@ if __name__ == "__main__":
     min_number_of_clients_in_cluster = 3
 
     poisonned_number = 0
-    epochs = 10
+    epochs = 30
     ts = 10
     dp = False  # True if you want to apply differential privacy
 
@@ -180,8 +180,10 @@ if __name__ == "__main__":
 
     nodes[0].create_first_global_model_request()
     time.sleep(10)
+
     # %% training and SMPC
     for epoch in range(epochs): 
+        print(f"### EPOCH {epoch + 1} ###")
         ### Creation of the clusters + client to client connections ###
         cluster_generation(nodes, clients, min_number_of_clients_in_cluster)
 
@@ -201,15 +203,13 @@ if __name__ == "__main__":
                 client.send_frag_node()
                 time.sleep(ts)
 
-        print("### NODE ###")
+        ### global model creation
+        nodes[0].create_global_model()
+        time.sleep(ts)
+        for i in range(1, numberOfNodes):
+            nodes[i].global_params_directory = nodes[0].global_params_directory
 
-        # ### global model creation
-        # nodes[0].create_global_model()
-        # time.sleep(ts)
-        # for i in range(1, numberOfNodes):
-        #     nodes[i].global_params_directory = nodes[0].global_params_directory
-
-        # time.sleep(ts)
+        time.sleep(ts)
 
     nodes[0].blockchain.print_blockchain()
 
