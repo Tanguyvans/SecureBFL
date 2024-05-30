@@ -205,9 +205,6 @@ if __name__ == "__main__":
 
         ### global model creation
         nodes[0].create_global_model()
-        time.sleep(ts)
-        for i in range(1, numberOfNodes):
-            nodes[i].global_params_directory = nodes[0].global_params_directory
 
         time.sleep(ts)
 

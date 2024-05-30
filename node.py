@@ -5,6 +5,7 @@ import os
 import base64
 from math import floor, ceil
 import random
+import time
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
@@ -281,6 +282,7 @@ class Node:
         client_socket.close()
 
     def is_update_usefull(self, model_directory): 
+
         print(f"node: {self.id} GM: {self.global_params_directory}, {model_directory} ")
         if self.evaluate_model(model_directory)[0] <= self.evaluate_model(self.global_params_directory)[0]*self.coef_usefull:
             print(f"usefull {self.evaluate_model(model_directory)[0]}, {self.evaluate_model(self.global_params_directory)[0]}")
@@ -301,6 +303,9 @@ class Node:
 
             else:
                 break
+
+        if len(params_list) == 0:
+            return None
 
         self.aggregated_params = aggregate(params_list)
 
@@ -407,7 +412,7 @@ class Node:
 
         weights_dict = self.flower_client.get_dict_params({})
         weights_dict['len_dataset'] = len_dataset
-        model_type = "global_model"
+        model_type = "first_global_model"
         
         filename = f"models/m0.npz"
         self.global_params_directory = filename
@@ -426,15 +431,21 @@ class Node:
             }
         }
 
+        time.sleep(10)
+
         self.consensus_protocol.handle_message(message)
 
     def create_global_model(self): 
         weights_dict = self.get_weights(len_dataset=10)
 
+        if weights_dict is None:
+            print("No weights to save")
+            return
+
         model_type = "global_model"
 
         filename = f"models/{self.id}m{self.blockchain.len_chain}.npz"
-        self.global_params_directory = filename
+        #self.global_params_directory = filename
 
         with open(filename, "wb") as f:
             np.savez(f, **weights_dict)
