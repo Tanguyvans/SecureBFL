@@ -1,6 +1,8 @@
 import time
 import threading
 import logging
+import os
+import random
 
 from node import Node
 from client import Client, data_preparation, get_dataset, create_sequences
@@ -10,9 +12,8 @@ warnings.filterwarnings("ignore")
 
 batch_size = 256
 
-
 # %%
-def create_nodes(train_sets, test_sets, number_of_nodes, dp=True, ss_type="additif", m=3,
+def create_nodes(train_sets, test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type="additif", m=3,
                  name_dataset="Airline Satisfaction", model_choice="simplenet"):
     nodes = []
 
@@ -26,6 +27,7 @@ def create_nodes(train_sets, test_sets, number_of_nodes, dp=True, ss_type="addit
                 batch_size=batch_size,
                 train=train_sets[0],
                 test=test_sets[0],
+                coef_usefull=coef_usefull,
                 dp=dp,
                 ss_type=ss_type,
                 m=m,
@@ -38,7 +40,7 @@ def create_nodes(train_sets, test_sets, number_of_nodes, dp=True, ss_type="addit
 
 
 def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", threshold=3, m=3,
-                   name_dataset="Airline Satisfaction", model_choice="simplenet"):
+                   name_dataset="Airline Satisfaction", model_choice="simplenet", epochs=3):
     clients = {}
     for i in range(number_of_clients): 
         clients[f"c{node}_{i+1}"] = Client(
@@ -53,7 +55,8 @@ def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type
             threshold=threshold,
             m=m,
             name_dataset=name_dataset,
-            model_choice=model_choice
+            model_choice=model_choice,
+            epochs=epochs
         )
 
     return clients
@@ -85,11 +88,15 @@ if __name__ == "__main__":
     data_root = "Data"
     name_dataset = "Energy"  # "Airline Satisfaction" or "Energy"
     data_folder = f"{data_root}/{name_dataset}"
-    ID = 1239
-    numberOfNodes = 3
-    numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
-    min_number_of_clients_in_cluster = 3
 
+    # nodes
+    numberOfNodes = 3
+    coef_usefull = 1.2
+
+    # clients
+    numberOfClientsPerNode = 10  # corresponds to the number of clients per node, n in the shamir scheme
+    min_number_of_clients_in_cluster = 5
+    client_epochs = 3
     poisonned_number = 0
     epochs = 30
     ts = 10
@@ -125,18 +132,58 @@ if __name__ == "__main__":
 
     elif name_dataset == "Energy":
         model_choice = "LSTM"
-        file_path = f"{data_folder}/Electricity/residential_{ID}.pkl"
+        client_train_sets = []
+        client_test_sets = []
+        node_train_sets = []
+        node_test_sets = []
 
-        df = get_dataset(file_path, name_dataset)
-        window_size = 10  # number of data points used as input to predict the next data point
-        data_train = create_sequences(df["2009-07-15": "2010-07-14"], window_size)
-        data_test = create_sequences(df["2010-07-14": "2010-07-21"], window_size)
+        IDs = set()
+        for file in os.listdir(data_folder+"/Electricity"):
+            if file[12] in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+                IDs.add(int(file[12:16]))
+        ID_list = list(IDs)
 
-        client_train_sets = data_preparation(data_train, name_dataset, numberOfClientsPerNode * numberOfNodes)
-        client_test_sets = data_preparation(data_test, name_dataset, numberOfClientsPerNode * numberOfNodes)
+        for client_id in range(numberOfClientsPerNode * numberOfNodes):
+            if not ID_list:
+                raise ValueError("Not enough IDs available for all clients.")
+            selected_ID = random.choice(ID_list)  # Randomly select an ID
+            ID_list.remove(selected_ID)  # Optional: remove to avoid reuse
 
-        node_train_sets = data_preparation(data_train, name_dataset, numberOfClientsPerNode * numberOfNodes)
-        node_test_sets = data_preparation(data_test, name_dataset, numberOfClientsPerNode * numberOfNodes)
+            file_path = f"{data_folder}/Electricity/residential_{selected_ID}.pkl"
+            df = get_dataset(file_path, name_dataset)
+            window_size = 10
+            data_train = create_sequences(df["2009-07-15": "2010-07-14"], window_size)
+            data_test = create_sequences(df["2010-07-14": "2010-07-21"], window_size)
+
+            client_train_sets.append(data_preparation(data_train, name_dataset, 1)[0])
+            client_test_sets.append(data_preparation(data_test, name_dataset, 1)[0])
+
+        for i in range(numberOfNodes):
+            node_train_data = [[], []]
+            node_test_data = [[], []]
+            for j in range(5): 
+
+                if not ID_list:
+                    raise ValueError("Not enough IDs available for all clients.")
+                selected_ID = random.choice(ID_list)  # Randomly select an ID
+                ID_list.remove(selected_ID)  # Optional: remove to avoid reuse
+
+                file_path = f"{data_folder}/Electricity/residential_{selected_ID}.pkl"
+                df = get_dataset(file_path, name_dataset)
+                window_size = 10
+                data_train = create_sequences(df["2009-07-15": "2010-07-14"], window_size)
+                data_test = create_sequences(df["2010-07-14": "2010-07-21"], window_size)
+
+                data_train_x, data_train_y = data_preparation(data_train, name_dataset, 1)[0]
+                data_test_x, data_test_y = data_preparation(data_test, name_dataset, 1)[0]
+
+                node_train_data[0].extend(data_train_x)
+                node_train_data[1].extend(data_train_y)
+                node_test_data[0].extend(data_test_x)
+                node_test_data[1].extend(data_test_y)
+
+            node_train_sets.append(node_train_data)
+            node_test_sets.append(node_test_data)
 
         del df, data_train, data_test
     else:
@@ -154,7 +201,7 @@ if __name__ == "__main__":
     clients = []
     for i in range(numberOfNodes): 
         node_clients = create_clients(client_train_sets, client_test_sets, i, numberOfClientsPerNode,
-                                      dp, type_ss, k, m=m, name_dataset=name_dataset, model_choice=model_choice)
+                                      dp, type_ss, k, m=m, name_dataset=name_dataset, model_choice=model_choice, epochs=client_epochs)
         clients.append(node_clients)
         for client_id, client in node_clients.items(): 
             client.update_node_connection(nodes[i].id, nodes[i].port)

@@ -225,7 +225,17 @@ def create_sequences(data, seq_length):
         xs.append(x)
         ys.append(y)
 
-    return np.array(xs), np.array(ys)
+    # Convert lists to numpy arrays
+    xs = np.array(xs)
+    ys = np.array(ys)
+
+    # Shuffle the sequences
+    indices = np.arange(xs.shape[0])
+    np.random.shuffle(indices)
+    xs = xs[indices]
+    ys = ys[indices]
+
+    return xs, ys
 
 
 def get_dataset(filename, name_dataset="Airline Satisfaction"):
@@ -252,44 +262,6 @@ def get_dataset(filename, name_dataset="Airline Satisfaction"):
         raise ValueError("Dataset not recognized")
 
     return df
-
-
-# %% Other functions
-def data_preparation0(filename, name_dataset="Airline Satisfaction", number_of_nodes=3):
-    df = get_dataset(filename, name_dataset)
-
-    df_shuffled = df.sample(frac=1, random_state=42).reset_index(drop=True)
-
-    num_samples = len(df_shuffled)
-    split_size = num_samples // number_of_nodes
-
-    multi_df = []
-    multi_df_test = []
-    for i in range(number_of_nodes):
-        if i < number_of_nodes - 1:
-            subset = df.iloc[i * split_size:(i + 1) * split_size]
-
-        else:
-            subset = df.iloc[i * split_size:]
-
-        if name_dataset == "Airline Satisfaction":
-            # x are the features and y the target
-            x_s = subset.drop(['satisfaction'], axis=1)
-            y_s = subset[['satisfaction']]
-            multi_df.append([x_s, y_s])
-
-        elif name_dataset == "Energy":
-            window_size = 90
-            x_s, y_s = create_sequences(subset["2009-07-15": "2010-07-14"], window_size)
-            multi_df.append([x_s, y_s])
-
-            x_s, y_s = create_sequences(subset["2010-07-14": "2010-07-21"], window_size)
-            multi_df_test.append([x_s, y_s])
-
-        else:
-            raise ValueError("Dataset not recognized")
-
-    return (multi_df, multi_df_test) if name_dataset == "Energy" else multi_df
 
 
 def data_preparation(data, name_dataset, number_of_nodes=3):
@@ -340,11 +312,12 @@ def save_nodes_chain(nodes):
 
 class Client:
     def __init__(self, id, host, port, batch_size, train, test, dp=False, type_ss="additif", threshold=3, m=3,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet"):
+                 name_dataset="Airline Satisfaction", model_choice="simplenet", epochs=3):
         self.id = id
         self.host = host
         self.port = port
 
+        self.epochs = 3
         self.type_ss = type_ss
         self.threshold = threshold
         self.m = m
@@ -413,7 +386,7 @@ class Client:
         """
         old_params = self.flower_client.get_parameters({})
         res = old_params[:]
-        for i in range(3):
+        for i in range(self.epochs):
             # why 3 iterations?
             res = self.flower_client.fit(res, {})[0]
             loss = self.flower_client.evaluate(res, {})[0]
