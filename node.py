@@ -171,7 +171,7 @@ def start_server(host, port, handle_message, num_node):
 
 
 class Node:
-    def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.01,
+    def __init__(self, id, host, port, consensus_protocol, batch_size, test, coef_usefull=1.01,
                  dp=False, ss_type="additif", m=3,
                  name_dataset="Airline Satisfaction", model_choice="simplenet"):
         self.id = id
@@ -191,13 +191,18 @@ class Node:
         public_key_path = f"keys/{id}_public_key.pem"
         self.get_keys(private_key_path, public_key_path)
 
-        x_train, y_train = train
         x_test, y_test = test
-        x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
-                                                          stratify=y_train if name_dataset == "Airline Satisfaction" else None)
-        self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
-                                          dp, delta=1/(2*len(x_train)),
-                                          name_dataset=name_dataset, model_choice=model_choice)
+
+        self.flower_client = FlowerClient.node(
+            batch_size=batch_size, 
+            x_test=x_test, 
+            y_test=y_test,
+            model_choice=model_choice,
+            diff_privacy=dp, 
+            epsilon=0.5,
+            max_grad_norm=1.2, 
+            name_dataset=name_dataset)
+
         self.ss_type = ss_type
         self.secret_shape = None
         self.m = m
@@ -282,10 +287,14 @@ class Node:
         client_socket.close()
 
     def is_update_usefull(self, model_directory): 
-
         print(f"node: {self.id} GM: {self.global_params_directory}, {model_directory} ")
-        if self.evaluate_model(model_directory)[0] <= self.evaluate_model(self.global_params_directory)[0]*self.coef_usefull:
-            print(f"usefull {self.evaluate_model(model_directory)[0]}, {self.evaluate_model(self.global_params_directory)[0]}")
+
+        update_eval = self.evaluate_model(model_directory)
+        gm_eval = self.evaluate_model(self.global_params_directory)
+
+        print(f"{update_eval[0]}, {gm_eval[0]}")
+        if update_eval[0] <= gm_eval[0]*self.coef_usefull:
+            print(f"usefull {update_eval[0]}, {gm_eval[0]}")
             return True
         else: 
             print("not usefull")
@@ -407,11 +416,9 @@ class Node:
         return hash_model
    
     def create_first_global_model_request(self): 
-        old_params = self.flower_client.get_parameters({})
-        len_dataset = self.flower_client.fit(old_params, {})[1]
 
         weights_dict = self.flower_client.get_dict_params({})
-        weights_dict['len_dataset'] = len_dataset
+        weights_dict['len_dataset'] = 0
         model_type = "first_global_model"
         
         filename = f"models/m0.npz"

@@ -7,3 +7,4 @@ torch
 flower
 flwr
 opacus
+torchvision

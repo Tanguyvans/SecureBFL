@@ -2,16 +2,17 @@ import flwr as fl
 import torch
 import torch.nn as nn
 from collections import OrderedDict
-from model import Model, RnnNet
+from model import Model, RnnNet, CNNCifar
 from torch.utils.data import Dataset, DataLoader
+
+from torch.utils.data import DataLoader, TensorDataset
+import torchvision
 
 # For the differential privacy
 from opacus import PrivacyEngine
 from opacus.validators import ModuleValidator  # to validate our model with differential privacy
 from opacus.utils.batch_memory_manager import BatchMemoryManager
 
-from pytorch_lightning.callbacks import EarlyStopping
-from torchmetrics import MeanSquaredError, MeanAbsolutePercentageError
 import numpy as np
 
 
@@ -55,48 +56,73 @@ def sMAPE(outputs, targets):
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
 class FlowerClient(fl.client.NumPyClient):
-    def __init__(self, batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
-                 diff_privacy=True, delta=1e-5, epsilon=0.5, max_grad_norm=1.2,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet"):
-        self.x_train = x_train if name_dataset == "Energy" else x_train.values
-        self.x_test = x_test if name_dataset == "Energy" else x_test.values
-        self.y_train = y_train if name_dataset == "Energy" else y_train.values
-        self.y_test = y_test if name_dataset == "Energy" else y_test.values
-        x_val = x_val if name_dataset == "Energy" else x_val.values
-        y_val = y_val if name_dataset == "Energy" else y_val.values
-
-        train_data = Data(torch.FloatTensor(self.x_train), torch.FloatTensor(self.y_train))
-        val_data = Data(torch.FloatTensor(x_val), torch.FloatTensor(y_val))
-        test_data = Data(torch.FloatTensor(self.x_test), torch.FloatTensor(self.y_test))
-
-        bool_shuffle = False if name_dataset == "Energy" else True
-        self.train_loader = DataLoader(dataset=train_data, batch_size=batch_size, shuffle=bool_shuffle)
-        self.val_loader = DataLoader(dataset=val_data, batch_size=batch_size, shuffle=bool_shuffle)
-        self.test_loader = DataLoader(dataset=test_data, batch_size=1)
+    def __init__(self, batch_size, model_choice="simplenet", diff_privacy=True, delta=1e-5, epsilon=0.5, max_grad_norm=1.2, name_dataset="Airline Satisfaction"):
         self.batch_size = batch_size
-        if model_choice == "LSTM" or model_choice == "GRU":
-            n_hidden = 25  # number of features in the hidden state h  # 32
-            n_layers = 2  # number of recurrent layers.
-            input_dim = next(iter(self.train_loader))[0].shape[2]  # 5, so number of features in the input x
-            self.criterion = nn.MSELoss()
-            model = RnnNet(model_choice=model_choice, input_size=input_dim, hidden_size=n_hidden, num_layers=n_layers,
-                           batch_first=True)
+        self.model_choice = model_choice
+        self.diff_privacy = diff_privacy
+        self.delta = delta
+        self.epsilon = epsilon
+        self.max_grad_norm = max_grad_norm
+        self.name_dataset = name_dataset
+        self.train_loader = None
+        self.val_loader = None
+        self.test_loader = None
+        self.len_train = None
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        
+        # Initialize model after data loaders are potentially set
+        self.model = self.initialize_model()
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        self.privacy_engine = PrivacyEngine(accountant="rdp", secure_mode=False)
 
+    def initialize_model(self):
+        if self.model_choice == "LSTM" or self.model_choice == "GRU":
+            # Ensure data loaders are set before this point or handle it differently
+            n_hidden = 25
+            n_layers = 2
+            input_dim = next(iter(self.train_loader))[0].shape[2] if self.train_loader else 10  # Default or error
+            model = RnnNet(model_choice=self.model_choice, input_size=input_dim, hidden_size=n_hidden, num_layers=n_layers, batch_first=True)
+            self.criterion = nn.MSELoss()
+        elif self.model_choice == "CNNCifar":
+            model = CNNCifar()
+            self.criterion = nn.CrossEntropyLoss()
         else:
             model = Model()
             self.criterion = nn.BCEWithLogitsLoss()
+        
+        return validate_dp_model(model.to(self.device)) if self.diff_privacy else model.to(self.device)
 
-        self.model = validate_dp_model(model.to(device)) if diff_privacy else model.to(device)
+    @classmethod
+    def node(cls, batch_size, x_test, y_test, model_choice="simplenet", diff_privacy=True, epsilon=0.5, max_grad_norm=1.2, name_dataset="Airline Satisfaction"):
+        obj = cls(batch_size, model_choice, diff_privacy, epsilon, max_grad_norm, name_dataset)
+        # Set data loaders
+        if name_dataset == "cifar":
+            test_data = TensorDataset(torch.stack([torchvision.transforms.functional.to_tensor(img) for img in x_test]), torch.tensor(y_test))
+        else:
+            test_data = TensorDataset(torch.FloatTensor(x_test).squeeze(-1), torch.FloatTensor(y_test))
 
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        obj.test_loader = DataLoader(dataset=test_data, batch_size=1)
+        return obj
 
-        self.diff_privacy = diff_privacy
-        self.privacy_engine = PrivacyEngine(accountant="rdp", secure_mode=False)
-        self.epsilon = epsilon
-        self.delta = delta
-        self.max_grad_norm = max_grad_norm
+    @classmethod
+    def client(cls, batch_size, x_train, y_train, x_val, y_val, x_test, y_test, model_choice="simplenet", diff_privacy=True, delta=1e-5, epsilon=0.5, max_grad_norm=1.2, name_dataset="Airline Satisfaction"):
+        obj = cls(batch_size, model_choice, diff_privacy, delta, epsilon, max_grad_norm, name_dataset)
+        # Set data loaders
+        if name_dataset == "cifar":
+            train_data = TensorDataset(torch.stack([torchvision.transforms.functional.to_tensor(img) for img in x_train]), torch.tensor(y_train))
+            val_data = TensorDataset(torch.stack([torchvision.transforms.functional.to_tensor(img) for img in x_val]), torch.tensor(y_val))
+            test_data = TensorDataset(torch.stack([torchvision.transforms.functional.to_tensor(img) for img in x_test]), torch.tensor(y_test))
+        else:
+            train_data = TensorDataset(torch.FloatTensor(x_train).squeeze(-1), torch.FloatTensor(y_train))
+            val_data = TensorDataset(torch.FloatTensor(x_val).squeeze(-1), torch.FloatTensor(y_val))
+            test_data = TensorDataset(torch.FloatTensor(x_test).squeeze(-1), torch.FloatTensor(y_test))
+
+        obj.len_train = len(y_train)
+        obj.train_loader = DataLoader(dataset=train_data, batch_size=batch_size, shuffle=True)
+        obj.val_loader = DataLoader(dataset=val_data, batch_size=batch_size, shuffle=True)
+        obj.test_loader = DataLoader(dataset=test_data, batch_size=1)
+        return obj
 
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
@@ -125,44 +151,40 @@ class FlowerClient(fl.client.NumPyClient):
 
         epoch_loss, epoch_acc, val_loss, val_acc = self.train(epoch=epochs)
 
-        return self.get_parameters(config={}), len(self.y_train), {}
+        return self.get_parameters(config={}), self.len_train, {}
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
-        list_outputs, list_targets, loss, accuracy = self.test(self.test_loader)
+        loss, accuracy = self.test(self.test_loader)
 
-        s_mape = round(sMAPE(np.array(list_outputs), np.array(list_targets)), 3)
+        # list_outputs, list_targets, loss, accuracy = self.test(self.test_loader)
 
-        return float(loss), len(self.y_train), {'accuracy': accuracy}
+        # s_mape = round(sMAPE(np.array(list_outputs), np.array(list_targets)), 3)
+
+        return float(loss), self.len_train, {'accuracy': accuracy}
 
     def train_step(self, dataloader):
         epoch_loss = 0
-        epoch_acc = 0
+        correct = 0
+        total = 0
+
         for x_batch, y_batch in dataloader:
-            # Move data to device and set to float
-            x_batch, y_batch = x_batch.float().to(device), y_batch.float().to(device)
 
-            # Get model outputs
             y_pred = self.model(x_batch, device=device)
-
-            # Compute and accumulate metrics
             loss = self.criterion(y_pred, y_batch)
-            acc = binary_acc(y_pred, y_batch)
+
+            # Calculate accuracy
+            _, predicted = torch.max(y_pred.data, 1)
+            total += y_batch.size(0)
+            correct += (predicted == y_batch).sum().item()
+
             epoch_loss += loss.item()
-            epoch_acc += acc.item()
-
-            # Optimizer zero grad
             self.optimizer.zero_grad()
-
-            # Loss backward
             loss.backward()
-
-            # Optimizer step
             self.optimizer.step()
 
-        # Adjust metrics to get average loss and accuracy per batch
         epoch_loss /= len(dataloader)
-        epoch_acc /= len(dataloader)
+        epoch_acc = 100 * correct / total
         return epoch_loss, epoch_acc
 
     def train(self, epoch=1):
@@ -178,7 +200,7 @@ class FlowerClient(fl.client.NumPyClient):
             else:
                 epoch_loss, epoch_acc = self.train_step(self.train_loader)
 
-            _, _, val_loss, val_acc = self.test(self.val_loader)
+            val_loss, val_acc = self.test(self.val_loader)
             return epoch_loss, epoch_acc, val_loss, val_acc
 
     def test(self, dataloader, scaler=None, label_scaler=None):
@@ -187,36 +209,53 @@ class FlowerClient(fl.client.NumPyClient):
         test_acc = 0
         list_outputs = []
         list_targets = []
-        with torch.inference_mode():  # or with torch.no_grad():
-            for x_test_batch, y_test_batch in dataloader:
-                # Move data to device and set to float
-                x_test_batch, y_test_batch = x_test_batch.float().to(device), y_test_batch.float().to(device)
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for images, labels in dataloader:
+                images, labels = images.to(device), labels.to(device)
+                outputs = self.model(images, device=device)
+                loss = self.criterion(outputs, labels)
+                test_loss += loss.item()
 
-                # Get model outputs
-                y_test_pred = self.model(x_test_batch, device=device)
-                if isinstance(self.model, RnnNet):
-                    # y_test_pred = y_test_pred.squeeze()
-                    # y_test_batch = y_test_batch.squeeze()
-                    if label_scaler:
-                        y_test_pred = torch.tensor(scaler.inverse_transform(y_test_pred), device=device)
-                        y_test_batch = torch.tensor(label_scaler.inverse_transform(y_test_batch), device=device)
-
-                # print(y_test_batch, y_test_pred)
-                list_targets.append(y_test_batch.detach().numpy())
-                list_outputs.append(y_test_pred.detach().numpy())
-
-                # Compute and accumulate metrics
-                test_batch_loss = self.criterion(y_test_pred, y_test_batch)
-                test_batch_acc = binary_acc(y_test_pred, y_test_batch)
-                test_loss += test_batch_loss.item()
-                test_acc += test_batch_acc.item()
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
 
         test_loss /= len(dataloader)
-        test_acc /= len(dataloader)
-        self.model.train()
-        #return np.array(list_outputs).flatten(), np.array(list_targets).flatten(), test_loss, test_acc
-        return list_outputs, list_targets, test_loss, test_acc
+        test_acc = 100 * correct / total
+        return test_loss, test_acc
 
+
+        # with torch.inference_mode():  # or with torch.no_grad():
+        #     for x_test_batch, y_test_batch in dataloader:
+        #         # Move data to device and set to float
+        #         x_test_batch, y_test_batch = x_test_batch.float().to(device), y_test_batch.float().to(device)
+
+        #         # Get model outputs
+        #         y_test_pred = self.model(x_test_batch, device=device)
+        #         if isinstance(self.model, RnnNet):
+        #             # y_test_pred = y_test_pred.squeeze()
+        #             # y_test_batch = y_test_batch.squeeze()
+        #             if label_scaler:
+        #                 y_test_pred = torch.tensor(scaler.inverse_transform(y_test_pred), device=device)
+        #                 y_test_batch = torch.tensor(label_scaler.inverse_transform(y_test_batch), device=device)
+
+        #         # print(y_test_batch, y_test_pred)
+        #         list_targets.append(y_test_batch.detach().numpy())
+        #         list_outputs.append(y_test_pred.detach().numpy())
+
+        #         # Compute and accumulate metrics
+        #         test_batch_loss = self.criterion(y_test_pred, y_test_batch)
+        #         test_batch_acc = binary_acc(y_test_pred, y_test_batch)
+        #         test_loss += test_batch_loss.item()
+        #         test_acc += test_batch_acc.item()
+
+        # test_loss /= len(dataloader)
+        # test_acc /= len(dataloader)
+        # self.model.train()
+
+        return list_outputs, list_targets, test_loss, test_acc
 
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(torch.sigmoid(y_pred))

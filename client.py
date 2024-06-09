@@ -339,9 +339,21 @@ class Client:
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
                                                           stratify=y_train if name_dataset == "Airline Satisfaction" else None)
 
-        self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
-                                          dp, delta=1 / (2 * len(x_train)),
-                                          name_dataset=name_dataset, model_choice=model_choice)
+        self.flower_client = FlowerClient.client(
+            batch_size=batch_size,
+            x_train=x_train, 
+            x_val=x_val, 
+            x_test=x_test, 
+            y_train=y_train, 
+            y_val=y_val, 
+            y_test=y_test,
+            model_choice=model_choice,
+            diff_privacy=dp, 
+            delta=1 / (2 * len(x_train)),
+            epsilon=0.5,
+            max_grad_norm=1.2,
+            name_dataset=name_dataset, 
+            )
 
     def start_server(self):
         start_server(self.host, self.port, self.handle_message, self.id)
