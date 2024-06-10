@@ -108,7 +108,7 @@ if __name__ == "__main__":
 
     # nodes
     numberOfNodes = 3
-    coef_usefull = 1.05
+    coef_usefull = 1
 
     # clients
     numberOfClientsPerNode = 3  # corresponds to the number of clients per node, n in the shamir scheme

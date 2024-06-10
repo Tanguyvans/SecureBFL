@@ -8,3 +8,4 @@ flower
 flwr
 opacus
 torchvision
+tqdm
