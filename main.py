@@ -1,23 +1,21 @@
 import time
 import threading
 import logging
-import os
-import random
+
 import numpy as np
 
 from node import Node
-from client import Client, data_preparation, get_dataset, create_sequences
+from client import Client
 
-from torchvision import datasets
-
+from going_modular.data_setup import load_dataset
 import warnings
 warnings.filterwarnings("ignore")
 
-batch_size = 256
 
 # %%
 def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type="additif", m=3,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet"):
+                 name_dataset="Airline Satisfaction", model_choice="simplenet", choice_loss="cross_entropy",
+                 batch_size=256, num_classes=10):
     nodes = []
 
     for i in range(number_of_nodes): 
@@ -34,7 +32,9 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type=
                 ss_type=ss_type,
                 m=m,
                 name_dataset=name_dataset,
-                model_choice=model_choice
+                model_choice=model_choice,
+                choice_loss=choice_loss,
+                num_classes=num_classes
             )
         )
         
@@ -42,7 +42,8 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type=
 
 
 def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", threshold=3, m=3,
-                   name_dataset="Airline Satisfaction", model_choice="simplenet", epochs=3):
+                   name_dataset="Airline Satisfaction", model_choice="simplenet",
+                   choice_loss="cross_entropy", batch_size=256, epochs=3, num_classes=10):
     clients = {}
     for i in range(number_of_clients): 
         clients[f"c{node}_{i+1}"] = Client(
@@ -58,7 +59,9 @@ def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type
             m=m,
             name_dataset=name_dataset,
             model_choice=model_choice,
-            epochs=epochs
+            choice_loss=choice_loss,
+            epochs=epochs,
+            num_classes=num_classes,
         )
 
     return clients
@@ -79,21 +82,6 @@ def cluster_generation(nodes, clients, min_number_of_clients_in_cluster):
                         clients[i][client_id_1].add_connections(client_id_2, clients[i][client_id_2].port)
 
 
-def splitting_cifar_dataset(dataset, nb_clients):
-    labels_per_client = len(dataset)*0.1//nb_clients
-    clients = [{i:0 for i in range(10)} for _ in range(nb_clients)]
-    clients_dataset = [[[], []] for _ in range(nb_clients)]
-
-    for data in dataset:
-        for i, client in enumerate(clients):
-            if client[data[1]] < labels_per_client:
-                client[data[1]] += 1
-                clients_dataset[i][0].append(data[0])
-                clients_dataset[i][1].append(data[1])
-                break
-    
-    return clients_dataset
-
 # todo:
 #  Gérer l'attente : attendre de recevoir les parts de k clients pour un cluster pour commencer shamir (pour le moment on attend les min_number_of_clients_in_cluster shares)
 #  Ajouter le checksum pour verifier la non altération des shares du smpc.
@@ -103,8 +91,11 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     # %%
     data_root = "Data"
-    name_dataset = "cifar"  # "Airline Satisfaction" or "Energy" or cifar
-    data_folder = f"{data_root}/{name_dataset}"
+    name_dataset = "alzheimer"  # "Airline Satisfaction" or "Energy" or "cifar" or "mnist" or "alzheimer"
+    batch_size = 256
+    choice_loss = "cross_entropy"
+    choice_optimizer = "Adam"  # à ajouter
+    choice_scheduler = "StepLR"  # à ajouter
 
     # nodes
     numberOfNodes = 3
@@ -132,109 +123,65 @@ if __name__ == "__main__":
         f.write("")
 
     # %%
+    n_classes = None
+    length = None
     if name_dataset == "Airline Satisfaction":
         model_choice = "simplenet"
-        train_path = f'{data_folder}/train.csv'
-        test_path = f'{data_folder}/test.csv'
-        df_train = get_dataset(train_path, name_dataset)
-        df_test = get_dataset(test_path, name_dataset)
-
-        client_train_sets = data_preparation(df_train, name_dataset, numberOfClientsPerNode * numberOfNodes)
-        client_test_sets = data_preparation(df_test, name_dataset, numberOfClientsPerNode * numberOfNodes)
-
-        node_test_sets = data_preparation(df_test, name_dataset, numberOfNodes)
-
-        del df_train, df_test
+        choice_loss = 'bce_with_logits'
 
     elif name_dataset == "Energy":
-        model_choice = "LSTM"
-        client_train_sets = []
-        client_test_sets = []
-        node_test_sets = []
-
-        IDs = set()
-        for file in os.listdir(data_folder+"/Electricity"):
-            if file[12] in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
-                IDs.add(int(file[12:16]))
-        ID_list = list(IDs)
-
-        for client_id in range(numberOfClientsPerNode * numberOfNodes):
-            if not ID_list:
-                raise ValueError("Not enough IDs available for all clients.")
-            selected_ID = random.choice(ID_list)  # Randomly select an ID
-            ID_list.remove(selected_ID)  # Optional: remove to avoid reuse
-
-            file_path = f"{data_folder}/Electricity/residential_{selected_ID}.pkl"
-            df = get_dataset(file_path, name_dataset)
-            window_size = 10
-            data_train = create_sequences(df["2009-07-15": "2010-07-14"], window_size)
-            data_test = create_sequences(df["2010-07-14": "2010-07-21"], window_size)
-
-            client_train_sets.append(data_preparation(data_train, name_dataset, 1)[0])
-            client_test_sets.append(data_preparation(data_test, name_dataset, 1)[0])
-
-        for i in range(numberOfNodes):
-            node_train_data = [[], []]
-            node_test_data = [[], []]
-            for j in range(5): 
-
-                if not ID_list:
-                    raise ValueError("Not enough IDs available for all clients.")
-                selected_ID = random.choice(ID_list)  # Randomly select an ID
-                ID_list.remove(selected_ID)  # Optional: remove to avoid reuse
-
-                file_path = f"{data_folder}/Electricity/residential_{selected_ID}.pkl"
-                df = get_dataset(file_path, name_dataset)
-                window_size = 10
-                data_train = create_sequences(df["2009-07-15": "2010-07-14"], window_size)
-                data_test = create_sequences(df["2010-07-14": "2010-07-21"], window_size)
-
-                data_train_x, data_train_y = data_preparation(data_train, name_dataset, 1)[0]
-                data_test_x, data_test_y = data_preparation(data_test, name_dataset, 1)[0]
-
-                node_train_data[0].extend(data_train_x)
-                node_train_data[1].extend(data_train_y)
-                node_test_data[0].extend(data_test_x)
-                node_test_data[1].extend(data_test_y)
-
-            node_test_sets.append(node_test_data)
-
-        del df, data_train, data_test
+        model_choice = "LSTM"  # "LSTM" or "GRU"
+        choice_loss = 'mse'
 
     elif name_dataset == "cifar":
         model_choice = "CNNCifar"
-        dataset_train = datasets.CIFAR10('./data/cifar', train=True, download=True)
-        dataset_test = datasets.CIFAR10('./data/cifar', train=False, download=True)
 
-        client_train_sets = splitting_cifar_dataset(dataset_train, numberOfClientsPerNode * numberOfNodes)
-        client_test_sets = splitting_cifar_dataset(dataset_test, numberOfClientsPerNode * numberOfNodes)
+    elif name_dataset == "mnist":
+        model_choice = "CNNMnist"
 
-        node_test_sets = splitting_cifar_dataset(dataset_test, numberOfNodes)
+    elif name_dataset == "alzheimer":
+        model_choice = "mobilenet"
+        length = 32
 
     else:
         raise ValueError("The dataset name is not correct")
-    # %%
 
+    client_train_sets, client_test_sets, node_test_sets, n_classes = load_dataset(length, name_dataset,
+                                                                                  data_root, numberOfClientsPerNode,
+                                                                                  numberOfNodes)
+
+    # %%
     # Change the poisonning for cifar
     for i in range(poisonned_number):
         if name_dataset == "Airline Satisfaction":
             client_train_sets[i][1] = client_train_sets[i][1].replace({0: 1, 1: 0})
             client_test_sets[i][1] = client_test_sets[i][1].replace({0: 1, 1: 0})
-        elif name_dataset == "cifar": 
+
+        elif name_dataset in ["cifar", "mnist", "alzheimer"]:
             n = len(client_train_sets[i][1])
-            client_train_sets[i][1] = np.random.randint(0, 10, size=n).tolist()
+            client_train_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
             n = len(client_test_sets[i][1])
-            client_test_sets[i][1] = np.random.randint(0, 10, size=n).tolist()
+            client_test_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
+
+        else:
+            raise ValueError("The dataset name is not correct")
 
     # the nodes should not have a train dataset
-    nodes = create_nodes(node_test_sets, numberOfNodes, dp=dp, ss_type=type_ss, m=m,
-                         name_dataset=name_dataset, model_choice=model_choice)
+    nodes = create_nodes(
+        node_test_sets, numberOfNodes, dp=dp, ss_type=type_ss, m=m,
+        name_dataset=name_dataset, model_choice=model_choice, choice_loss=choice_loss,
+        batch_size=batch_size, num_classes=n_classes
+    )
 
     # %%## client to node connections ###
     clients = []
     for i in range(numberOfNodes): 
-        node_clients = create_clients(client_train_sets, client_test_sets, i, numberOfClientsPerNode,
-                                      dp, type_ss, k, m=m, name_dataset=name_dataset, model_choice=model_choice, epochs=client_epochs)
+        node_clients = create_clients(
+            client_train_sets, client_test_sets, i, numberOfClientsPerNode,
+            dp, type_ss, k, m=m, name_dataset=name_dataset, model_choice=model_choice,
+            choice_loss=choice_loss, batch_size=batch_size, epochs=client_epochs,
+            num_classes=n_classes
+        )
         clients.append(node_clients)
         for client_id, client in node_clients.items(): 
             client.update_node_connection(nodes[i].id, nodes[i].port)
@@ -242,13 +189,13 @@ if __name__ == "__main__":
     # %% All nodes connections ###
     for i in range(numberOfNodes): 
         node_i = nodes[i]
-        ### node to node ###
+        # ## node to node ###
         for j in range(numberOfNodes): 
             node_j = nodes[j]
             if i != j: 
                 node_i.add_peer(peer_id=node_j.id, peer_address=("localhost", node_j.port))
 
-        ### node to client ###
+        # ## node to client ###
         for client_j in clients[i].values():
             node_i.add_client(client_id=client_j.id, client_address=("localhost", client_j.port))
 
@@ -271,7 +218,7 @@ if __name__ == "__main__":
         for i in range(numberOfNodes):
             print(f"Node {i + 1} : Training\n")
             for client in clients[i].values():
-                frag_weights = client.train()  # returns the shares to be sent to the other clients donc liste de la forme [(x1, y1), (x2, y2), ...]
+                frag_weights = client.train()  # returns the shares to be sent to the other clients, so list of the form [(x1, y1), (x2, y2), ...].
                 client.send_frag_clients(frag_weights)
         
         time.sleep(ts)

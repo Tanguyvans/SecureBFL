@@ -22,96 +22,7 @@ from sklearn.model_selection import train_test_split
 
 from protocols.pbft_protocol import PBFTProtocol
 from protocols.raft_protocol import RaftProtocol
-
-
-#%% Functions to reconstruct the shared secret on the node side with Shamir secret sharing
-def generate_secret_shamir(x, y, m):
-    """
-    Function to generate the secret from the given points
-    :param x: list of x
-    :param y: list of y
-    :param m: number of points to use for the reconstruction
-
-    :return: the secret
-    """
-    # Initialisation of the answer
-    ans = 0
-
-    # loop to go through the given points
-    for i in range(m):
-        l = y[i]
-        for j in range(m):
-            # Compute the Lagrange polynomial
-            if i != j:
-                temp = -x[j] / (x[i] - x[j])  # L_i(x=0)
-                l *= temp
-
-        ans += l
-
-    # return the secret
-    return ans
-
-
-def combine_shares_node(secret_list):
-    """
-    Function to combine the shares of the secret and get a dictionary with the good format for the decryption
-    :param secret_list: list of shares of each client, so secret_list[id_client][x][layer]
-    :return: dictionary of the secret, so secret_dic_final[x][layer]
-    """
-    secret_dic_final = {}
-    for id_client in range(len(secret_list)):
-        for x, list_weights in secret_list[id_client].items():
-            if x in secret_dic_final:
-                for layer in range(len(list_weights)):
-                    secret_dic_final[x][layer] += list_weights[layer]
-            else:
-                secret_dic_final[x] = list_weights
-    return secret_dic_final
-
-
-def decrypt_shamir_node(secret_dic_final, secret_shape, m):
-    """
-    Function to decrypt the secret on the node side with Shamir secret sharing
-    :param secret_dic_final: dictionary of the secret, so secret_dic_final[x][layer]
-    :param secret_shape: list of shapes of the layers
-    :param m: number of shares to use for the reconstruction of the secret
-    :return: list of the decrypted secret, so decrypted_result[layer]  = weights_layer
-    """
-    x_combine = list(secret_dic_final.keys())
-    y_combine = list(secret_dic_final.values())
-    decrypted_result = []
-    for layer in range(len(y_combine[0])):
-        list_x = []
-        list_y = []
-        for i in range(m):  # (len(x_combine)):
-            y = y_combine[i][layer]
-            x = np.ones(y.shape) * x_combine[i]
-            list_x.append(x)
-            list_y.append(y)
-
-        all_x_layer = np.array(list_x).T
-        all_y_layer = np.array(list_y).T
-
-        decrypted_result.append(
-            np.round(
-                [generate_secret_shamir(all_x_layer[i], all_y_layer[i], m) for i in range(len(all_x_layer))],
-                4).reshape(secret_shape[layer]) / len(x_combine)
-        )
-
-    return decrypted_result
-
-
-def aggregate_shamir(secret_list, secret_shape, m):
-    """
-
-    :param secret_list: list of shares of each client, so secret_list[id_client][x][layer]
-    :param secret_shape: list of shapes of the layers
-    :param m: number of shares to use for the reconstruction of the secret
-    :return: dictionary of the secret, so secret_dic_final[x] = [y1, y2, y3, y4] if we have 4 layers.
-    where x is the value of the x coordinate, and y1, y2, y3, y4 are the values of the y coordinate for each layer
-    """
-    secret_dic_final = combine_shares_node(secret_list)
-    return decrypt_shamir_node(secret_dic_final, secret_shape, m)
+from going_modular.security import aggregate_shamir
 
 
 # Other functions to handle the communication between the nodes
@@ -173,7 +84,8 @@ def start_server(host, port, handle_message, num_node):
 class Node:
     def __init__(self, id, host, port, consensus_protocol, batch_size, test, coef_usefull=1.01,
                  dp=False, ss_type="additif", m=3,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet"):
+                 name_dataset="Airline Satisfaction", model_choice="simplenet", choice_loss="cross_entropy",
+                 num_classes=10):
         self.id = id
         self.host = host
         self.port = port
@@ -192,16 +104,22 @@ class Node:
         self.get_keys(private_key_path, public_key_path)
 
         x_test, y_test = test
-
+        #x_test, y_test = [], []  # test
+        #[(x_test.append(test[i][0]), y_test.append(test[i][1])) for i in range(len(test))]
+        # x_test, y_test, name_dataset="Airline Satisfaction", **kwargs
         self.flower_client = FlowerClient.node(
-            batch_size=batch_size, 
             x_test=x_test, 
             y_test=y_test,
+            batch_size=batch_size,
             model_choice=model_choice,
-            diff_privacy=dp, 
+            diff_privacy=dp,
+            delta=1e-5,
             epsilon=0.5,
             max_grad_norm=1.2, 
-            name_dataset=name_dataset)
+            name_dataset=name_dataset,
+            choice_loss=choice_loss,
+            num_classes=num_classes
+        )
 
         self.ss_type = ss_type
         self.secret_shape = None

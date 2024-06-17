@@ -1,8 +1,6 @@
 import pickle
 # import random
 from sklearn.model_selection import train_test_split
-import numpy as np
-import pandas as pd
 
 import socket
 
@@ -11,298 +9,7 @@ from cryptography.hazmat.primitives import serialization
 
 from flowerclient import FlowerClient
 from node import get_keys, start_server
-
-
-# %% list of functions to apply secret sharing algorithm
-def apply_smpc(input_list, n_shares=2, type_ss="additif", threshold=3):
-    """
-    Function to apply secret sharing algorithm and encode the given secret
-    :param input_list: list of values to share
-    :param n_shares: the number of parts to divide the secret (so the number of participants)
-    :param type_ss: the type of secret sharing algorithm to use (by default additif)
-    :param threshold: the minimum number of parts to reconstruct the secret (so with a polynomial of order threshold-1)
-    :return: the list of shares for each client and the shape of the secret
-    """
-    if type_ss == "additif":
-        return apply_additif(input_list, n_shares), None
-
-    elif type_ss == "shamir":
-        secret_shape = [weights_layer.shape for weights_layer in input_list]
-
-        encrypted_result = apply_shamir(input_list, n_shares=n_shares, k=threshold)
-        indices = [i for i in range(len(encrypted_result))]  # We get the values of x associated with each y.
-        list_x = [i + 1 for i in range(len(encrypted_result))]
-        # random.shuffle(indices)
-        list_shares = [(list_x[id_client], encrypted_result[id_client])for id_client in indices]
-        return list_shares, secret_shape
-
-    else:
-        raise ValueError("Type of secret sharing not recognized")
-
-
-# Functions for additif secret sharing
-
-def encrypt_tensor(secret, n_shares=3):
-    """
-    Function to encrypt a tensor of values with additif secret sharing
-    :param secret: the tensor of values to encrypt
-    :param n_shares: the number of parts to divide the secret (so the number of participants)
-    :return: the list of shares for each client where each share is a tensor of values
-    """
-    shares = [np.random.randint(-5, 5, size=secret.shape) for _ in range(n_shares - 1)]
-
-    # The last part is deduced from the sum of the previous parts to guarantee additivity
-    shares.append(secret - sum(shares))
-
-    return shares
-
-
-def apply_additif(input_list, n_shares=3):
-    """
-    Function to apply secret sharing algorithm and encode the given secret when the secret is a tensor of values
-    :param input_list: The secret to share (a tensor of values of type numpy.ndarray)
-    :param n_shares: the number of parts to divide the secret (so the number of participants)
-    :return: the list of shares for each client where each share is a list of tensors (one tensor for each layer)
-
-    """
-    encrypted_list = [[] for _ in range(n_shares)]
-    for weights_layer in input_list:
-        # List for the given layer where each element is a share for a client.
-        encrypted_layer = encrypt_tensor(weights_layer, n_shares)  # crypter un tenseur de poids
-
-        # For each layer, each client i has a part of each row of the given layer
-        # because we add for client i, the encrypted_layer we prepared for this client
-        for i in range(n_shares):
-            encrypted_list[i].append(np.array(encrypted_layer[i]))
-
-    return encrypted_list
-
-
-# Functions for shamir secret sharing
-def calculate_y(x, poly):
-    """
-    Function to calculate the value of y from a polynomial and a value of x:
-    y = poly[0] + x*poly[1] + x^2*poly[2] + ...
-
-    :param x: the value of x
-    :param poly: the list of coefficients of the polynomial
-
-    :return: the value of y
-    """
-    y = sum([poly[i] * x ** i for i in range(len(poly))])
-    return y
-
-
-def apply_shamir(input_list, n_shares=2, k=3):
-    """
-    Function to apply shamir's secret sharing algorithm
-    :param input_list: secret to share (a list of tensors of values of type numpy.ndarray)
-    :param n_shares: the number of parts to divide the secret (so the number of participants)
-    :param k: the minimum number of parts to reconstruct the secret, called threshold (so with a polynomial of order k-1)
-    :return: the list of shares for each client
-    """
-    list_clients = [[]for i in range(n_shares)]
-    for weights_layer in input_list:
-        y_i = apply_poly(weights_layer.flatten(), n_shares, k)[1]
-        for i in range(n_shares):
-            list_clients[i].append(y_i[i])
-
-    return list_clients
-
-
-def apply_poly(S, N, K):
-    """
-    Function to perform secret sharing algorithm and encode the given secret when the secret is a tensor of values
-    :param S: The secret to share (a tensor of values of type numpy.ndarray)
-    :param N: the number of parts to divide the secret (so the number of participants)
-    :param K: the minimum number of parts to reconstruct the secret, called threshold (so with a polynomial of order K-1)
-
-    :return: the points generated from the polynomial we created for each part
-    """
-    # A tensor of polynomials to store the coefficients of each polynomial
-    # The element i of the column 0 corresponds to the constant of the polynomial i which is the secret S_i
-    # that we want to encrypt
-    poly = np.array([[S[i]] + [0] * (K - 1) for i in range(len(S))])
-
-    # Chose randomly K - 1 numbers for each row except the first column which is the secret
-    poly[:, 1:] = np.random.randint(1, 996, np.shape(poly[:, 1:])) + 1
-
-    # Generate N points for each polynomial we created
-    points = np.array([
-        [
-            (x, calculate_y(x, poly[i])) for x in range(1, N + 1)
-        ] for i in range(len(S))
-    ]).T
-    return points
-
-
-# %% Functions to decrypt the secret
-def sum_shares(encrypted_list, type_ss="additif"):
-    """
-    Function to sum the parts received by an entity
-    :param encrypted_list: list of lists to decrypt
-    :param type_ss: type of secret sharing algorithm used
-    :param m: number of parts used to reconstruct the secret (M <= K)
-    :return: the sum of the parts received
-    """
-    if type_ss == "additif":
-        return sum_shares_additif(encrypted_list)
-
-    elif type_ss == "shamir":
-        return sum_shares_shamir(encrypted_list)
-
-    else:
-        raise ValueError("Type of secret sharing not recognized")
-
-
-def sum_shares_additif(encrypted_list):
-    """
-    Function to sum the parts received by an entity when the secret sharing algorithm used is additif.
-    :param encrypted_list: list of shares to sum
-    :return: the sum of the parts received
-    so decrypted_list[layer] = sum([weights_1[layer], weights_2[layer], ..., weights_n[layer]])
-    """
-    decrypted_list = []
-    n_shares = len(encrypted_list)
-
-    for layer in range(len(encrypted_list[0])):  # for each layer
-        # We sum each part of the given layer
-        sum_array = sum([encrypted_list[i][layer] for i in range(n_shares)])
-
-        decrypted_list.append(sum_array)
-
-    return decrypted_list
-
-
-def sum_shares_shamir(encrypted_list):
-    """
-    Function to sum the parts received by an entity when the secret sharing algorithm used is Shamir.
-    In this case, we sum points.
-    :param encrypted_list: list of shares to sum where each element is a tuple (x, y) with x a abscissa and y all of the y received for this x.
-    :return: the sum of the parts received so result_som[x] = sum([y_1, y_2, ..., y_n])
-    """
-    result_som = {}  # sum for a given client
-    for (x, list_weights) in encrypted_list:
-        if x in result_som:
-            for layer in range(len(list_weights)):
-                result_som[x][layer] += list_weights[layer]
-        else:
-            result_som[x] = list_weights
-
-    return result_som
-
-
-def create_sequences(data, seq_length):
-    """
-    Function to preprocess sequential data to make it usable for training neural networks.
-    It transforms raw data into input-target pairs
-
-    :param data: the dataframe containing the data or the numpy array containing the data
-    :param seq_length: The length of the input sequences. It is the number of consecutive data points used as input to predict the next data point.
-    :return: the numpy arrays of the inputs and the targets,
-    where the inputs are sequences of consecutive data points and the targets are the immediate next data points.
-    """
-    if len(data) < seq_length:
-        raise ValueError("The length of the data is less than the sequence length")
-
-    xs, ys = [], []
-    # Iterate over data indices
-    for i in range(len(data) - seq_length):
-        if type(data) is pd.DataFrame:
-            # Define inputs
-            x = data.iloc[i:i + seq_length]
-
-            # Define target
-            y = data.iloc[i + seq_length]
-
-        else:
-            # Define inputs
-            x = data[i:i + seq_length]
-
-            # Define target
-            y = data[i + seq_length]
-
-        xs.append(x)
-        ys.append(y)
-
-    # Convert lists to numpy arrays
-    xs = np.array(xs)
-    ys = np.array(ys)
-
-    # Shuffle the sequences
-    indices = np.arange(xs.shape[0])
-    np.random.shuffle(indices)
-    xs = xs[indices]
-    ys = ys[indices]
-
-    return xs, ys
-
-
-def get_dataset(filename, name_dataset="Airline Satisfaction"):
-    if name_dataset == "Airline Satisfaction":
-        df = pd.read_csv(filename)
-        df = df.drop(['Unnamed: 0', 'id'], axis=1)
-        df['Gender'] = df['Gender'].map({'Male': 0, 'Female': 1})
-        df['Customer Type'] = df['Customer Type'].map({'disloyal Customer': 0, 'Loyal Customer': 1})
-        df['Type of Travel'] = df['Type of Travel'].map({'Personal Travel': 0, 'Business travel': 1})
-        df['Class'] = df['Class'].map({'Eco': 0, 'Eco Plus': 1, 'Business': 2})
-        df['satisfaction'] = df['satisfaction'].map({'neutral or dissatisfied': 0, 'satisfied': 1})
-        df = df.dropna()
-
-    elif name_dataset == "Energy":
-        df = pd.read_pickle(filename)
-        df["ID"] = df["ID"].astype("category")
-        df["time_code"] = df["time_code"].astype("uint16")
-        df = df.set_index("date_time")
-
-        # Electricity consumption per hour (date with hour in the index)
-        df = df["consumption"].resample("60min", label='right', closed='right').sum().to_frame()
-
-    else:
-        raise ValueError("Dataset not recognized")
-
-    return df
-
-
-def data_preparation(data, name_dataset, number_of_nodes=3):
-    multi_df = []
-    if name_dataset == "Airline Satisfaction":
-        df_shuffled = data.sample(frac=1, random_state=42).reset_index(drop=True)
-
-        num_samples = len(df_shuffled)
-        split_size = num_samples // number_of_nodes
-        for i in range(number_of_nodes):
-            if i < number_of_nodes - 1:
-                subset = data.iloc[i * split_size:(i + 1) * split_size]
-
-            else:
-                subset = data.iloc[i * split_size:]
-
-            # x are the features and y the target
-            x_s = subset.drop(['satisfaction'], axis=1)
-            y_s = subset[['satisfaction']]
-
-            multi_df.append([x_s, y_s])
-
-    elif name_dataset == "Energy":
-        num_samples = len(data[0])
-        split_size = num_samples // number_of_nodes
-        for i in range(number_of_nodes):
-            if i < number_of_nodes - 1:
-                # data : (x, y)
-                x_s = data[0][i * split_size:(i + 1) * split_size]
-                y_s = data[1][i * split_size:(i + 1) * split_size]
-
-            else:
-                x_s = data[0][i * split_size:]
-                y_s = data[1][i * split_size:]
-
-            multi_df.append([x_s, y_s])
-
-    else:
-        raise ValueError("Dataset not recognized")
-
-    return multi_df
+from going_modular.security import apply_smpc, sum_shares
 
 
 def save_nodes_chain(nodes):
@@ -312,12 +19,12 @@ def save_nodes_chain(nodes):
 
 class Client:
     def __init__(self, id, host, port, batch_size, train, test, dp=False, type_ss="additif", threshold=3, m=3,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet", epochs=3):
+                 name_dataset="Airline Satisfaction", model_choice="simplenet", choice_loss="cross_entropy", epochs=3, num_classes=10):
         self.id = id
         self.host = host
         self.port = port
 
-        self.epochs = 3
+        self.epochs = epochs
         self.type_ss = type_ss
         self.threshold = threshold
         self.m = m
@@ -336,23 +43,29 @@ class Client:
 
         x_train, y_train = train
         x_test, y_test = test
+        #x_train, y_train = [], []  # train
+        #x_test, y_test = [], []  # test
+        #[(x_train.append(train[i][0]), y_train.append(train[i][1])) for i in range(len(train))]
+        #[(x_test.append(test[i][0]), y_test.append(test[i][1])) for i in range(len(test))]
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
                                                           stratify=y_train if name_dataset == "Airline Satisfaction" else None)
 
         self.flower_client = FlowerClient.client(
-            batch_size=batch_size,
             x_train=x_train, 
             x_val=x_val, 
             x_test=x_test, 
             y_train=y_train, 
             y_val=y_val, 
             y_test=y_test,
+            batch_size=batch_size,
             model_choice=model_choice,
             diff_privacy=dp, 
             delta=1 / (2 * len(x_train)),
             epsilon=0.5,
             max_grad_norm=1.2,
-            name_dataset=name_dataset, 
+            name_dataset=name_dataset,
+            choice_loss=choice_loss,
+            num_classes=num_classes
             )
 
     def start_server(self):
