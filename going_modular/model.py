@@ -1,5 +1,4 @@
 import torch.nn as nn
-import torch.nn.init as init
 import torch.nn.functional as F
 import torch
 from torch.hub import load_state_dict_from_url

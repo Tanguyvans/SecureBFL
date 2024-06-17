@@ -1,11 +1,10 @@
-from torch.utils.data import random_split
+from torch.utils.data import random_split, Dataset, DataLoader, TensorDataset
 import torch
 import os
 import random
 import pandas as pd
 import numpy as np
 from torchvision import datasets, transforms
-
 
 # Normalization values for the different datasets
 NORMALIZE_DICT = {
@@ -268,3 +267,15 @@ def load_dataset(resize=None, name_dataset="cifar", data_root="./data/", numberO
         n_classes = len(dataset_train.classes)
 
     return client_train_sets, client_test_sets, node_test_sets, n_classes
+
+
+class Data(Dataset):
+    def __init__(self, x_data, y_data):
+        self.x_data = x_data
+        self.y_data = y_data
+
+    def __getitem__(self, index):
+        return self.x_data[index], self.y_data[index]
+
+    def __len__(self):
+        return len(self.x_data)
