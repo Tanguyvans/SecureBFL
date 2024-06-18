@@ -24,7 +24,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from model import CNNCifar
 
 warnings.filterwarnings("ignore", category=UserWarning)
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+if torch.backends.mps.is_available():
+    DEVICE = torch.device("mps")
+elif torch.cuda.is_available():
+    DEVICE = torch.device("cuda:0")
+else:
+    DEVICE = torch.device("cpu")
+
+print(f"Using device: {DEVICE}")
 
 def train(model, trainloader, epochs):
     criterion = nn.CrossEntropyLoss()
@@ -34,7 +42,7 @@ def train(model, trainloader, epochs):
         correct = 0
         for x_batch, y_batch in trainloader:
             x_batch, y_batch = x_batch.to(DEVICE), y_batch.to(DEVICE)
-            y_pred = model(x_batch, device=DEVICE)
+            y_pred = model(x_batch)
 
             # Calculate loss
             loss = criterion(y_pred, y_batch)
@@ -54,8 +62,6 @@ def train(model, trainloader, epochs):
                 accuracy = 100 * correct / total
                 #print(f"Epoch {epoch + 1}, Loss: {loss.item():.4f}, Accuracy: {accuracy:.2f}%")
 
-        print("epoch: ", epoch + 1)
-
 def test(model, testloader):
     model.eval()  # Set the model to evaluation mode
     criterion = nn.CrossEntropyLoss()
@@ -66,7 +72,7 @@ def test(model, testloader):
     with torch.no_grad():  # Disable gradient computation
         for x_batch, y_batch in testloader:
             x_batch, y_batch = x_batch.to(DEVICE), y_batch.to(DEVICE)
-            y_pred = model(x_batch, device=DEVICE)
+            y_pred = model(x_batch)
 
             # Calculate loss
             loss = criterion(y_pred, y_batch)
@@ -130,7 +136,7 @@ class FlowerClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
-        train(model, trainloader, epochs=3)
+        train(model, trainloader, epochs=5)
         return self.get_parameters(config={}), len(trainloader.dataset), {}  # Use len(x_train) or len(y_train)
 
 
@@ -151,7 +157,8 @@ if __name__ == "__main__":
 
     print(f"Number of clients: {args.num_clients}")
     
-    model = CNNCifar()
+    model = CNNCifar().to(DEVICE)
+    model = model.to(memory_format=torch.channels_last).to(DEVICE)
     trainloader, testloader = load_data(partition_id=args.partition_id, num_clients=args.num_clients)
 
     fl.client.start_client(server_address="127.0.0.1:8080", client=FlowerClient())

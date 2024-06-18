@@ -1,10 +1,15 @@
 from typing import List, Tuple
+import argparse
 
 import flwr as fl
 from flwr.common import Metrics
 
 import numpy as np
 from typing import List, Union, Tuple, Optional, Dict
+
+parser = argparse.ArgumentParser(description="Run the federated server with configurable epochs")
+parser.add_argument("--epochs", type=int, default=20, help="Number of epochs for training")
+args = parser.parse_args()
 
 class SaveModelStrategy(fl.server.strategy.FedAvg):
     def aggregate_fit(
@@ -39,8 +44,10 @@ strategy = SaveModelStrategy(
     evaluate_metrics_aggregation_fn=weighted_average
 )
 
+print("epochs: ", args.epochs)
+
 fl.server.start_server(
     server_address="0.0.0.0:8080",
-    config=fl.server.ServerConfig(num_rounds=20),
+    config=fl.server.ServerConfig(num_rounds=args.epochs),
     strategy=strategy,
 )

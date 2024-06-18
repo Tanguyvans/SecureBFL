@@ -1,17 +1,20 @@
 #!/bin/bash
 
-# Check if the number of clients was passed as a parameter
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <number_of_clients>"
+# Check if the number of clients and number of epochs were passed as parameters
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 <number_of_clients> <number_of_epochs>"
     exit 1
 fi
 
 num_clients=$1
+num_epochs=$2
 
 # Activate the Python environment
 source env/bin/activate
 
-python3 cfl/server.py &
+# Start the server with the specified number of epochs
+echo "Starting server with $num_epochs epochs"
+python3 cfl/server.py --epochs $num_epochs &
 server_pid=$!
 
 # Start multiple clients in the background
