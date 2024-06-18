@@ -107,7 +107,7 @@ if __name__ == "__main__":
     client_epochs = 3
     poisonned_number = 0
     epochs = 5
-    ts = 40
+    ts = 30
     dp = False  # True if you want to apply differential privacy
 
     type_ss = "additif"  # "shamir" or "additif"
@@ -221,14 +221,14 @@ if __name__ == "__main__":
                 frag_weights = client.train()  # returns the shares to be sent to the other clients, so list of the form [(x1, y1), (x2, y2), ...].
                 client.send_frag_clients(frag_weights)
         
-        time.sleep(ts)
+            time.sleep(ts*2)
 
-        ### SMPC ###
-        for i in range(numberOfNodes):
             print(f"Node {i + 1} : SMPC\n")
             for client in clients[i].values():
                 client.send_frag_node()
                 time.sleep(ts)
+
+            time.sleep(ts*2)
 
         ### global model creation
 

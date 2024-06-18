@@ -115,8 +115,8 @@ class Client:
             # why 3 iterations?
             res = self.flower_client.fit(res, {})[0]
             loss = self.flower_client.evaluate(res, {})[0]
-            with open('output.txt', 'a') as f:
-                f.write(f"client {self.id}: {loss} \n")
+            # with open('output.txt', 'a') as f:
+            #     f.write(f"client {self.id}: {loss} \n")
         print(f"client {self.id}: {loss} \n")
         # Apply SMPC (warning : list_shapes is initialized only after the first training)
         encrypted_lists, self.list_shapes = apply_smpc(res, len(self.connections) + 1, self.type_ss, self.threshold)
