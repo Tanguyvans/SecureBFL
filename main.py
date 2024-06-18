@@ -91,7 +91,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     # %%
     data_root = "Data"
-    name_dataset = "alzheimer"  # "Airline Satisfaction" or "Energy" or "cifar" or "mnist" or "alzheimer"
+    name_dataset = "cifar"  # "Airline Satisfaction" or "Energy" or "cifar" or "mnist" or "alzheimer"
     batch_size = 256
     choice_loss = "cross_entropy"
     choice_optimizer = "Adam"  # à ajouter
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     min_number_of_clients_in_cluster = 3
     client_epochs = 3
     poisonned_number = 0
-    epochs = 30
+    epochs = 5
     ts = 40
     dp = False  # True if you want to apply differential privacy
 

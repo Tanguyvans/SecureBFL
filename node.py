@@ -204,11 +204,11 @@ class Node:
 
         client_socket.close()
 
-    def is_update_usefull(self, model_directory): 
-        print(f"node: {self.id} GM: {self.global_params_directory}, {model_directory} ")
+    def is_update_usefull(self, model_directory, participants): 
+        print(f"node: {self.id} cluster GM: {self.global_params_directory}, {model_directory} ")
 
-        update_eval = self.evaluate_model(model_directory)
-        gm_eval = self.evaluate_model(self.global_params_directory)
+        update_eval = self.evaluate_model(model_directory, participants)
+        gm_eval = self.evaluate_model(self.global_params_directory, participants)
 
         print(f"{update_eval[0]}, {gm_eval[0]}")
         if update_eval[0] <= gm_eval[0]*self.coef_usefull:
@@ -256,11 +256,14 @@ class Node:
         else:
             return False
 
-    def evaluate_model(self, model_directory):
+    def evaluate_model(self, model_directory, participants):
         loaded_weights_dict = np.load(model_directory)
         loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
         loss = self.flower_client.evaluate(loaded_weights, {})[0]
         acc = self.flower_client.evaluate(loaded_weights, {})[2]['accuracy']
+
+        with open('output.txt', 'a') as f:
+            f.write(f"node: {self.id} model: {model_directory} cluster: {participants} loss: {loss} acc: {acc} \n")
 
         return loss, acc
 
@@ -428,7 +431,7 @@ class Node:
         loss = self.flower_client.evaluate(aggregated_weights, {})[0]
 
         with open('output.txt', 'a') as f: 
-            f.write(f"cluster {pos} node {self.id}: {loss} \n")
+            f.write(f"cluster {pos} node {self.id} block {self.blockchain.len_chain} loss: {loss} \n")
 
         self.cluster_weights[pos] = []
         for k, v in self.clusters[pos].items():
