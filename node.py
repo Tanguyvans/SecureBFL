@@ -82,10 +82,7 @@ def start_server(host, port, handle_message, num_node):
 
 
 class Node:
-    def __init__(self, id, host, port, consensus_protocol, batch_size, test, coef_usefull=1.01,
-                 dp=False, ss_type="additif", m=3,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet", choice_loss="cross_entropy",
-                 num_classes=10):
+    def __init__(self, id, host, port, consensus_protocol, test, coef_usefull=1.01, ss_type="additif", m=3, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -106,19 +103,11 @@ class Node:
         x_test, y_test = test
         #x_test, y_test = [], []  # test
         #[(x_test.append(test[i][0]), y_test.append(test[i][1])) for i in range(len(test))]
-        # x_test, y_test, name_dataset="Airline Satisfaction", **kwargs
+
         self.flower_client = FlowerClient.node(
             x_test=x_test, 
             y_test=y_test,
-            batch_size=batch_size,
-            model_choice=model_choice,
-            diff_privacy=dp,
-            delta=1e-5,
-            epsilon=0.5,
-            max_grad_norm=1.2, 
-            name_dataset=name_dataset,
-            choice_loss=choice_loss,
-            num_classes=num_classes
+            **kwargs
         )
 
         self.ss_type = ss_type

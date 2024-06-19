@@ -18,13 +18,12 @@ def save_nodes_chain(nodes):
 
 
 class Client:
-    def __init__(self, id, host, port, batch_size, train, test, dp=False, type_ss="additif", threshold=3, m=3,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet", choice_loss="cross_entropy", epochs=3, num_classes=10):
+    def __init__(self, id, host, port, train, test, type_ss="additif", threshold=3, m=3, **kwargs):
         self.id = id
         self.host = host
         self.port = port
 
-        self.epochs = epochs
+        self.epochs = kwargs['epochs']
         self.type_ss = type_ss
         self.threshold = threshold
         self.m = m
@@ -48,7 +47,7 @@ class Client:
         #[(x_train.append(train[i][0]), y_train.append(train[i][1])) for i in range(len(train))]
         #[(x_test.append(test[i][0]), y_test.append(test[i][1])) for i in range(len(test))]
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
-                                                          stratify=y_train if name_dataset == "Airline Satisfaction" else None)
+                                                          stratify=y_train if kwargs['name_dataset'] == "Airline Satisfaction" else None)
 
         self.flower_client = FlowerClient.client(
             x_train=x_train, 
@@ -57,15 +56,7 @@ class Client:
             y_train=y_train, 
             y_val=y_val, 
             y_test=y_test,
-            batch_size=batch_size,
-            model_choice=model_choice,
-            diff_privacy=dp, 
-            delta=1 / (2 * len(x_train)),
-            epsilon=0.5,
-            max_grad_norm=1.2,
-            name_dataset=name_dataset,
-            choice_loss=choice_loss,
-            num_classes=num_classes
+            **kwargs
             )
 
     def start_server(self):

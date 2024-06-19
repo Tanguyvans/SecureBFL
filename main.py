@@ -3,6 +3,7 @@ import threading
 import logging
 
 import numpy as np
+import random
 
 from node import Node
 from client import Client
@@ -14,27 +15,28 @@ warnings.filterwarnings("ignore")
 
 # %%
 def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type="additif", m=3,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet", choice_loss="cross_entropy",
-                 batch_size=256, num_classes=10):
+                 name_dataset="Airline Satisfaction", model_choice="simplenet", batch_size=256, num_classes=10,
+                 choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None):
     nodes = []
-
-    for i in range(number_of_nodes): 
+    for i in range(number_of_nodes):
         nodes.append(
             Node(
                 id=f"n{i + 1}",
                 host="127.0.0.1",
                 port=6010 + i,
                 consensus_protocol="pbft",
-                batch_size=batch_size,
                 test=test_sets[i],
                 coef_usefull=coef_usefull,
-                dp=dp,
                 ss_type=ss_type,
                 m=m,
+                batch_size=batch_size,
+                dp=dp,
                 name_dataset=name_dataset,
                 model_choice=model_choice,
+                num_classes=num_classes,
                 choice_loss=choice_loss,
-                num_classes=num_classes
+                choice_optimizer=choice_optimizer,
+                choice_scheduler=choice_scheduler
             )
         )
         
@@ -43,25 +45,28 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type=
 
 def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", threshold=3, m=3,
                    name_dataset="Airline Satisfaction", model_choice="simplenet",
-                   choice_loss="cross_entropy", batch_size=256, epochs=3, num_classes=10):
+                   batch_size=256, epochs=3, num_classes=10,
+                   choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None):
     clients = {}
-    for i in range(number_of_clients): 
+    for i in range(number_of_clients):
         clients[f"c{node}_{i+1}"] = Client(
             id=f"c{node}_{i+1}",
             host="127.0.0.1",
             port=5010 + i + node * 10,
-            batch_size=batch_size,
             train=train_sets[i],
             test=test_sets[i],
-            dp=dp,
             type_ss=type_ss,
             threshold=threshold,
             m=m,
+            batch_size=batch_size,
+            epochs=epochs,
+            dp=dp,
             name_dataset=name_dataset,
             model_choice=model_choice,
-            choice_loss=choice_loss,
-            epochs=epochs,
             num_classes=num_classes,
+            choice_loss=choice_loss,
+            choice_optimizer=choice_optimizer,
+            choice_scheduler=choice_scheduler
         )
 
     return clients
@@ -94,8 +99,8 @@ if __name__ == "__main__":
     name_dataset = "cifar"  # "Airline Satisfaction" or "Energy" or "cifar" or "mnist" or "alzheimer"
     batch_size = 256
     choice_loss = "cross_entropy"
-    choice_optimizer = "Adam"  # à ajouter
-    choice_scheduler = "StepLR"  # à ajouter
+    choice_optimizer = "Adam"
+    choice_scheduler = "StepLR"
 
     # nodes
     numberOfNodes = 3
@@ -152,7 +157,8 @@ if __name__ == "__main__":
 
     # %%
     # Change the poisonning for cifar
-    for i in range(poisonned_number):
+    for i in random.sample(range(numberOfClientsPerNode * numberOfNodes), poisonned_number):
+        print("Poisonning client ", i)
         if name_dataset == "Airline Satisfaction":
             client_train_sets[i][1] = client_train_sets[i][1].replace({0: 1, 1: 0})
             client_test_sets[i][1] = client_test_sets[i][1].replace({0: 1, 1: 0})
@@ -169,8 +175,8 @@ if __name__ == "__main__":
     # the nodes should not have a train dataset
     nodes = create_nodes(
         node_test_sets, numberOfNodes, dp=dp, ss_type=type_ss, m=m,
-        name_dataset=name_dataset, model_choice=model_choice, choice_loss=choice_loss,
-        batch_size=batch_size, num_classes=n_classes
+        name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size, num_classes=n_classes,
+        choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
     )
 
     # %%## client to node connections ###
@@ -178,9 +184,9 @@ if __name__ == "__main__":
     for i in range(numberOfNodes): 
         node_clients = create_clients(
             client_train_sets, client_test_sets, i, numberOfClientsPerNode,
-            dp, type_ss, k, m=m, name_dataset=name_dataset, model_choice=model_choice,
-            choice_loss=choice_loss, batch_size=batch_size, epochs=client_epochs,
-            num_classes=n_classes
+            dp, type_ss, k, m=m, name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size,
+            epochs=client_epochs, num_classes=n_classes,
+            choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
         )
         clients.append(node_clients)
         for client_id, client in node_clients.items(): 
