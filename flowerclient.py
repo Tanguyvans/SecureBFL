@@ -8,6 +8,10 @@ from going_modular.model import Model, RnnNet, Net
 from going_modular.security import PrivacyEngine, validate_dp_model, BatchMemoryManager
 from going_modular.data_setup import TensorDataset, DataLoader
 # from pytorch_lightning.callbacks import EarlyStopping
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc, confusion_matrix
+import scikitplot as skplt
+import os
 
 
 def binary_acc(y_pred, y_test):
@@ -299,17 +303,18 @@ def save_graphs(path_save, local_epoch, results, end_file=""):
     # plot training curves (train and validation)
     plot_graph(
         [[*range(local_epoch)]] * 2,
-        [results["train_acc"], results["val_acc"]],
+        [results["train_acc"]],  # , results["val_acc"]],
         "Epochs", "Accuracy (%)",
-        curve_labels=["Training accuracy", "Validation accuracy"],
+        curve_labels=["Training accuracy"],  #, "Validation accuracy"],
         title="Accuracy curves",
         path=path_save + "Accuracy_curves" + end_file)
 
     plot_graph(
         [[*range(local_epoch)]] * 2,
-        [results["train_loss"], results["val_loss"]],
+        [results["train_loss"]],  # , results["val_loss"]],
         "Epochs", "Loss",
-        curve_labels=["Training loss", "Validation loss"], title="Loss curves",
+        curve_labels=["Training loss"],  #, "Validation loss"],
+        title="Loss curves",
         path=path_save + "Loss_curves" + end_file)
 
 
@@ -360,12 +365,13 @@ class FlowerClient(fl.client.NumPyClient):
         self.device = choice_device(device)
 
         # Initialize model after data loaders are potentially set
-        self.model = self.initialize_model(choice_loss, num_classes)
+        self.model = self.initialize_model(num_classes)
+        self.criterion = fct_loss(choice_loss)
         self.optimizer = choice_optimizer_fct(self.model, choice_optim=choice_optimizer, lr=lr, weight_decay=1e-6)
         self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler, step_size=10, gamma=0.1)
         self.privacy_engine = PrivacyEngine(accountant="rdp", secure_mode=False)
 
-    def initialize_model(self, choice_loss="cross_entropy", num_classes=10):
+    def initialize_model(self, num_classes=10):
         if self.model_choice in ["LSTM", "GRU"]:
             # Model for time series forecasting
             # Ensure data loaders are set before this point or handle it differently
@@ -374,16 +380,13 @@ class FlowerClient(fl.client.NumPyClient):
             input_dim = next(iter(self.train_loader))[0].shape[2] if self.train_loader else 10  # Default or error
             model = RnnNet(model_choice=self.model_choice, input_size=input_dim, hidden_size=n_hidden,
                            num_layers=n_layers, batch_first=True, device=self.device)
-            self.criterion = fct_loss(choice_loss)  # nn.MSELoss()
 
         elif self.model_choice in ["CNNCifar", "mobilenet", "CNNMnist"]:
             # model for a classification problem
             model = Net(num_classes=num_classes, arch=self.model_choice)
-            self.criterion = fct_loss(choice_loss)  # nn.CrossEntropyLoss()
 
         else:
             model = Model()
-            self.criterion = fct_loss(choice_loss)  # nn.BCEWithLogitsLoss()
 
         return validate_dp_model(model.to(self.device)) if self.dp else model.to(self.device)
 
