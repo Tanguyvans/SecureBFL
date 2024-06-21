@@ -301,14 +301,13 @@ class FlowerClient(fl.client.NumPyClient):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Flower")
-    parser.add_argument("--partition-id", required=True, type=int,
+    parser.add_argument("--partition_id", required=True, type=int,
                         help="Partition of the dataset divided into 3 iid partitions created artificially.")
-    parser.add_argument("--num-clients", required=True, type=int, help="Number of clients to simulate.")
+    parser.add_argument("--num_clients", required=True, type=int, help="Number of clients to simulate.")
 
     parser.add_argument('--server_address', type=str, default='[::]:8080')
     parser.add_argument('--max_epochs', type=int, default=1)
 
-    parser.add_argument('--length', type=int, default=None, help='size at the entrance of the model')
     parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--device', default='cpu', type=str,
                         help="- Choice of the device between cpu and gpu "
@@ -393,4 +392,4 @@ if __name__ == "__main__":
     )
 
 # Run the client with the following command:
-# python client.py --partition-id 0 --num-clients 3 --dataset alzheimer --arch mobilenet --max_epochs 2 --device mps --data_path ../data/  --save_results ../results/FL/ --matrix_path confusion_matrix0.png --roc_path roc0.png
+# python cfl/client.py --partition_id 0 --num_clients 3  --batch_size 32 --dataset alzheimer --arch mobilenet --max_epochs 2 --device mps --data_path ./data/  --save_results ./results/FL/ --matrix_path confusion_matrix --roc_path roc

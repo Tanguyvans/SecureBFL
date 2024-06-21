@@ -46,7 +46,7 @@ def aggreg_fit_checkpoint(server_round, aggregated_parameters, central_model, pa
 
         # Save aggregated_ndarrays
         print(f"Saving round {server_round} aggregated_ndarrays...")
-        np.savez(f"../models/round-{server_round}-weights.npz", *aggregated_ndarrays)
+        np.savez(f"./models/round-{server_round}-weights.npz", *aggregated_ndarrays)
     """
 
 
@@ -67,7 +67,7 @@ class SaveModelStrategy(fl.server.strategy.FedAvg):
 
             # Save aggregated_ndarrays
             print(f"Saving round {server_round} aggregated_ndarrays...")
-            np.savez(f"../models/round-{server_round}-weights.npz", *aggregated_ndarrays)
+            np.savez(f"./models/round-{server_round}-weights.npz", *aggregated_ndarrays)
 
         return aggregated_parameters, aggregated_metrics
 
@@ -178,7 +178,7 @@ class FedCustom(fl.server.strategy.FedAvg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Flower server")
-    parser.add_argument("--num-clients", required=True, type=int, help="Number of clients to simulate.")
+    parser.add_argument("--num_clients", required=True, type=int, help="Number of clients to simulate.")
     parser.add_argument('--server_address', type=str, default='[::]:8080')
     parser.add_argument('--rounds', default=3, type=int, help='number of rounds (default : 3)')
 
@@ -209,17 +209,17 @@ if __name__ == "__main__":
 
     # Create strategy and run server
     """
-        strategy = SaveModelStrategy(
-            evaluate_metrics_aggregation_fn=weighted_average,
-            fraction_fit=args.frac_fit,  # Train on frac_fit % clients (each round)
-            min_fit_clients=args.min_fit_clients,  # Never sample less than 10 clients for training
-            # Never sample less than 5 clients for evaluation
-            on_fit_config_fn=get_on_fit_config_fn(
-                epoch=2,
-                lr=0.001,
-                batch_size=32
-            )
+    strategy = SaveModelStrategy(
+        evaluate_metrics_aggregation_fn=weighted_average,
+        fraction_fit=args.frac_fit,  # Train on frac_fit % clients (each round)
+        min_fit_clients=args.min_fit_clients,  # Never sample less than 10 clients for training
+        # Never sample less than 5 clients for evaluation
+        on_fit_config_fn=get_on_fit_config_fn(
+            epoch=args.max_epochs,
+            lr=args.lr,
+            batch_size=args.batch_size
         )
+    )
     """
 
     strategy = FedCustom(
@@ -248,4 +248,4 @@ if __name__ == "__main__":
     )
 
 # Run the server with the following command:
-# python server.py --num-clients 3 --rounds 3 --max_epochs 2 --dataset alzheimer --arch mobilenet --device mps
+# python cfl/server.py --num_clients 3 --rounds 3 --max_epochs 2 --batch_size 32 --dataset alzheimer --arch mobilenet --device mps

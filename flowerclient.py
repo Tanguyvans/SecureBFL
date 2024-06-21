@@ -10,8 +10,10 @@ from going_modular.data_setup import TensorDataset, DataLoader
 # from pytorch_lightning.callbacks import EarlyStopping
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc, confusion_matrix
-import scikitplot as skplt
+# import scikitplot as skplt
 import os
+import pandas as pd
+import seaborn as sn
 
 
 def binary_acc(y_pred, y_test):
@@ -183,7 +185,6 @@ def save_matrix(y_true, y_pred, path, classes):
     :param path: path to save the confusion matrix
     :param classes: list of the classes
     """
-    """
     # To get the confusion matrix
     cf_matrix = confusion_matrix(y_true, y_pred)
 
@@ -200,8 +201,8 @@ def save_matrix(y_true, y_pred, path, classes):
     plt.xlabel("Predicted label", fontsize=13)
     plt.ylabel("True label", fontsize=13)
     plt.title("Confusion Matrix", fontsize=15)
-    """
-    skplt.metrics.plot_confusion_matrix(y_true, y_pred, normalize=True)
+
+    # skplt.metrics.plot_confusion_matrix(y_true, y_pred, normalize=True)
 
     plt.savefig(path)
     plt.close()
@@ -216,10 +217,13 @@ def save_roc(targets, y_proba, path, nbr_classes):
     :param path: path to save the roc curve
     :param nbr_classes: number of classes
     """
+
+
     y_true = np.zeros(shape=(len(targets), nbr_classes))  # array-like of shape (n_samples, n_classes)
     for i in range(len(targets)):
         y_true[i, targets[i]] = 1
-
+        
+        
     # Compute ROC curve and ROC area for each class
     fpr = dict()
     tpr = dict()
@@ -282,6 +286,7 @@ def save_roc(targets, y_proba, path, nbr_classes):
     plt.ylabel("True Positive Rate")
     plt.title("Receiver operating characteristic (ROC) Curve OvR")  # One vs Rest
     plt.legend(loc="lower right")  # loc="best"
+
 
     # skplt.metrics.plot_roc(targets, y_proba)
 
