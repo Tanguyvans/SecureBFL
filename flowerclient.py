@@ -3,6 +3,8 @@ import numpy as np
 import torch
 import flwr as fl
 
+from torch.utils.data._utils.collate import default_collate
+
 from going_modular.model import Model, RnnNet, Net
 
 from going_modular.security import PrivacyEngine, validate_dp_model, BatchMemoryManager
@@ -14,7 +16,6 @@ from sklearn.metrics import roc_curve, auc, confusion_matrix
 import os
 import pandas as pd
 import seaborn as sn
-
 
 def binary_acc(y_pred, y_test):
     y_pred_tag = torch.round(torch.sigmoid(y_pred))
@@ -406,7 +407,7 @@ class FlowerClient(fl.client.NumPyClient):
         else:
             test_data = TensorDataset(torch.FloatTensor(x_test).squeeze(-1), torch.FloatTensor(y_test))
 
-        obj.test_loader = DataLoader(dataset=test_data, batch_size=1)
+        obj.test_loader = DataLoader(dataset=test_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)
         return obj
 
     @classmethod
@@ -414,10 +415,6 @@ class FlowerClient(fl.client.NumPyClient):
         obj = cls(**kwargs)
         # Set data loaders
         if kwargs['name_dataset'] in ["cifar", "mnist", "alzheimer"]:
-            #train_data = TensorDataset(torch.stack([torchvision.transforms.functional.to_tensor(img) for img in x_train]), torch.tensor(y_train))
-            #val_data = TensorDataset(torch.stack([torchvision.transforms.functional.to_tensor(img) for img in x_val]), torch.tensor(y_val))
-            #test_data = TensorDataset(torch.stack([torchvision.transforms.functional.to_tensor(img) for img in x_test]), torch.tensor(y_test))
-
             train_data = TensorDataset(torch.stack(x_train), torch.tensor(y_train))
             val_data = TensorDataset(torch.stack(x_val), torch.tensor(y_val))
             test_data = TensorDataset(torch.stack(x_test), torch.tensor(y_test))
@@ -428,9 +425,9 @@ class FlowerClient(fl.client.NumPyClient):
             test_data = TensorDataset(torch.FloatTensor(x_test).squeeze(-1), torch.FloatTensor(y_test))
 
         obj.len_train = len(y_train)
-        obj.train_loader = DataLoader(dataset=train_data, batch_size=kwargs['batch_size'], shuffle=True)
-        obj.val_loader = DataLoader(dataset=val_data, batch_size=kwargs['batch_size'], shuffle=True)
-        obj.test_loader = DataLoader(dataset=test_data, batch_size=1)
+        obj.train_loader = DataLoader(dataset=train_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)
+        obj.val_loader = DataLoader(dataset=val_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)
+        obj.test_loader = DataLoader(dataset=test_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)  # Test loader might not need padding
         return obj
 
     def get_parameters(self, config):
@@ -444,7 +441,7 @@ class FlowerClient(fl.client.NumPyClient):
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.load_state_dict(state_dict, strict=True)
 
-    def fit(self, parameters, config):
+    def fit(self, parameters, node_id, config):
         self.set_parameters(parameters)
         if self.dp:
             self.model, self.optimizer, self.train_loader = self.privacy_engine.make_private_with_epsilon(
@@ -457,19 +454,15 @@ class FlowerClient(fl.client.NumPyClient):
                 max_grad_norm=self.max_grad_norm,
             )
 
-        epoch_loss, epoch_acc, val_loss, val_acc = self.train(epoch=self.epochs)
+        train_loss, train_acc, val_loss, val_acc = self.train(epoch=self.epochs, node=node_id)
 
-        return self.get_parameters(config={}), self.len_train, {}
+        return self.get_parameters(config={}), {'len_train': self.len_train, 'train_loss': train_loss, 'train_acc': train_acc, 'val_loss': val_loss, 'val_acc': val_acc}
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
         loss, accuracy = self.test(self.test_loader)
 
-        # list_outputs, list_targets, loss, accuracy = self.test(self.test_loader)
-
-        # s_mape = round(sMAPE(np.array(list_outputs), np.array(list_targets)), 3)
-
-        return float(loss), self.len_train, {'accuracy': accuracy}
+        return {'test_loss': loss, 'test_acc': accuracy}
 
     def train_step(self, dataloader):
         epoch_loss = 0
@@ -509,7 +502,7 @@ class FlowerClient(fl.client.NumPyClient):
 
         return epoch_loss, epoch_acc
 
-    def train(self, epoch=1):
+    def train(self, epoch=1, node=None):
         for e in range(1, epoch+1):
             if self.dp:
                 with BatchMemoryManager(data_loader=self.train_loader,
@@ -523,14 +516,13 @@ class FlowerClient(fl.client.NumPyClient):
                 epoch_loss, epoch_acc = self.train_step(self.train_loader)
 
             val_loss, val_acc = self.test(self.val_loader)
-            return epoch_loss, epoch_acc, val_loss, val_acc
+            print(f"Node {node} Epoch {e}: Train loss: {epoch_loss}, Train acc: {epoch_acc}, Val loss: {val_loss}, Val acc: {val_acc}")
+        return epoch_loss, epoch_acc, val_loss, val_acc
 
     def test(self, dataloader, scaler=None, label_scaler=None):
         self.model.eval()
         test_loss = 0
         test_acc = 0
-        list_outputs = []
-        list_targets = []
         correct = 0
         total = 0
         with torch.no_grad():
@@ -546,36 +538,6 @@ class FlowerClient(fl.client.NumPyClient):
 
         test_loss /= len(dataloader)
         test_acc = 100 * correct / total
-        """
-        with torch.inference_mode():  # or with torch.no_grad():
-            for x_test_batch, y_test_batch in dataloader:
-                # Move data to device and set to float
-                x_test_batch, y_test_batch = x_test_batch.float().to(device), y_test_batch.float().to(device)
-                # Get model outputs
-                y_test_pred = self.model(x_test_batch, device=device)
-                if isinstance(self.model, RnnNet):
-                    y_test_pred = y_test_pred.squeeze()
-                    y_test_batch = y_test_batch.squeeze()
-                    if label_scaler:
-                        y_test_pred = torch.tensor(scaler.inverse_transform(y_test_pred), device=device)
-                        y_test_batch = torch.tensor(label_scaler.inverse_transform(y_test_batch), device=device)
 
-                    print(y_test_batch, y_test_pred)
-                list_targets.append(y_test_batch.detach().numpy())
-                list_outputs.append(y_test_pred.detach().numpy())
-
-                # Compute and accumulate metrics
-                test_batch_loss = self.criterion(y_test_pred, y_test_batch)
-                test_batch_acc = binary_acc(y_test_pred, y_test_batch)
-                test_loss += test_batch_loss.item()
-                test_acc += test_batch_acc.item()
-
-        test_loss /= len(dataloader)
-        test_acc /= len(dataloader)
-        self.model.train()
-
-        return list_outputs, list_targets, test_loss, test_acc
-        """
-        self.model.train()
         return test_loss, test_acc
 

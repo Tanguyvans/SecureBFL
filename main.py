@@ -12,6 +12,10 @@ from going_modular.data_setup import load_dataset
 import warnings
 warnings.filterwarnings("ignore")
 
+def train_client(client):
+    frag_weights = client.train()  # Train the client
+    client.send_frag_clients(frag_weights)  # Send the shares to other clients
+    training_barrier.wait()  # Wait here until all clients have trained
 
 # %%
 def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type="additif", m=3,
@@ -97,23 +101,25 @@ if __name__ == "__main__":
     # %%
     data_root = "Data"
     name_dataset = "cifar"  # "Airline Satisfaction" or "Energy" or "cifar" or "mnist" or "alzheimer"
-    batch_size = 256
+    batch_size = 32
     choice_loss = "cross_entropy"
     choice_optimizer = "Adam"
     choice_scheduler = "StepLR"
 
     # nodes
     numberOfNodes = 3
-    coef_usefull = 1
+    coef_usefull = 1.005
 
     # clients
-    numberOfClientsPerNode = 3  # corresponds to the number of clients per node, n in the shamir scheme
+    numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
     min_number_of_clients_in_cluster = 3
-    client_epochs = 3
+    client_epochs = 20
     poisonned_number = 0
-    epochs = 5
-    ts = 30
+    epochs = 10
+    ts = 60
     dp = False  # True if you want to apply differential privacy
+
+    training_barrier = threading.Barrier(numberOfClientsPerNode)
 
     type_ss = "additif"  # "shamir" or "additif"
     k = 3  # The threshold : The minimum number of parts to reconstruct the secret (so with a polynomial of order k-1)
@@ -139,7 +145,7 @@ if __name__ == "__main__":
         choice_loss = 'mse'
 
     elif name_dataset == "cifar":
-        model_choice = "CNNCifar"
+        model_choice = "mobilenet" # CNN
 
     elif name_dataset == "mnist":
         model_choice = "CNNMnist"
@@ -223,18 +229,21 @@ if __name__ == "__main__":
         ### training ###
         for i in range(numberOfNodes):
             print(f"Node {i + 1} : Training\n")
+            threads = []
             for client in clients[i].values():
-                frag_weights = client.train()  # returns the shares to be sent to the other clients, so list of the form [(x1, y1), (x2, y2), ...].
-                client.send_frag_clients(frag_weights)
+                t = threading.Thread(target=train_client, args=(client,))
+                t.start()
+                threads.append(t)
         
-            time.sleep(ts*2)
+            for t in threads:
+                t.join()
 
             print(f"Node {i + 1} : SMPC\n")
             for client in clients[i].values():
                 client.send_frag_node()
                 time.sleep(ts)
 
-            time.sleep(ts*2)
+            time.sleep(ts*3)
 
         ### global model creation
 

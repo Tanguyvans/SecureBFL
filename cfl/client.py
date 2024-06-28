@@ -8,6 +8,9 @@ import os
 
 import flwr as fl
 import torch
+import certifi
+
+os.environ['SSL_CERT_FILE'] = certifi.where()
 
 
 from torch.utils.data import DataLoader, TensorDataset
@@ -16,7 +19,6 @@ from torchvision import datasets, transforms
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from going_modular.data_setup import splitting_dataset, NORMALIZE_DICT
-
 from flowerclient import choice_device, fct_loss, choice_optimizer_fct, choice_scheduler_fct, save_matrix, save_roc, save_graphs, PrivacyEngine, BatchMemoryManager, Net, TensorDataset, DataLoader
 
 
@@ -191,11 +193,11 @@ class FlowerClient(fl.client.NumPyClient):
     def __init__(self, cid, classes, trainloader, testloader, batch_size, epochs=1, model_choice="simplenet",
                  dp=True, delta=1e-5, epsilon=0.5, max_grad_norm=1.2,
                  device="gpu", lr=0.001, choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None,
-                 save_results=None, matrix_path=None, roc_path=None):
+                 save_results=None, matrix_path=None, roc_path=None, input_channels=3):
         self.cid = cid
         self.classes = classes
         self.device = choice_device(device)
-        self.model = Net(num_classes=len(self.classes), arch=model_choice).to(self.device)
+        self.model = Net(num_classes=len(self.classes), input_channels=input_channels, arch=model_choice).to(self.device)
         self.trainloader = trainloader
         self.testloader = testloader
 
@@ -267,14 +269,6 @@ class FlowerClient(fl.client.NumPyClient):
                         dp=self.dp, delta=self.delta, max_physical_batch_size=int(self.batch_size / 4),
                         privacy_engine=self.privacy_engine)
 
-        #results = train(self.model, self.trainloader, self.valloader, optimizer=optimizer, loss_fn=self.criterion,
-        #                epochs=local_epochs, device=self.device,
-        #                diff_privacy=self.dp, delta=PRIVACY_PARAMS['target_delta'],
-        #                max_physical_batch_size=int(self.batch_size / 4), privacy_engine=self.privacy_engine
-        #                ,problem_type=self.problem_type,
-        #                scheduler=scheduler, early_stopping=self.early_stopping, patience=self.patience
-        #                )
-
         # Save results
         if self.save_results:
             save_graphs(self.save_results, local_epochs, results, f"_Client {self.cid}")
@@ -305,7 +299,7 @@ if __name__ == "__main__":
                         help="Partition of the dataset divided into 3 iid partitions created artificially.")
     parser.add_argument("--num_clients", required=True, type=int, help="Number of clients to simulate.")
 
-    parser.add_argument('--server_address', type=str, default='[::]:8080')
+    parser.add_argument('--server_address', type=str, default='[::]:8050')
     parser.add_argument('--max_epochs', type=int, default=1)
 
     parser.add_argument('--batch_size', type=int, default=256)
@@ -356,6 +350,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    if args.dataset.lower() == 'mnist':
+        args.input_channels = 1
+    else:
+        args.input_channels = 3
+
     print(f"Number of clients: {args.num_clients}")
 
     train_loader, test_loader, list_classes = load_data(partition_id=args.partition_id, num_clients=args.num_clients,
@@ -383,7 +382,8 @@ if __name__ == "__main__":
         choice_scheduler=args.choice_scheduler,
         save_results=args.save_results,
         matrix_path=args.matrix_path,
-        roc_path=args.roc_path
+        roc_path=args.roc_path,
+        input_channels=args.input_channels
         ).to_client()
 
     fl.client.start_client(

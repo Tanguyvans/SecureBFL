@@ -248,14 +248,13 @@ class Node:
     def evaluate_model(self, model_directory, participants, write=True):
         loaded_weights_dict = np.load(model_directory)
         loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
-        loss = self.flower_client.evaluate(loaded_weights, {})[0]
-        acc = self.flower_client.evaluate(loaded_weights, {})[2]['accuracy']
+        test_metrics = self.flower_client.evaluate(loaded_weights, {})
 
         if write: 
             with open('output.txt', 'a') as f:
-                f.write(f"node: {self.id} model: {model_directory} cluster: {participants} loss: {loss} acc: {acc} \n")
+                f.write(f"node: {self.id} model: {model_directory} cluster: {participants} loss: {test_metrics['test_loss']} acc: {test_metrics['test_acc']} \n")
 
-        return loss, acc
+        return test_metrics['test_loss'], test_metrics['test_acc']
 
     def broadcast_model_to_clients(self):
         for block in self.blockchain.blocks[::-1]: 
@@ -418,10 +417,10 @@ class Node:
             # shamir secret sharing
             aggregated_weights = aggregate_shamir(self.cluster_weights[pos], self.secret_shape, self.m)
 
-        loss = self.flower_client.evaluate(aggregated_weights, {})[0]
+        test_metrics = self.flower_client.evaluate(aggregated_weights, {})
 
         with open('output.txt', 'a') as f: 
-            f.write(f"cluster {pos} node {self.id} block {self.blockchain.len_chain} loss: {loss} \n")
+            f.write(f"cluster {pos} node {self.id} block {self.blockchain.len_chain} loss: {test_metrics['test_loss']} acc: {test_metrics['test_acc']} \n")
 
         self.cluster_weights[pos] = []
         for k, v in self.clusters[pos].items():

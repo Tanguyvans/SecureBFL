@@ -7,13 +7,13 @@
 
 #fi
 
-num_clients=3
-rounds=3
-max_epochs=2
+num_clients=18
+rounds=10
+max_epochs=20
 batch_size=32
-dataset='alzheimer'
-arch='mobilenet'
-device='mps'
+dataset='cifar' # 'alzheimer', 'mnist', 'cifar'
+arch='mobilenet' # 'mobilenet', 'resnet', 'simplenet'
+device='mps' # 'cpu', 'mps'
 data_path='./data/'
 save_results='./results/FL/'
 matrix_path='confusion_matrix'

@@ -5,6 +5,7 @@ import random
 import pandas as pd
 import numpy as np
 from torchvision import datasets, transforms
+import math
 
 # Normalization values for the different datasets
 NORMALIZE_DICT = {

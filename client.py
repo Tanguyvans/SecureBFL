@@ -96,19 +96,14 @@ class Client:
         client_socket.close()
 
     def train(self):
-        """
-        Function to train the model
-        :return:
-        """
         old_params = self.flower_client.get_parameters({})
         res = old_params[:]
-        for i in range(self.epochs):
-            # why 3 iterations?
-            res = self.flower_client.fit(res, {})[0]
-            loss = self.flower_client.evaluate(res, {})[0]
-            # with open('output.txt', 'a') as f:
-            #     f.write(f"client {self.id}: {loss} \n")
-        print(f"client {self.id}: {loss} \n")
+        
+        res, metrics = self.flower_client.fit(res, self.id, {})
+        test_metrics = self.flower_client.evaluate(res, {})
+
+        with open(f"output.txt", "a") as f:
+            f.write(f"client {self.id}: data:{metrics['len_train']} train: {metrics['len_train']} train: {metrics['train_loss']} {metrics['train_acc']} val: {metrics['val_loss']} {metrics['val_acc']} test: {test_metrics['test_loss']} {test_metrics['test_acc']}\n")
         # Apply SMPC (warning : list_shapes is initialized only after the first training)
         encrypted_lists, self.list_shapes = apply_smpc(res, len(self.connections) + 1, self.type_ss, self.threshold)
         # we keep the last share of the secret for this client and send the others to the other clients

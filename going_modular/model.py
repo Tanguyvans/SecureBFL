@@ -113,6 +113,37 @@ class CNNMnist(nn.Module):
         return torch.log_softmax(x, dim=1)
 
 
+class SimpleNetMnist(nn.Module):
+    """
+    A simple CNN model for MNIST
+    """
+    def __init__(self, num_classes=10, input_channels=3) -> None:
+        super(SimpleNet, self).__init__()
+        # 3 input image channel, 6 output channels, 5x5 square convolution
+        self.conv1 = nn.Conv2d(input_channels, 6, 5)
+        # Max pooling over a (2, 2) window
+        self.pool = nn.MaxPool2d(2, 2)
+        # 6 input image channel, 16 output channels, 5x5 square convolution
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        # an affine operation: y = Wx + b
+        self.fc1 = nn.Linear(16 * 4 * 4, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, num_classes)  # 1 if num_classes <= 2 else num_classes)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass of the neural network
+        """
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        # Flatten the tensor into a vector
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        # output layer
+        x = self.fc3(x)
+        return x
+
 class SimpleNet(nn.Module):
     """
     A simple CNN model
@@ -225,7 +256,7 @@ class Net(nn.Module):
 
     return: the model
     """
-    def __init__(self, num_classes=10, arch="simpleNet") -> None:
+    def __init__(self, num_classes=10, input_channels=3, arch="simpleNet") -> None:
         super(Net, self).__init__()
         print("Number of classes : ", num_classes, " and the architecture is : ", arch)
         if arch == "simpleNet":

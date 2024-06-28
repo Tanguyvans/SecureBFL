@@ -105,6 +105,7 @@ class FedCustom(fl.server.strategy.FedAvg):
     def __init__(
             self,
             num_classes=10,
+            input_channels=3,
             arch='CNNCifar',
             device='cpu',
             model_save=None,
@@ -112,7 +113,7 @@ class FedCustom(fl.server.strategy.FedAvg):
 
     ) -> None:
         super().__init__(**kwargs)
-        self.central = Net(num_classes=num_classes, arch=arch).to(device)
+        self.central = Net(num_classes=num_classes, input_channels=input_channels, arch=arch).to(device)
         self.model_save = model_save
 
     def configure_fit(
@@ -179,7 +180,7 @@ class FedCustom(fl.server.strategy.FedAvg):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Flower server")
     parser.add_argument("--num_clients", required=True, type=int, help="Number of clients to simulate.")
-    parser.add_argument('--server_address', type=str, default='[::]:8080')
+    parser.add_argument('--server_address', type=str, default='[::]:8050')
     parser.add_argument('--rounds', default=3, type=int, help='number of rounds (default : 3)')
 
     parser.add_argument('--lr', default=0.001, type=float, help='learning rate for the central model (default : 0.001)')
@@ -206,6 +207,11 @@ if __name__ == "__main__":
 
     else:
         raise ValueError('Invalid dataset')
+    
+    if args.dataset.lower() == 'mnist':
+        args.input_channels = 1
+    else:
+        args.input_channels = 3
 
     # Create strategy and run server
     """
@@ -236,6 +242,7 @@ if __name__ == "__main__":
             lr=args.lr,
             batch_size=args.batch_size
         ),
+        input_channels=args.input_channels,
         num_classes=num_classes,
         arch=args.arch,
         device=args.device,
