@@ -148,7 +148,6 @@ class Node:
         message = pickle.loads(data)
         message_type = message.get("type")
 
-
         if message_type == "frag_weights":
             message_id = message.get("id")
             weights = pickle.loads(message.get("value"))

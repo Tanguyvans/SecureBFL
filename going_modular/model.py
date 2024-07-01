@@ -118,7 +118,7 @@ class SimpleNetMnist(nn.Module):
     A simple CNN model for MNIST
     """
     def __init__(self, num_classes=10, input_channels=3) -> None:
-        super(SimpleNet, self).__init__()
+        super(SimpleNetMnist, self).__init__()
         # 3 input image channel, 6 output channels, 5x5 square convolution
         self.conv1 = nn.Conv2d(input_channels, 6, 5)
         # Max pooling over a (2, 2) window
@@ -143,6 +143,7 @@ class SimpleNetMnist(nn.Module):
         # output layer
         x = self.fc3(x)
         return x
+
 
 class SimpleNet(nn.Module):
     """

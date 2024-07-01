@@ -30,8 +30,9 @@ server_pid=$!
 for (( i=0; i<num_clients; i++ ))
 do
     echo "Starting client $i"
-
-    python3 cfl/client.py --partition_id $i --num_clients $num_clients  --batch_size $batch_size --dataset $dataset --arch $arch --max_epochs $max_epochs --device $device --data_path $data_path  --save_results $save_results --matrix_path $matrix_path --roc_path $roc_path &
+    path_matrix="${matrix_path}_client_${i}.png"
+    path_roc="${roc_path}_client_${i}.png"
+    python3 cfl/client.py --partition_id $i --num_clients $num_clients  --batch_size $batch_size --dataset $dataset --arch $arch --max_epochs $max_epochs --device $device --data_path $data_path  --save_results $save_results --matrix_path $path_matrix --roc_path $path_roc &
     declare pid_$i=$!
 done
 

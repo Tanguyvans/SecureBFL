@@ -13,169 +13,17 @@ import certifi
 os.environ['SSL_CERT_FILE'] = certifi.where()
 
 
-from torch.utils.data import DataLoader, TensorDataset
-from torchvision import datasets, transforms
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from going_modular.data_setup import splitting_dataset, NORMALIZE_DICT
-from flowerclient import choice_device, fct_loss, choice_optimizer_fct, choice_scheduler_fct, save_matrix, save_roc, save_graphs, PrivacyEngine, BatchMemoryManager, Net, TensorDataset, DataLoader
+from going_modular.data_setup import load_data
+from going_modular.utils import (choice_device, fct_loss, choice_optimizer_fct, choice_scheduler_fct, save_matrix,
+                                 save_roc, save_graphs)
+from going_modular.engine import train, test
+from going_modular.model import Net
+from going_modular.security import PrivacyEngine
 
 
 warnings.filterwarnings("ignore", category=UserWarning)
-
-
-def train_step(model, dataloader, loss_fn, optimizer, device, scheduler):
-    # Put model in training mode
-    model.train()
-
-    total = 0
-    correct = 0
-    for x_batch, y_batch in dataloader:
-        x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-        y_pred = model(x_batch)
-
-        # Calculate loss
-        loss = loss_fn(y_pred, y_batch)
-
-        # Zero the gradients before running the backward pass.
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        # Calculate accuracy
-        _, predicted = torch.max(y_pred, 1)
-        total += y_batch.size(0)
-        correct += (predicted == y_batch).sum().item()
-
-        # Print the current loss and accuracy
-        if total > 0:
-            accuracy = 100 * correct / total
-            # print(f"Epoch {epoch + 1}, Loss: {loss.item():.4f}, Accuracy: {accuracy:.2f}%")
-
-    if scheduler:
-        scheduler.step()
-    else:
-        print("No scheduler")
-
-    return loss.item(), accuracy
-
-
-def train(model, dataloader, epochs, loss_fn, optimizer, scheduler, device="cpu",
-          dp=False, delta=1e-5, max_physical_batch_size=256, privacy_engine=None):
-    # Create empty results dictionary
-    results = {"train_loss": [], "train_acc": []}  # , "val_loss": [], "val_acc": []}
-    for epoch in range(epochs):
-        if dp:
-            with BatchMemoryManager(data_loader=dataloader,
-                                    max_physical_batch_size=max_physical_batch_size,
-                                    optimizer=optimizer) as memory_safe_data_loader:
-                epoch_loss, epoch_acc = train_step(model, memory_safe_data_loader, loss_fn, optimizer, device, scheduler)
-                epsilon = privacy_engine.get_epsilon(delta)
-                tmp = f"(ε = {epsilon:.2f}, δ = {delta})"
-        else:
-            epoch_loss, epoch_acc = train_step(model, dataloader, loss_fn, optimizer, device, scheduler)
-            tmp = ""
-
-            # Print out what's happening
-            print(
-                f"\tTrain Epoch: {epoch + 1} \t"
-                f"Train_loss: {epoch_loss:.4f} | "
-                f"Train_acc: {epoch_acc:.4f} % | "
-                # f"Validation_loss: {val_loss:.4f} | "
-                # f"Validation_acc: {val_acc:.4f} %" + tmp
-            )
-
-            # Update results dictionary
-            results["train_loss"].append(epoch_loss)
-            results["train_acc"].append(epoch_acc)
-            # results["val_loss"].append(val_loss)
-            # results["val_acc"].append(val_acc)
-
-    return results
-
-
-def test(model, testloader, loss_fn, device="cpu"):
-    model.eval()  # Set the model to evaluation mode
-    total_loss = 0.0
-    total = 0
-    correct = 0
-    y_pred = []
-    y_true = []
-    y_proba = []
-
-    softmax = torch.nn.Softmax(dim=1)
-
-    with torch.no_grad():  # Disable gradient computation
-        for x_batch, y_batch in testloader:
-            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-
-            # 1. Forward pass
-            output = model(x_batch)
-
-            # 2. Calculate and accumulate probas
-            probas_output = softmax(output)
-            y_proba.extend(probas_output.detach().cpu().numpy())
-
-            # 3. Calculate and accumulate loss
-            loss = loss_fn(output, y_batch)
-            total_loss += loss.item() * x_batch.size(0)
-
-            # 4. Calculate and accumulate accuracy
-            _, predicted = torch.max(output, 1)  # np.argmax(output.detach().cpu().numpy(), axis=1)
-            total += y_batch.size(0)
-            correct += (predicted == y_batch).sum().item()
-            y_true.extend(y_batch.detach().cpu().numpy().tolist())  # Save Truth
-
-            y_pred.extend(predicted.detach().cpu().numpy())  # Save Prediction
-
-    model.train()
-    # Calculate average loss and accuracy
-    avg_loss = total_loss / total
-    accuracy = 100 * correct / total
-
-    print(f"Test Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
-    return avg_loss, accuracy, y_pred, y_true, np.array(y_proba)
-
-
-def load_data(partition_id, num_clients, name_dataset="cifar", data_root="./data", resize=None, batch_size=256):
-    data_folder = f"{data_root}/{name_dataset}"
-    # Case for the classification problems
-    list_transforms = [transforms.ToTensor(), transforms.Normalize(**NORMALIZE_DICT[name_dataset])]
-    if resize is not None:
-        list_transforms = [transforms.Resize((resize, resize))] + list_transforms
-    transform = transforms.Compose(list_transforms)
-
-    if name_dataset == "cifar":
-        dataset_train = datasets.CIFAR10(data_folder, train=True, download=True, transform=transform)
-        dataset_test = datasets.CIFAR10(data_folder, train=False, download=True, transform=transform)
-
-    elif name_dataset == "mnist":
-        dataset_train = datasets.MNIST(data_folder, train=True, download=True, transform=transform)
-        dataset_test = datasets.MNIST(data_folder, train=False, download=True, transform=transform)
-
-    elif name_dataset == "alzheimer":
-        dataset_train = datasets.ImageFolder(data_folder + "/train", transform=transform)
-        dataset_test = datasets.ImageFolder(data_folder + "/test", transform=transform)
-
-    else:
-        raise ValueError("The dataset name is not correct")
-
-    train_sets = splitting_dataset(dataset_train, num_clients)
-    test_sets = splitting_dataset(dataset_test, num_clients)
-
-    x_train, y_train = train_sets[partition_id]
-    # train_data = TensorDataset(torch.stack([torchvision.transforms.functional.to_tensor(img) for img in x_train]), torch.tensor(y_train))
-    train_data = TensorDataset(torch.stack(x_train), torch.tensor(y_train))
-
-    x_test, y_test = test_sets[partition_id]
-    # TensorDataset(torch.stack([torchvision.transforms.functional.to_tensor(img) for img in x_test]), torch.tensor(y_test))
-    test_data = TensorDataset(torch.stack(x_test), torch.tensor(y_test))
-
-    train_loader = DataLoader(dataset=train_data, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(dataset=test_data, batch_size=batch_size)
-
-    return train_loader, test_loader, dataset_train.classes
 
 
 def get_parameters2(net) -> List[np.ndarray]:
@@ -190,15 +38,17 @@ def get_parameters2(net) -> List[np.ndarray]:
 
 # Define Flower client
 class FlowerClient(fl.client.NumPyClient):
-    def __init__(self, cid, classes, trainloader, testloader, batch_size, epochs=1, model_choice="simplenet",
+    def __init__(self, cid, classes, trainloader, valloader, testloader, batch_size, epochs=1, model_choice="simplenet",
                  dp=True, delta=1e-5, epsilon=0.5, max_grad_norm=1.2,
                  device="gpu", lr=0.001, choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None,
                  save_results=None, matrix_path=None, roc_path=None, input_channels=3):
         self.cid = cid
         self.classes = classes
         self.device = choice_device(device)
-        self.model = Net(num_classes=len(self.classes), input_channels=input_channels, arch=model_choice).to(self.device)
+        self.model = Net(num_classes=len(self.classes),
+                         input_channels=input_channels, arch=model_choice).to(self.device)
         self.trainloader = trainloader
+        self.valloader = valloader
         self.testloader = testloader
 
         self.epochs = epochs
@@ -210,7 +60,8 @@ class FlowerClient(fl.client.NumPyClient):
 
         self.criterion = fct_loss(choice_loss)
         self.optimizer = choice_optimizer_fct(self.model, choice_optim=choice_optimizer, lr=lr, weight_decay=1e-6)
-        self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler, step_size=10, gamma=0.1)
+        self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler,
+                                              step_size=10, gamma=0.1)
 
         self.dp = dp
         self.delta = delta
@@ -264,7 +115,7 @@ class FlowerClient(fl.client.NumPyClient):
                 max_grad_norm=self.max_grad_norm,
             )
 
-        results = train(self.model, self.trainloader, epochs=self.epochs,
+        results = train(self.cid, self.model, self.trainloader, self.valloader, epochs=self.epochs,
                         loss_fn=self.criterion, optimizer=self.optimizer, scheduler=self.scheduler, device=self.device,
                         dp=self.dp, delta=self.delta, max_physical_batch_size=int(self.batch_size / 4),
                         privacy_engine=self.privacy_engine)
@@ -276,16 +127,19 @@ class FlowerClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
+
         loss, accuracy, y_pred, y_true, y_proba = test(self.model, self.testloader, self.criterion, device=self.device)
+
         if self.save_results:
             os.makedirs(self.save_results, exist_ok=True)
             if self.matrix_path:
-                save_matrix(y_true, y_pred, self.save_results + self.matrix_path + f"_client_{self.cid}.png",
+                save_matrix(y_true, y_pred, self.save_results + self.matrix_path,  # + f"_client_{self.cid}.png",
                             self.classes)
 
             if self.roc_path:
-                save_roc(y_true, y_proba, self.save_results + self.roc_path + f"_client_{self.cid}.png",
+                save_roc(y_true, y_proba, self.save_results + self.roc_path,  # + f"_client_{self.cid}.png",
                          len(self.classes))
+
         return loss, len(self.testloader.dataset), {"accuracy": accuracy}
 
     def save_model(self, model_path="global_model.pth"):
@@ -357,16 +211,18 @@ if __name__ == "__main__":
 
     print(f"Number of clients: {args.num_clients}")
 
-    train_loader, test_loader, list_classes = load_data(partition_id=args.partition_id, num_clients=args.num_clients,
-                                                        name_dataset=args.dataset, data_root=args.data_path,
-                                                        resize=32 if args.dataset == 'alzheimer' else None,
-                                                        batch_size=args.batch_size)
+    train_loader, val_loader, test_loader, list_classes = load_data(partition_id=args.partition_id,
+                                                                    num_clients=args.num_clients,
+                                                                    name_dataset=args.dataset, data_root=args.data_path,
+                                                                    resize=32 if args.dataset == 'alzheimer' else None,
+                                                                    batch_size=args.batch_size)
 
     print("start client", args.partition_id, train_loader)
     client = FlowerClient(
         cid=args.partition_id,
         classes=list_classes,
         trainloader=train_loader,
+        valloader=val_loader,
         testloader=test_loader,
         batch_size=args.batch_size,
         epochs=args.max_epochs,

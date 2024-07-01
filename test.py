@@ -2,19 +2,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanSquaredError, MeanAbsolutePercentageError, Accuracy
 import torch
 
-from model import RnnNet
-import time
+from going_modular.model import RnnNet
 
 import torch.nn as nn
-from torch.utils.data import TensorDataset, DataLoader
+from going_modular.data_setup import TensorDataset, DataLoader, Data
 
 from sklearn.preprocessing import MinMaxScaler
 
-from flowerclient import Data, sMAPE
+from going_modular.utils import sMAPE
 
 
 # %%

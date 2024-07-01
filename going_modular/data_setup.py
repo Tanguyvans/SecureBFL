@@ -5,7 +5,8 @@ import random
 import pandas as pd
 import numpy as np
 from torchvision import datasets, transforms
-import math
+from sklearn.model_selection import train_test_split
+
 
 # Normalization values for the different datasets
 NORMALIZE_DICT = {
@@ -169,7 +170,7 @@ def split_data_client(dataset, num_clients, seed):
 
 def load_dataset(resize=None, name_dataset="cifar", data_root="./data/", numberOfClientsPerNode=3, numberOfNodes=3):
     data_folder = f"{data_root}/{name_dataset}"
-    n_classes = None
+    classes = None
     if name_dataset == "Airline Satisfaction":
         train_path = f'{data_folder}/train.csv'
         test_path = f'{data_folder}/test.csv'
@@ -265,9 +266,50 @@ def load_dataset(resize=None, name_dataset="cifar", data_root="./data/", numberO
         node_test_sets = splitting_dataset(dataset_test, numberOfNodes)
         # node_test_sets = split_data_client(dataset_test, numberOfNodes, seed=42)
 
-        n_classes = len(dataset_train.classes)
+        classes = dataset_train.classes
 
-    return client_train_sets, client_test_sets, node_test_sets, n_classes
+    return client_train_sets, client_test_sets, node_test_sets, classes
+
+
+def load_data(partition_id, num_clients, name_dataset="cifar", data_root="./data", resize=None, batch_size=256):
+    data_folder = f"{data_root}/{name_dataset}"
+    # Case for the classification problems
+    list_transforms = [transforms.ToTensor(), transforms.Normalize(**NORMALIZE_DICT[name_dataset])]
+    if resize is not None:
+        list_transforms = [transforms.Resize((resize, resize))] + list_transforms
+    transform = transforms.Compose(list_transforms)
+
+    if name_dataset == "cifar":
+        dataset_train = datasets.CIFAR10(data_folder, train=True, download=True, transform=transform)
+        dataset_test = datasets.CIFAR10(data_folder, train=False, download=True, transform=transform)
+
+    elif name_dataset == "mnist":
+        dataset_train = datasets.MNIST(data_folder, train=True, download=True, transform=transform)
+        dataset_test = datasets.MNIST(data_folder, train=False, download=True, transform=transform)
+
+    elif name_dataset == "alzheimer":
+        dataset_train = datasets.ImageFolder(data_folder + "/train", transform=transform)
+        dataset_test = datasets.ImageFolder(data_folder + "/test", transform=transform)
+
+    else:
+        raise ValueError("The dataset name is not correct")
+
+    train_sets = splitting_dataset(dataset_train, num_clients)
+    test_sets = splitting_dataset(dataset_test, num_clients)
+
+    x_train, y_train = train_sets[partition_id]
+    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42, stratify=None)
+    train_data = TensorDataset(torch.stack(x_train), torch.tensor(y_train))
+    val_data = TensorDataset(torch.stack(x_val), torch.tensor(y_val))
+
+    x_test, y_test = test_sets[partition_id]
+    test_data = TensorDataset(torch.stack(x_test), torch.tensor(y_test))
+
+    trainloader = DataLoader(dataset=train_data, batch_size=batch_size, shuffle=True)
+    valloader = DataLoader(dataset=val_data, batch_size=batch_size)
+    testloader = DataLoader(dataset=test_data, batch_size=batch_size)
+
+    return trainloader, valloader, testloader, dataset_train.classes
 
 
 class Data(Dataset):

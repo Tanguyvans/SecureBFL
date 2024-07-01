@@ -209,9 +209,9 @@ if __name__ == "__main__":
         raise ValueError('Invalid dataset')
     
     if args.dataset.lower() == 'mnist':
-        args.input_channels = 1
+        input_channels = 1
     else:
-        args.input_channels = 3
+        input_channels = 3
 
     # Create strategy and run server
     """
@@ -242,7 +242,7 @@ if __name__ == "__main__":
             lr=args.lr,
             batch_size=args.batch_size
         ),
-        input_channels=args.input_channels,
+        input_channels=input_channels,
         num_classes=num_classes,
         arch=args.arch,
         device=args.device,

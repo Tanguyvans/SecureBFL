@@ -42,10 +42,7 @@ class Client:
 
         x_train, y_train = train
         x_test, y_test = test
-        #x_train, y_train = [], []  # train
-        #x_test, y_test = [], []  # test
-        #[(x_train.append(train[i][0]), y_train.append(train[i][1])) for i in range(len(train))]
-        #[(x_test.append(test[i][0]), y_test.append(test[i][1])) for i in range(len(test))]
+
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
                                                           stratify=y_train if kwargs['name_dataset'] == "Airline Satisfaction" else None)
 

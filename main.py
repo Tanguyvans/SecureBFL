@@ -12,14 +12,16 @@ from going_modular.data_setup import load_dataset
 import warnings
 warnings.filterwarnings("ignore")
 
+
 def train_client(client):
     frag_weights = client.train()  # Train the client
     client.send_frag_clients(frag_weights)  # Send the shares to other clients
     training_barrier.wait()  # Wait here until all clients have trained
 
+
 # %%
 def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type="additif", m=3,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet", batch_size=256, num_classes=10,
+                 name_dataset="Airline Satisfaction", model_choice="simplenet", batch_size=256, classes=(*range(10),),
                  choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None):
     nodes = []
     for i in range(number_of_nodes):
@@ -37,7 +39,7 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type=
                 dp=dp,
                 name_dataset=name_dataset,
                 model_choice=model_choice,
-                num_classes=num_classes,
+                classes=classes,
                 choice_loss=choice_loss,
                 choice_optimizer=choice_optimizer,
                 choice_scheduler=choice_scheduler
@@ -49,7 +51,7 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type=
 
 def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", threshold=3, m=3,
                    name_dataset="Airline Satisfaction", model_choice="simplenet",
-                   batch_size=256, epochs=3, num_classes=10,
+                   batch_size=256, epochs=3, classes=10,
                    choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None):
     clients = {}
     for i in range(number_of_clients):
@@ -67,7 +69,7 @@ def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type
             dp=dp,
             name_dataset=name_dataset,
             model_choice=model_choice,
-            num_classes=num_classes,
+            classes=classes,
             choice_loss=choice_loss,
             choice_optimizer=choice_optimizer,
             choice_scheduler=choice_scheduler
@@ -100,7 +102,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     # %%
     data_root = "Data"
-    name_dataset = "cifar"  # "Airline Satisfaction" or "Energy" or "cifar" or "mnist" or "alzheimer"
+    name_dataset = "mnist"  # "Airline Satisfaction" or "Energy" or "cifar" or "mnist" or "alzheimer"
     batch_size = 32
     choice_loss = "cross_entropy"
     choice_optimizer = "Adam"
@@ -113,11 +115,11 @@ if __name__ == "__main__":
     # clients
     numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
     min_number_of_clients_in_cluster = 3
-    client_epochs = 20
+    n_rounds = 3
+    n_epochs = 5
     poisonned_number = 0
-    epochs = 10
     ts = 60
-    dp = False  # True if you want to apply differential privacy
+    diff_privacy = False  # True if you want to apply differential privacy
 
     training_barrier = threading.Barrier(numberOfClientsPerNode)
 
@@ -134,7 +136,7 @@ if __name__ == "__main__":
         f.write("")
 
     # %%
-    n_classes = None
+    classes = ()
     length = None
     if name_dataset == "Airline Satisfaction":
         model_choice = "simplenet"
@@ -145,7 +147,7 @@ if __name__ == "__main__":
         choice_loss = 'mse'
 
     elif name_dataset == "cifar":
-        model_choice = "mobilenet" # CNN
+        model_choice = "CNNCifar"  # CNN
 
     elif name_dataset == "mnist":
         model_choice = "CNNMnist"
@@ -157,9 +159,10 @@ if __name__ == "__main__":
     else:
         raise ValueError("The dataset name is not correct")
 
-    client_train_sets, client_test_sets, node_test_sets, n_classes = load_dataset(length, name_dataset,
-                                                                                  data_root, numberOfClientsPerNode,
-                                                                                  numberOfNodes)
+    client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, name_dataset,
+                                                                                     data_root, numberOfClientsPerNode,
+                                                                                     numberOfNodes)
+    n_classes = len(list_classes)
 
     # %%
     # Change the poisonning for cifar
@@ -180,8 +183,8 @@ if __name__ == "__main__":
 
     # the nodes should not have a train dataset
     nodes = create_nodes(
-        node_test_sets, numberOfNodes, dp=dp, ss_type=type_ss, m=m,
-        name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size, num_classes=n_classes,
+        node_test_sets, numberOfNodes, dp=diff_privacy, ss_type=type_ss, m=m,
+        name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size, classes=list_classes,
         choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
     )
 
@@ -190,8 +193,8 @@ if __name__ == "__main__":
     for i in range(numberOfNodes): 
         node_clients = create_clients(
             client_train_sets, client_test_sets, i, numberOfClientsPerNode,
-            dp, type_ss, k, m=m, name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size,
-            epochs=client_epochs, num_classes=n_classes,
+            diff_privacy, type_ss, k, m=m, name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size,
+            epochs=n_epochs, classes=list_classes,
             choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
         )
         clients.append(node_clients)
@@ -221,12 +224,12 @@ if __name__ == "__main__":
     time.sleep(10)
 
     # %% training and SMPC
-    for epoch in range(epochs): 
-        print(f"### EPOCH {epoch + 1} ###")
-        ### Creation of the clusters + client to client connections ###
+    for round_i in range(n_rounds):
+        print(f"### ROUND {round_i + 1} ###")
+        # ## Creation of the clusters + client to client connections ###
         cluster_generation(nodes, clients, min_number_of_clients_in_cluster)
 
-        ### training ###
+        # ## training ###
         for i in range(numberOfNodes):
             print(f"Node {i + 1} : Training\n")
             threads = []
@@ -245,7 +248,7 @@ if __name__ == "__main__":
 
             time.sleep(ts*3)
 
-        ### global model creation
+        # ## global model creation
 
         nodes[0].create_global_model()
 
@@ -256,4 +259,3 @@ if __name__ == "__main__":
     # %%
     for i in range(numberOfNodes):
         nodes[i].blockchain.save_chain_in_file(f"node{i + 1}.txt")
-
