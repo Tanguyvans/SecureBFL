@@ -60,8 +60,11 @@ class FlowerClient(fl.client.NumPyClient):
 
         self.criterion = fct_loss(choice_loss)
         self.optimizer = choice_optimizer_fct(self.model, choice_optim=choice_optimizer, lr=lr, weight_decay=1e-6)
-        self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler,
-                                              step_size=10, gamma=0.1)
+        if choice_scheduler:
+            self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler,
+                                                  step_size=10, gamma=0.1)
+        else:
+            self.scheduler = None
 
         self.dp = dp
         self.delta = delta

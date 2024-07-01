@@ -4,7 +4,7 @@ import torch
 from going_modular.security import BatchMemoryManager
 
 
-def train(model, train_loader, val_loader, epochs, loss_fn, optimizer, scheduler, device="cpu",
+def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, scheduler, device="cpu",
           dp=False, delta=1e-5, max_physical_batch_size=256, privacy_engine=None):
     # Create empty results dictionary
     results = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
@@ -25,6 +25,7 @@ def train(model, train_loader, val_loader, epochs, loss_fn, optimizer, scheduler
 
         # Print out what's happening
         print(
+            f"\tNode: {node_id} \t"
             f"\tTrain Epoch: {epoch + 1} \t"
             f"Train_loss: {epoch_loss:.4f} | "
             f"Train_acc: {epoch_acc:.4f} % | "
