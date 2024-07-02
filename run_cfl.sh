@@ -8,8 +8,8 @@
 #fi
 
 num_clients=18
-rounds=10
-max_epochs=20
+rounds=5
+max_epochs=10
 batch_size=32
 dataset='cifar' # 'alzheimer', 'mnist', 'cifar'
 arch='mobilenet' # 'mobilenet', 'resnet', 'simplenet'

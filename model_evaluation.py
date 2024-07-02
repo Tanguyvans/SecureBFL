@@ -60,5 +60,5 @@ if __name__ == '__main__':
 
         print(metrics)
 
-        # with open("evaluation.txt", "a") as file:
-        #     file.write(f"{model_file}: {metrics['loss']}, {metrics['accuracy']} \n")
+        with open("evaluation.txt", "a") as file: 
+            file.write(f"{model_file}: {metrics['test_loss']}, {metrics['test_acc']} \n")

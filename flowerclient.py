@@ -19,7 +19,7 @@ import os
 class FlowerClient(fl.client.NumPyClient):
     def __init__(self, batch_size, epochs=1, model_choice="simplenet", dp=True, delta=1e-5, epsilon=0.5,
                  max_grad_norm=1.2, name_dataset="Airline Satisfaction", device="gpu", classes=None,
-                 lr=0.001, choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None,
+                 learning_rate=0.001, choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None,
                  save_results=None, matrix_path=None, roc_path=None):
         self.batch_size = batch_size
         self.epochs = epochs
@@ -29,6 +29,7 @@ class FlowerClient(fl.client.NumPyClient):
         self.epsilon = epsilon
         self.max_grad_norm = max_grad_norm
         self.name_dataset = name_dataset
+        self.learning_rate = learning_rate
         self.train_loader = None
         self.val_loader = None
         self.test_loader = None
@@ -39,13 +40,8 @@ class FlowerClient(fl.client.NumPyClient):
         # Initialize model after data loaders are potentially set
         self.model = self.initialize_model(len(self.classes))
         self.criterion = fct_loss(choice_loss)
-        self.optimizer = choice_optimizer_fct(self.model, choice_optim=choice_optimizer, lr=lr, weight_decay=1e-6)
-        if choice_scheduler:
-            self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler,
-                                                  step_size=10, gamma=0.1)
-        else:
-            self.scheduler = None
-
+        self.optimizer = choice_optimizer_fct(self.model, choice_optim=choice_optimizer, lr=self.learning_rate, weight_decay=1e-6)
+        self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler, step_size=10, gamma=0.1)
         self.privacy_engine = PrivacyEngine(accountant="rdp", secure_mode=False)
 
         self.save_results = save_results

@@ -51,8 +51,8 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type=
 
 def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", threshold=3, m=3,
                    name_dataset="Airline Satisfaction", model_choice="simplenet",
-                   batch_size=256, epochs=3, classes=10,
-                   choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None):
+                   batch_size=256, epochs=3, num_classes=10,
+                   choice_loss="cross_entropy", learning_rate = 0.003, choice_optimizer="Adam", choice_scheduler=None):
     clients = {}
     for i in range(number_of_clients):
         clients[f"c{node}_{i+1}"] = Client(
@@ -71,6 +71,7 @@ def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type
             model_choice=model_choice,
             classes=classes,
             choice_loss=choice_loss,
+            learning_rate=learning_rate,
             choice_optimizer=choice_optimizer,
             choice_scheduler=choice_scheduler
         )
@@ -107,6 +108,7 @@ if __name__ == "__main__":
     choice_loss = "cross_entropy"
     choice_optimizer = "Adam"
     choice_scheduler = "StepLR"
+    learning_rate = 0.003
 
     # nodes
     numberOfNodes = 3
@@ -115,9 +117,9 @@ if __name__ == "__main__":
     # clients
     numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
     min_number_of_clients_in_cluster = 3
-    n_rounds = 3
-    n_epochs = 5
+    client_epochs = 20
     poisonned_number = 0
+    epochs = 10
     ts = 60
     diff_privacy = False  # True if you want to apply differential privacy
 
@@ -193,8 +195,8 @@ if __name__ == "__main__":
     for i in range(numberOfNodes): 
         node_clients = create_clients(
             client_train_sets, client_test_sets, i, numberOfClientsPerNode,
-            diff_privacy, type_ss, k, m=m, name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size,
-            epochs=n_epochs, classes=list_classes,
+            dp, type_ss, k, m=m, name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size,
+            epochs=client_epochs, num_classes=n_classes,
             choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
         )
         clients.append(node_clients)
