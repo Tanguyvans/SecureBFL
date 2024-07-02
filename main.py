@@ -103,7 +103,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     # %%
     data_root = "Data"
-    name_dataset = "mnist"  # "Airline Satisfaction" or "Energy" or "cifar" or "mnist" or "alzheimer"
+    name_dataset = "cifar"  # "Airline Satisfaction" or "Energy" or "cifar" or "mnist" or "alzheimer"
     batch_size = 32
     choice_loss = "cross_entropy"
     choice_optimizer = "Adam"
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     min_number_of_clients_in_cluster = 3
     client_epochs = 20
     poisonned_number = 0
-    epochs = 10
+    n_rounds = 10
     ts = 60
     diff_privacy = False  # True if you want to apply differential privacy
 
@@ -195,9 +195,9 @@ if __name__ == "__main__":
     for i in range(numberOfNodes): 
         node_clients = create_clients(
             client_train_sets, client_test_sets, i, numberOfClientsPerNode,
-            dp, type_ss, k, m=m, name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size,
+            dp=diff_privacy, type_ss=type_ss, m=m, name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size,
             epochs=client_epochs, num_classes=n_classes,
-            choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
+            choice_loss=choice_loss, learning_rate=learning_rate, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
         )
         clients.append(node_clients)
         for client_id, client in node_clients.items(): 
