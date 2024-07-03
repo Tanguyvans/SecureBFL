@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     # Load the test dataset
 
-    _, _, node_test_sets, classes = load_dataset(32 if arch == 'alzheimer' else None,
+    _, _, node_test_sets, classes = load_dataset(32 if name_dataset == 'alzheimer' else None,
                                                  name_dataset,
                                                  data_root,
                                                  1,
