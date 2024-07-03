@@ -13,8 +13,8 @@ def get_model_files(directory):
 
 
 if __name__ == '__main__':
-    arch = 'CNNMnist'  # "CNNCifar"
-    name_dataset = 'mnist'  #"cifar"
+    arch = 'simpleNet'  # "CNNCifar"
+    name_dataset = 'cifar'  # "cifar"
     data_root = "data/"
     directory = 'models/'  # Update this path
     device = "mps"

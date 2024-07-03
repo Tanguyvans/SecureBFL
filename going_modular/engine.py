@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from tqdm.auto import tqdm
 
 from going_modular.security import BatchMemoryManager
 
@@ -8,7 +9,7 @@ def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, 
           dp=False, delta=1e-5, max_physical_batch_size=256, privacy_engine=None):
     # Create empty results dictionary
     results = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs)):
         if dp:
             with BatchMemoryManager(data_loader=train_loader,
                                     max_physical_batch_size=max_physical_batch_size,

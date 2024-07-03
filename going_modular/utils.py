@@ -128,6 +128,9 @@ def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0
                                                                threshold=0.0001, threshold_mode='rel', cooldown=0,
                                                                min_lr=0, eps=1e-08, verbose=False)
 
+    elif choice_scheduler is None:
+        return choice_scheduler
+
     else:
         print("Warning problem : unspecified scheduler")
         return None

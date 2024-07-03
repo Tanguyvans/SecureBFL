@@ -51,7 +51,7 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type=
 
 def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", threshold=3, m=3,
                    name_dataset="Airline Satisfaction", model_choice="simplenet",
-                   batch_size=256, epochs=3, num_classes=10,
+                   batch_size=256, epochs=3, classes=(*range(10),),
                    choice_loss="cross_entropy", learning_rate = 0.003, choice_optimizer="Adam", choice_scheduler=None):
     clients = {}
     for i in range(number_of_clients):
@@ -117,10 +117,10 @@ if __name__ == "__main__":
     # clients
     numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
     min_number_of_clients_in_cluster = 3
-    client_epochs = 20
+    n_epochs = 5
+    n_rounds = 3
     poisonned_number = 0
-    n_rounds = 10
-    ts = 60
+    ts = 10
     diff_privacy = False  # True if you want to apply differential privacy
 
     training_barrier = threading.Barrier(numberOfClientsPerNode)
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         choice_loss = 'mse'
 
     elif name_dataset == "cifar":
-        model_choice = "CNNCifar"  # CNN
+        model_choice = "simpleNet"  # "CNNCifar"  # CNN
 
     elif name_dataset == "mnist":
         model_choice = "CNNMnist"
@@ -196,7 +196,7 @@ if __name__ == "__main__":
         node_clients = create_clients(
             client_train_sets, client_test_sets, i, numberOfClientsPerNode,
             dp=diff_privacy, type_ss=type_ss, m=m, name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size,
-            epochs=client_epochs, num_classes=n_classes,
+            epochs=n_epochs, classes=list_classes,
             choice_loss=choice_loss, learning_rate=learning_rate, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
         )
         clients.append(node_clients)
