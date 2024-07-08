@@ -5,7 +5,7 @@ from tqdm.auto import tqdm
 from going_modular.security import BatchMemoryManager
 
 
-def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, scheduler, device="cpu",
+def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, scheduler=None, device="cpu",
           dp=False, delta=1e-5, max_physical_batch_size=256, privacy_engine=None):
     # Create empty results dictionary
     results = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
@@ -43,7 +43,7 @@ def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, 
     return results
 
 
-def train_step(model, dataloader, loss_fn, optimizer, device, scheduler):
+def train_step(model, dataloader, loss_fn, optimizer, device, scheduler=None):
     # Put model in training mode
     model.train()
     accuracy = 0
@@ -80,8 +80,6 @@ def train_step(model, dataloader, loss_fn, optimizer, device, scheduler):
 
     if scheduler:
         scheduler.step()
-    else:
-        print("No scheduler")
 
     return epoch_loss, accuracy
 
@@ -125,5 +123,4 @@ def test(model, testloader, loss_fn, device="cpu"):
     avg_loss = total_loss / total
     accuracy = 100 * correct / total
 
-    print(f"Test Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
     return avg_loss, accuracy, y_pred, y_true, np.array(y_proba)

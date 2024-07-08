@@ -40,10 +40,9 @@ class FlowerClient(fl.client.NumPyClient):
         # Initialize model after data loaders are potentially set
         self.model = self.initialize_model(len(self.classes))
         self.criterion = fct_loss(choice_loss)
-        self.optimizer = choice_optimizer_fct(self.model, choice_optim=choice_optimizer, lr=self.learning_rate,
-                                              weight_decay=1e-6)
-        self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler,
-                                              step_size=10, gamma=0.1)
+        self.optimizer = choice_optimizer_fct(self.model, choice_optim=choice_optimizer, lr=self.learning_rate, weight_decay=1e-6)
+        #self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler, step_size=10, gamma=0.1)
+        self.scheduler = None
         self.privacy_engine = PrivacyEngine(accountant="rdp", secure_mode=False)
 
         self.save_results = save_results
@@ -115,6 +114,7 @@ class FlowerClient(fl.client.NumPyClient):
 
     def fit(self, parameters, node_id, config):
         self.set_parameters(parameters)
+
         if self.dp:
             self.model, self.optimizer, self.train_loader = self.privacy_engine.make_private_with_epsilon(
                 module=self.model,
@@ -129,8 +129,7 @@ class FlowerClient(fl.client.NumPyClient):
                         self.epochs, self.criterion, self.optimizer, self.scheduler, device=self.device,
                         dp=self.dp, delta=self.delta,
                         max_physical_batch_size=int(self.batch_size / 4), privacy_engine=self.privacy_engine)
-        # print(f"Node {node_id} Epoch {e}: Train loss: {epoch_loss}, Train acc: {epoch_acc}, Val loss: {val_loss}, Val acc: {val_acc}")
-
+ 
         # Save results
         if self.save_results:
             save_graphs(self.save_results, self.epochs, results)

@@ -107,18 +107,18 @@ if __name__ == "__main__":
     batch_size = 32
     choice_loss = "cross_entropy"
     choice_optimizer = "Adam"
-    choice_scheduler = "StepLR"
-    learning_rate = 0.003
+    choice_scheduler = None #"StepLR"
+    learning_rate = 0.001
 
     # nodes
     numberOfNodes = 3
-    coef_usefull = 1.005
+    coef_usefull = 2
 
     # clients
     numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
     min_number_of_clients_in_cluster = 3
     n_epochs = 5
-    n_rounds = 3
+    n_rounds = 20
     poisonned_number = 0
     ts = 10
     diff_privacy = False  # True if you want to apply differential privacy
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         choice_loss = 'mse'
 
     elif name_dataset == "cifar":
-        model_choice = "simpleNet"  # "CNNCifar"  # CNN
+        model_choice = "CNNCifar"  # "CNNCifar"  # CNN
 
     elif name_dataset == "mnist":
         model_choice = "CNNMnist"

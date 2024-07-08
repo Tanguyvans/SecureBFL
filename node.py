@@ -193,17 +193,13 @@ class Node:
         client_socket.close()
 
     def is_update_usefull(self, model_directory, participants): 
-        print(f"node: {self.id} cluster GM: {self.global_params_directory}, {model_directory} ")
 
         update_eval = self.evaluate_model(model_directory, participants, write=True)
         gm_eval = self.evaluate_model(self.global_params_directory, participants, write=False)
 
-        print(f"{update_eval[0]}, {gm_eval[0]}")
         if update_eval[0] <= gm_eval[0]*self.coef_usefull:
-            print(f"usefull {update_eval[0]}, {gm_eval[0]}")
             return True
         else: 
-            print("not usefull")
             return False
 
     def get_weights(self, len_dataset=10):
