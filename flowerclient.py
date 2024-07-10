@@ -130,6 +130,10 @@ class FlowerClient(fl.client.NumPyClient):
                         dp=self.dp, delta=self.delta,
                         max_physical_batch_size=int(self.batch_size / 4), privacy_engine=self.privacy_engine)
  
+        self.model.load_state_dict(torch.load(f"models/{node_id}_best_model.pth"))
+        best_parameters = [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+        self.set_parameters(best_parameters)
+        
         # Save results
         if self.save_results:
             save_graphs(self.save_results, self.epochs, results)

@@ -241,6 +241,7 @@ class Node:
             return False
 
     def evaluate_model(self, model_directory, participants, write=True):
+
         loaded_weights_dict = np.load(model_directory)
         loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
         test_metrics = self.flower_client.evaluate(loaded_weights, {})

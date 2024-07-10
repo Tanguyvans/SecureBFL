@@ -6,9 +6,14 @@ from going_modular.security import BatchMemoryManager
 
 
 def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, scheduler=None, device="cpu",
-          dp=False, delta=1e-5, max_physical_batch_size=256, privacy_engine=None):
+          dp=False, delta=1e-5, max_physical_batch_size=256, privacy_engine=None, patience=2):
+    
+    save_path=f'models/{node_id}_best_model.pth'
     # Create empty results dictionary
     results = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
+    best_val_loss = float('inf')
+    epochs_no_improve = 0
+
     for epoch in tqdm(range(epochs)):
         if dp:
             with BatchMemoryManager(data_loader=train_loader,
@@ -40,8 +45,21 @@ def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, 
         results["val_loss"].append(val_loss)
         results["val_acc"].append(val_acc)
 
-    return results
+        # Early stopping logic
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            epochs_no_improve = 0
+            # Save the best model weights
+            torch.save(model.state_dict(), save_path)
+            print(f"Model improved and saved to {save_path}")
+        else:
+            epochs_no_improve += 1
 
+        if epochs_no_improve >= patience:
+            print(f"Early stopping triggered after {epoch + 1} epochs.")
+            break
+
+    return results
 
 def train_step(model, dataloader, loss_fn, optimizer, device, scheduler=None):
     # Put model in training mode
@@ -57,7 +75,7 @@ def train_step(model, dataloader, loss_fn, optimizer, device, scheduler=None):
         # 1. Forward pass
         y_pred = model(x_batch)
 
-        # 2. Calculate  and accumulate loss
+        # 2. Calculate and accumulate loss
         loss = loss_fn(y_pred, y_batch)
         epoch_loss += loss.item()
 
