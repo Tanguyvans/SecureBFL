@@ -44,7 +44,7 @@ class Client:
         x_test, y_test = test
 
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
-                                                          stratify=y_train if kwargs['name_dataset'] == "Airline Satisfaction" else None)
+                                                          stratify=None)
 
         self.flower_client = FlowerClient.client(
             x_train=x_train, 

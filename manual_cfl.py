@@ -1,35 +1,16 @@
-import time
-import threading
 import logging
-
 import numpy as np
+import threading
+import os
+import pickle
+import time
+import socket
 
 from node import Node
-from client import Client
-
-import pickle
-
-from sklearn.model_selection import train_test_split
-
-import socket
-import threading
-
-import os
-
-import time
-
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-
-from flowerclient import FlowerClient
-import pickle
+from main import create_clients
 
 from flwr.server.strategy.aggregate import aggregate
 from sklearn.model_selection import train_test_split
-
-
-import socket
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -42,58 +23,6 @@ from going_modular.data_setup import load_dataset
 import warnings
 warnings.filterwarnings("ignore")
 
-def get_keys(private_key_path, public_key_path):
-    os.makedirs("keys/", exist_ok=True)
-    if os.path.exists(private_key_path) and os.path.exists(public_key_path):
-        with open(private_key_path, 'rb') as f:
-            private_key = serialization.load_pem_private_key(
-                f.read(),
-                password=None,
-                backend=default_backend()
-            )
-
-        with open(public_key_path, 'rb') as f:
-            public_key = serialization.load_pem_public_key(
-                f.read(),
-                backend=default_backend()
-            )
-
-    else:
-        # Generate new keys
-        private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-            backend=default_backend()
-        )
-        public_key = private_key.public_key()
-
-        # Save keys to files
-        with open(private_key_path, 'wb') as f:
-            f.write(private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.NoEncryption()
-            ))
-
-        with open(public_key_path, 'wb') as f:
-            f.write(
-                public_key.public_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PublicFormat.SubjectPublicKeyInfo
-                )
-            )
-
-    return private_key, public_key
-
-def start_server(host, port, handle_message, num_node):
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((host, port))
-    server_socket.listen(5)
-    print(f"Node {num_node} listening on {host}:{port}")
-
-    while True:
-        client_socket, addr = server_socket.accept()
-        threading.Thread(target=handle_message, args=(client_socket,)).start()
 
 class Client:
     def __init__(self, id, host, port, train, test, type_ss="additif", threshold=3, m=3, **kwargs):
@@ -122,7 +51,7 @@ class Client:
         x_test, y_test = test
 
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
-                                                          stratify=y_train if kwargs['name_dataset'] == "Airline Satisfaction" else None)
+                                                          stratify=None)
 
         self.flower_client = FlowerClient.client(
             x_train=x_train, 
@@ -134,9 +63,10 @@ class Client:
             **kwargs
             )
         
-        self.res = None
+        self.res = None  # Why ? Where is it used ? Only line added in the init compared to the original.
 
     def start_server(self):
+        # same
         start_server(self.host, self.port, self.handle_message, self.id)
 
     def handle_message(self, client_socket):
@@ -162,6 +92,7 @@ class Client:
 
         message_type = message.get("type")
 
+        # No if message_type == "frag_weights" because no SMPC.
         if message_type == "global_model":
             weights = pickle.loads(message.get("value"))
             self.flower_client.set_parameters(weights)
@@ -177,10 +108,14 @@ class Client:
 
         with open(f"output_cfl.txt", "a") as f:
             f.write(f"client {self.id}: data:{metrics['len_train']} train: {metrics['len_train']} train: {metrics['train_loss']} {metrics['train_acc']} val: {metrics['val_loss']} {metrics['val_acc']} test: {test_metrics['test_loss']} {test_metrics['test_acc']}\n")
-
+        # No apply_smpc() so we don't return encrypted_list but res directly (and no self.frag_weights)
         return res
 
+    # No functions send_frag_clients and send_frag_node because no SMPC.
+    # No functions reset_connections bacause ?
+    # No functions add_connections because ?
     def update_node_connection(self, id, address):
+        # same
         with open(f"keys/{id}_public_key.pem", 'rb') as f:
             public_key = serialization.load_pem_public_key(
                 f.read(),
@@ -191,15 +126,19 @@ class Client:
 
     @property
     def sum_weights(self):
+        # same
         return sum_shares(self.frag_weights, self.type_ss)
 
     def get_keys(self, private_key_path, public_key_path):
+        # same
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
 
 ###############################################################
 
+
 class Node:
     def __init__(self, id, host, port, test, coef_usefull=1.01, **kwargs):
+        # def __init__(self, id, host, port, consensus_protocol, test, coef_usefull=1.01, ss_type="additif", m=3, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -224,8 +163,12 @@ class Node:
             y_test=y_test,
             **kwargs
         )
+        # Only attributes in less.
+        # ss_type, secret_shape, m
+        # blockchain and consensus_protocol
 
     def start_server(self):
+        # same
         start_server(self.host, self.port, self.handle_message, self.id)
 
     def handle_message(self, client_socket):
@@ -252,12 +195,14 @@ class Node:
         message_type = message.get("type")
 
         if message_type == "frag_weights":
+            # Here we don't do SMPC so nothing to do
             pass
 
         else:
             result = self.consensus_protocol.handle_message(message)
 
             if result == "added":
+                # same
                 block = self.blockchain.blocks[-1]
                 model_type = block.model_type
 
@@ -271,7 +216,9 @@ class Node:
 
         client_socket.close()
 
+    # No function is_update_usefull()
     def get_weights(self, len_dataset=10):
+        # same
         params_list = []
         for block in self.blockchain.blocks[::-1]:
             if block.model_type == "update":
@@ -295,7 +242,11 @@ class Node:
         weights_dict['len_dataset'] = len_dataset
         return weights_dict
 
+    # No function is_global_valid()
+    # No function evaluate_model()
     def broadcast_model_to_clients(self, filename):
+        # The loop is missing : for block in self.blockchain.blocks[::-1]:
+        # The rest is identical.
         loaded_weights_dict = np.load(filename)
         loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
 
@@ -317,7 +268,11 @@ class Node:
             # Close the socket after sending
             client_socket.close()
 
-    def create_first_global_model(self): 
+    # No function broadcast_message()
+    # No function send_message()
+    # No function calculate_model_hash()
+    def create_first_global_model(self):
+        # Different of create_first_global_model_request()
         weights_dict = self.flower_client.get_dict_params({})
         weights_dict['len_dataset'] = 0
         
@@ -329,7 +284,7 @@ class Node:
 
         self.broadcast_model_to_clients(filename)
 
-    def create_global_model(self, weights, index, two_step=False): 
+    def create_global_model(self, weights, index, two_step=False):
 
         if two_step:
             cluster_weights = []
@@ -339,7 +294,7 @@ class Node:
                 metrics = self.flower_client.evaluate(aggregated_weights, {})
                 with open("output_cfl.txt", "a") as f:
                     f.write(f"cluster {i//3} node {self.id} {metrics} \n")
-            
+
             aggregated_weights = aggregate(
                     [(cluster_weights[i], 20) for i in range(len(cluster_weights))]
             )
@@ -366,9 +321,15 @@ class Node:
         print(f"flower aggregation {metrics}")
         self.broadcast_model_to_clients(filename)
 
+    # No function create_update_request()
+    # No function aggregation_cluster()
     def get_keys(self, private_key_path, public_key_path):
+        # same
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
 
+    # No function sign_message()
+    # No function verify_signature()
+    # No function add_peer()
     def add_client(self, client_id, client_address):
         with open(f"keys/{client_id}_public_key.pem", 'rb') as f:
             public_key = serialization.load_pem_public_key(
@@ -378,11 +339,17 @@ class Node:
 
         self.clients[client_id] = {"address": client_address, "public_key": public_key}
 
+    # No function generate_clusters()
+    # No function create_cluster()
+
+
 ###############################################################
 
 client_weights = []
 
+
 def train_client(client):
+    # Different from the function train_client() in main.py
     weights = client.train()  # Train the client
     client_weights.append(weights)
     #client.send_frag_clients(frag_weights)  # Send the shares to other clients
@@ -391,8 +358,9 @@ def train_client(client):
 
 # %%
 def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet", batch_size=256, classes=(*range(10),),
+                 name_dataset="cifar", model_choice="simplenet", batch_size=256, classes=(*range(10),),
                  choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None):
+    # The same as the create_nodes() function in main.py but without the smpc and blockchain parameters
     nodes = []
     for i in range(number_of_nodes):
         nodes.append(
@@ -416,35 +384,6 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True,
     return nodes
 
 
-def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", threshold=3, m=3,
-                   name_dataset="Airline Satisfaction", model_choice="simplenet",
-                   batch_size=256, epochs=3, num_classes=10,
-                   choice_loss="cross_entropy", learning_rate = 0.003, choice_optimizer="Adam", choice_scheduler=None):
-    clients = {}
-    for i in range(number_of_clients):
-        clients[f"c{node}_{i+1}"] = Client(
-            id=f"c{node}_{i+1}",
-            host="127.0.0.1",
-            port=5010 + i + node * 10,
-            train=train_sets[i],
-            test=test_sets[i],
-            type_ss=type_ss,
-            threshold=threshold,
-            m=m,
-            batch_size=batch_size,
-            epochs=epochs,
-            dp=dp,
-            name_dataset=name_dataset,
-            model_choice=model_choice,
-            classes=classes,
-            choice_loss=choice_loss,
-            learning_rate=learning_rate,
-            choice_optimizer=choice_optimizer,
-            choice_scheduler=choice_scheduler
-        )
-
-    return clients
-
 if __name__ == "__main__":
 
     with open("output_cfl.txt", "w") as f:
@@ -453,12 +392,15 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     # %%
     data_root = "Data"
-    name_dataset = "cifar"  # "Airline Satisfaction" or "Energy" or "cifar" or "mnist" or "alzheimer"
+    name_dataset = "cifar"  # "cifar" or "mnist" or "alzheimer"
+    model_choice = "simplenet"
+
     batch_size = 32
     choice_loss = "cross_entropy"
     choice_optimizer = "Adam"
-    choice_scheduler = None #"StepLR"
+    choice_scheduler = None  # "StepLR"
     learning_rate = 0.001
+    length = 32 if name_dataset == 'alzheimer' else None
 
     numberOfNodes = 1
     numberOfClientsPerNode = 18
@@ -472,33 +414,9 @@ if __name__ == "__main__":
     training_barrier = threading.Barrier(numberOfClientsPerNode)
 
     # %%
-    classes = ()
-    length = None
-    if name_dataset == "Airline Satisfaction":
-        model_choice = "simplenet"
-        choice_loss = 'bce_with_logits'
-
-    elif name_dataset == "Energy":
-        model_choice = "LSTM"  # "LSTM" or "GRU"
-        choice_loss = 'mse'
-
-    elif name_dataset == "cifar":
-        model_choice = "CNNCifar"  # CNN, CNNCifar, mobilenet
-
-    elif name_dataset == "mnist":
-        model_choice = "CNNMnist"
-
-    elif name_dataset == "alzheimer":
-        model_choice = "mobilenet"
-        length = 32
-
-    else:
-        raise ValueError("The dataset name is not correct")
-
     client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, name_dataset,
                                                                                      data_root, numberOfClientsPerNode,
                                                                                      numberOfNodes)
-    n_classes = len(list_classes)
 
     # the nodes should not have a train dataset
     node = create_nodes(
@@ -512,8 +430,8 @@ if __name__ == "__main__":
     node_clients = create_clients(
         client_train_sets, client_test_sets, 0, numberOfClientsPerNode,
         dp=diff_privacy, name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size,
-        epochs=client_epochs, num_classes=n_classes,
-        choice_loss=choice_loss, learning_rate=learning_rate, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
+        epochs=client_epochs, classes=list_classes, learning_rate=learning_rate,
+        choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
     )
 
     for client_id, client in node_clients.items(): 
@@ -537,6 +455,8 @@ if __name__ == "__main__":
     for round_i in range(n_rounds):
         print(f"### ROUND {round_i + 1} ###")
 
+        # ## training ###
+        # For 1 node
         threads = []
         for client in node_clients.values():
             t = threading.Thread(target=train_client, args=(client,))
@@ -546,11 +466,9 @@ if __name__ == "__main__":
         for t in threads:
             t.join()
 
-
+        # No SMPC
         print(f"the len of the client wiehgts: {len(client_weights)}")
         node.create_global_model(client_weights, round_i, two_step=True)
 
-        time.sleep(60)
+        time.sleep(ts)
         client_weights = []
-
-

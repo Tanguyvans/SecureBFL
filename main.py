@@ -8,10 +8,10 @@ import random
 from node import Node
 from client import Client
 
-from flwr.server.strategy.aggregate import aggregate
 from going_modular.data_setup import load_dataset
 import warnings
 warnings.filterwarnings("ignore")
+
 
 def train_client(client):
     frag_weights = client.train()  # Train the client
@@ -20,7 +20,7 @@ def train_client(client):
 
 # %%
 def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type="additif", m=3,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet", batch_size=256, classes=(*range(10),),
+                 name_dataset="cifar", model_choice="simplenet", batch_size=256, classes=(*range(10),),
                  choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None):
     nodes = []
     for i in range(number_of_nodes):
@@ -49,9 +49,9 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type=
 
 
 def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", threshold=3, m=3,
-                   name_dataset="Airline Satisfaction", model_choice="simplenet",
-                   batch_size=256, epochs=3, classes=(*range(10),),
-                   choice_loss="cross_entropy", learning_rate = 0.003, choice_optimizer="Adam", choice_scheduler=None):
+                   name_dataset="cifar", model_choice="simplenet",
+                   batch_size=256, epochs=3, classes=(*range(10),), learning_rate=0.003,
+                   choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None, patience=2):
     clients = {}
     for i in range(number_of_clients):
         clients[f"c{node}_{i+1}"] = Client(
@@ -69,10 +69,11 @@ def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type
             name_dataset=name_dataset,
             model_choice=model_choice,
             classes=classes,
-            choice_loss=choice_loss,
             learning_rate=learning_rate,
+            choice_loss=choice_loss,
             choice_optimizer=choice_optimizer,
-            choice_scheduler=choice_scheduler
+            choice_scheduler=choice_scheduler,
+            patience=patience
         )
 
     return clients
@@ -102,21 +103,23 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     # %%
     data_root = "Data"
-    name_dataset = "cifar"  # "Airline Satisfaction" or "Energy" or "cifar" or "mnist" or "alzheimer"
+    name_dataset = "cifar"  # "cifar" or "mnist" or "alzheimer"
+    model_choice = "simpleNet"  # "simpleNet" or "CNNCifar" or "CNNMnist" or "mobilenet"
     batch_size = 32
     choice_loss = "cross_entropy"
-    choice_optimizer = "Adam"
-    choice_scheduler = None #"StepLR"
-    learning_rate = 0.001
+    choice_optimizer = "SGD"
+    choice_scheduler = "StepLR"  # 'cycliclr'
+    learning_rate = 0.01
+    patience = 3
 
     # nodes
-    numberOfNodes = 3
+    numberOfNodes = 3  # minimum 3 for the pbft (else they will not reach a consensus)
     coef_usefull = 2
 
     # clients
     numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
     min_number_of_clients_in_cluster = 3
-    n_epochs = 5
+    n_epochs = 10
     n_rounds = 20
     poisonned_number = 0
     ts = 10
@@ -130,36 +133,16 @@ if __name__ == "__main__":
 
     if m < k:
         raise ValueError("the number of parts used to reconstruct the secret must be greater than the threshold (k)")
-
+    print("Number of Nodes: ", numberOfNodes,
+          "\tNumber of Clients per Node: ", numberOfClientsPerNode,
+          "\tNumber of Clients per Cluster: ", min_number_of_clients_in_cluster, "\n")
     # %%
 
     with open("output.txt", "w") as f:
         f.write("")
 
     # %%
-    classes = ()
-    length = None
-    if name_dataset == "Airline Satisfaction":
-        model_choice = "simplenet"
-        choice_loss = 'bce_with_logits'
-
-    elif name_dataset == "Energy":
-        model_choice = "LSTM"  # "LSTM" or "GRU"
-        choice_loss = 'mse'
-
-    elif name_dataset == "cifar":
-        model_choice = "CNNCifar"  # "CNNCifar"  # CNN
-
-    elif name_dataset == "mnist":
-        model_choice = "CNNMnist"
-
-    elif name_dataset == "alzheimer":
-        model_choice = "mobilenet"
-        length = 32
-
-    else:
-        raise ValueError("The dataset name is not correct")
-
+    length = 32 if name_dataset == 'alzheimer' else None
     client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, name_dataset,
                                                                                      data_root, numberOfClientsPerNode,
                                                                                      numberOfNodes)
@@ -169,22 +152,14 @@ if __name__ == "__main__":
     # Change the poisonning for cifar
     for i in random.sample(range(numberOfClientsPerNode * numberOfNodes), poisonned_number):
         print("Poisonning client ", i)
-        if name_dataset == "Airline Satisfaction":
-            client_train_sets[i][1] = client_train_sets[i][1].replace({0: 1, 1: 0})
-            client_test_sets[i][1] = client_test_sets[i][1].replace({0: 1, 1: 0})
-
-        elif name_dataset in ["cifar", "mnist", "alzheimer"]:
-            n = len(client_train_sets[i][1])
-            client_train_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
-            n = len(client_test_sets[i][1])
-            client_test_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
-
-        else:
-            raise ValueError("The dataset name is not correct")
+        n = len(client_train_sets[i][1])
+        client_train_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
+        n = len(client_test_sets[i][1])
+        client_test_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
 
     # the nodes should not have a train dataset
     nodes = create_nodes(
-        node_test_sets, numberOfNodes, dp=diff_privacy, ss_type=type_ss, m=m,
+        node_test_sets, numberOfNodes, coef_usefull=coef_usefull, dp=diff_privacy, ss_type=type_ss, m=m,
         name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size, classes=list_classes,
         choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
     )
@@ -194,9 +169,10 @@ if __name__ == "__main__":
     for i in range(numberOfNodes): 
         node_clients = create_clients(
             client_train_sets, client_test_sets, i, numberOfClientsPerNode,
-            dp=diff_privacy, type_ss=type_ss, m=m, name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size,
-            epochs=n_epochs, classes=list_classes,
-            choice_loss=choice_loss, learning_rate=learning_rate, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
+            dp=diff_privacy, type_ss=type_ss, m=m, name_dataset=name_dataset, model_choice=model_choice,
+            batch_size=batch_size, epochs=n_epochs, classes=list_classes, learning_rate=learning_rate,
+            choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler,
+            patience=patience
         )
         clients.append(node_clients)
         for client_id, client in node_clients.items(): 
@@ -223,7 +199,7 @@ if __name__ == "__main__":
 
     nodes[0].create_first_global_model_request()
 
-    time.sleep(30)
+    time.sleep(ts*3)
 
     # %% training and SMPC
     for round_i in range(n_rounds):

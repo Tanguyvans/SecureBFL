@@ -8,7 +8,7 @@ from going_modular.security import BatchMemoryManager
 def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, scheduler=None, device="cpu",
           dp=False, delta=1e-5, max_physical_batch_size=256, privacy_engine=None, patience=2):
     
-    save_path=f'models/{node_id}_best_model.pth'
+    save_path = f'models/{node_id}_best_model.pth'
     # Create empty results dictionary
     results = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
     best_val_loss = float('inf')
@@ -61,6 +61,7 @@ def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, 
 
     return results
 
+
 def train_step(model, dataloader, loss_fn, optimizer, device, scheduler=None):
     # Put model in training mode
     model.train()
@@ -102,7 +103,7 @@ def train_step(model, dataloader, loss_fn, optimizer, device, scheduler=None):
     return epoch_loss, accuracy
 
 
-def test(model, testloader, loss_fn, device="cpu"):
+def test(model, dataloader, loss_fn, device="cpu"):
     model.eval()  # Set the model to evaluation mode
     total_loss = 0.0
     total = 0
@@ -113,8 +114,8 @@ def test(model, testloader, loss_fn, device="cpu"):
 
     softmax = torch.nn.Softmax(dim=1)
 
-    with torch.no_grad():  # Disable gradient computation
-        for x_batch, y_batch in testloader:
+    with torch.inference_mode():  # with torch.no_grad():  # Disable gradient computation
+        for x_batch, y_batch in dataloader:
             x_batch, y_batch = x_batch.to(device), y_batch.to(device)
 
             # 1. Forward pass

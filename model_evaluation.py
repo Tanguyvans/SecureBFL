@@ -1,7 +1,6 @@
 import os
 
 from going_modular.data_setup import load_dataset
-from going_modular.model import Net
 from going_modular.utils import choice_device, fct_loss, np
 from flowerclient import FlowerClient
 
@@ -13,7 +12,7 @@ def get_model_files(directory):
 
 
 if __name__ == '__main__':
-    arch = 'CNNCifar'  # "CNNCifar"
+    arch = 'simplenet'  # "CNNCifar"
     name_dataset = 'cifar'  # "cifar"
     data_root = "data/"
     directory = 'models/'  # Update this path

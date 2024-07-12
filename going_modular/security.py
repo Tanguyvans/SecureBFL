@@ -1,10 +1,9 @@
 import numpy as np
-import pandas as pd
 
 # For the differential privacy
 from opacus import PrivacyEngine  # use in the flowerclient.py file
 from opacus.validators import ModuleValidator  # to validate our model with differential privacy
-from opacus.utils.batch_memory_manager import BatchMemoryManager
+from opacus.utils.batch_memory_manager import BatchMemoryManager  # use in the engine.py file
 
 
 # %% /////////////////////////////////////// Differential Privacy //////////////////////////////////////////////////////

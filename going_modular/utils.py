@@ -94,7 +94,7 @@ def choice_optimizer_fct(model, choice_optim="Adam", lr=0.001, momentum=0.9, wei
     return optimizer
 
 
-def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0.1):
+def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0.1, base_lr=0.0001, max_lr=0.1):
     """
     A function to choose the scheduler
 
@@ -115,7 +115,7 @@ def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
 
     elif choice_scheduler == "cycliclr":
-        scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=0.001, max_lr=0.1)
+        scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=base_lr, max_lr=max_lr)
 
     elif choice_scheduler == "cosineannealinglr":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=step_size, eta_min=0)

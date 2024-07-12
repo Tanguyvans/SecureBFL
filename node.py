@@ -18,7 +18,6 @@ from flowerclient import FlowerClient
 import pickle
 
 from flwr.server.strategy.aggregate import aggregate
-from sklearn.model_selection import train_test_split
 
 from protocols.pbft_protocol import PBFTProtocol
 from protocols.raft_protocol import RaftProtocol
@@ -247,7 +246,8 @@ class Node:
         loaded_weights_dict = np.load(model_directory)
         loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
         test_metrics = self.flower_client.evaluate(loaded_weights, {})
-
+        print(f"In evaluate Model (node: {self.id}) \tTest Loss: {test_metrics['test_loss']:.4f}, "
+              f"\tAccuracy: {test_metrics['test_acc']:.2f}%")
         if write: 
             with open('output.txt', 'a') as f:
                 f.write(f"node: {self.id} model: {model_directory} cluster: {participants} loss: {test_metrics['test_loss']} acc: {test_metrics['test_acc']} \n")
@@ -323,8 +323,7 @@ class Node:
 
         return hash_model
    
-    def create_first_global_model_request(self): 
-
+    def create_first_global_model_request(self):
         weights_dict = self.flower_client.get_dict_params({})
         weights_dict['len_dataset'] = 0
         model_type = "first_global_model"
@@ -409,14 +408,17 @@ class Node:
     def aggregation_cluster(self, pos):
         if self.ss_type == "additif":
             aggregated_weights = aggregate(
-                [(self.cluster_weights[pos][i], 20) for i in range(len(self.cluster_weights[pos]))]
+                [(self.cluster_weights[pos][i], 10) for i in range(len(self.cluster_weights[pos]))]
             )
+
         else:
             # shamir secret sharing
             aggregated_weights = aggregate_shamir(self.cluster_weights[pos], self.secret_shape, self.m)
 
-        test_metrics = self.flower_client.evaluate(aggregated_weights, {})
+        self.flower_client.set_parameters(aggregated_weights)
 
+        test_metrics = self.flower_client.evaluate(aggregated_weights, {})
+        print(f"aggregation_cluster {pos} : Test Loss: {test_metrics['test_loss']:.4f}, \tAccuracy: {test_metrics['test_acc']:.2f}%")
         with open('output.txt', 'a') as f: 
             f.write(f"cluster {pos} node {self.id} block {self.blockchain.len_chain} loss: {test_metrics['test_loss']} acc: {test_metrics['test_acc']} \n")
 

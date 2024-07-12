@@ -3,9 +3,7 @@ import numpy as np
 import torch
 import flwr as fl
 
-from torch.utils.data._utils.collate import default_collate
-
-from going_modular.model import Model, RnnNet, Net
+from going_modular.model import Net
 
 from going_modular.security import PrivacyEngine, validate_dp_model
 from going_modular.data_setup import TensorDataset, DataLoader
@@ -18,9 +16,9 @@ import os
 
 class FlowerClient(fl.client.NumPyClient):
     def __init__(self, batch_size, epochs=1, model_choice="simplenet", dp=True, delta=1e-5, epsilon=0.5,
-                 max_grad_norm=1.2, name_dataset="Airline Satisfaction", device="gpu", classes=(*range(10),),
+                 max_grad_norm=1.2, name_dataset="cifar", device="gpu", classes=(*range(10),),
                  learning_rate=0.001, choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None,
-                 save_results=None, matrix_path=None, roc_path=None):
+                 save_results=None, matrix_path=None, roc_path=None, patience=2):
         self.batch_size = batch_size
         self.epochs = epochs
         self.model_choice = model_choice
@@ -36,9 +34,11 @@ class FlowerClient(fl.client.NumPyClient):
         self.len_train = None
         self.device = choice_device(device)
         self.classes = classes
+        self.patience = patience
 
         # Initialize model after data loaders are potentially set
-        self.model = self.initialize_model(len(self.classes))
+        model = Net(num_classes=len(self.classes), arch=self.model_choice)
+        self.model = validate_dp_model(model.to(self.device)) if self.dp else model.to(self.device)
         self.criterion = fct_loss(choice_loss)
         self.optimizer = choice_optimizer_fct(self.model, choice_optim=choice_optimizer, lr=self.learning_rate, weight_decay=1e-6)
         #self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler, step_size=10, gamma=0.1)
@@ -49,34 +49,11 @@ class FlowerClient(fl.client.NumPyClient):
         self.matrix_path = matrix_path
         self.roc_path = roc_path
 
-    def initialize_model(self, num_classes=10):
-        if self.model_choice in ["LSTM", "GRU"]:
-            # Model for time series forecasting
-            # Ensure data loaders are set before this point or handle it differently
-            n_hidden = 25
-            n_layers = 2
-            input_dim = next(iter(self.train_loader))[0].shape[2] if self.train_loader else 10  # Default or error
-            model = RnnNet(model_choice=self.model_choice, input_size=input_dim, hidden_size=n_hidden,
-                           num_layers=n_layers, batch_first=True, device=self.device)
-
-        elif self.model_choice in ["CNNCifar", "mobilenet", "CNNMnist", "simpleNet"]:
-            # model for a classification problem
-            model = Net(num_classes=num_classes, arch=self.model_choice)
-
-        else:
-            model = Model()
-
-        return validate_dp_model(model.to(self.device)) if self.dp else model.to(self.device)
-
     @classmethod
     def node(cls, x_test, y_test, **kwargs):
         obj = cls(**kwargs)
         # Set data loaders
-        if kwargs['name_dataset'] in ["cifar", "mnist", "alzheimer"]:
-            test_data = TensorDataset(torch.stack(x_test), torch.tensor(y_test))
-
-        else:
-            test_data = TensorDataset(torch.FloatTensor(x_test).squeeze(-1), torch.FloatTensor(y_test))
+        test_data = TensorDataset(torch.stack(x_test), torch.tensor(y_test))
 
         obj.test_loader = DataLoader(dataset=test_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)
         return obj
@@ -85,15 +62,9 @@ class FlowerClient(fl.client.NumPyClient):
     def client(cls, x_train, y_train, x_val, y_val, x_test, y_test, **kwargs):
         obj = cls(**kwargs)
         # Set data loaders
-        if kwargs['name_dataset'] in ["cifar", "mnist", "alzheimer"]:
-            train_data = TensorDataset(torch.stack(x_train), torch.tensor(y_train))
-            val_data = TensorDataset(torch.stack(x_val), torch.tensor(y_val))
-            test_data = TensorDataset(torch.stack(x_test), torch.tensor(y_test))
-
-        else:
-            train_data = TensorDataset(torch.FloatTensor(x_train).squeeze(-1), torch.FloatTensor(y_train))
-            val_data = TensorDataset(torch.FloatTensor(x_val).squeeze(-1), torch.FloatTensor(y_val))
-            test_data = TensorDataset(torch.FloatTensor(x_test).squeeze(-1), torch.FloatTensor(y_test))
+        train_data = TensorDataset(torch.stack(x_train), torch.tensor(y_train))
+        val_data = TensorDataset(torch.stack(x_val), torch.tensor(y_val))
+        test_data = TensorDataset(torch.stack(x_test), torch.tensor(y_test))
 
         obj.len_train = len(y_train)
         obj.train_loader = DataLoader(dataset=train_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)
@@ -128,7 +99,8 @@ class FlowerClient(fl.client.NumPyClient):
         results = train(node_id, self.model, self.train_loader, self.val_loader,
                         self.epochs, self.criterion, self.optimizer, self.scheduler, device=self.device,
                         dp=self.dp, delta=self.delta,
-                        max_physical_batch_size=int(self.batch_size / 4), privacy_engine=self.privacy_engine)
+                        max_physical_batch_size=int(self.batch_size / 4), privacy_engine=self.privacy_engine,
+                        patience=self.patience)
  
         self.model.load_state_dict(torch.load(f"models/{node_id}_best_model.pth"))
         best_parameters = [val.cpu().numpy() for _, val in self.model.state_dict().items()]
@@ -144,7 +116,6 @@ class FlowerClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
 
         loss, accuracy, y_pred, y_true, y_proba = test(self.model, self.test_loader, self.criterion, device=self.device)
-
         if self.save_results:
             os.makedirs(self.save_results, exist_ok=True)
             if self.matrix_path:
