@@ -1,102 +1,105 @@
-import flwr as fl
-import torch
-import torch.nn as nn
 from collections import OrderedDict
-from model import Model, RnnNet
-from torch.utils.data import Dataset, DataLoader
-
-# For the differential privacy
-from opacus import PrivacyEngine
-from opacus.validators import ModuleValidator  # to validate our model with differential privacy
-from opacus.utils.batch_memory_manager import BatchMemoryManager
-
-from pytorch_lightning.callbacks import EarlyStopping
-from torchmetrics import MeanSquaredError, MeanAbsolutePercentageError
 import numpy as np
+import torch
+import flwr as fl
 
+from torch.utils.data._utils.collate import default_collate
 
-def validate_dp_model(model_dp):
-    """Check if the model is compatible with Opacus because it does not support all types of Pytorch layers"""
-    if not ModuleValidator.validate(model_dp, strict=False):
-        print("Model ok for the Differential privacy")
-        return model_dp
+from going_modular.model import Model, RnnNet, Net
 
-    else:
-        print("Model to be modified : ")
-        return validate_dp_model(ModuleValidator.fix(model_dp))
+from going_modular.security import PrivacyEngine, validate_dp_model
+from going_modular.data_setup import TensorDataset, DataLoader
+from going_modular.utils import (choice_device, fct_loss, choice_optimizer_fct, choice_scheduler_fct, save_graphs,
+                                 save_matrix, save_roc)
+from going_modular.engine import train, test
 
-
-class Data(Dataset):
-    def __init__(self, x_data, y_data):
-        self.x_data = x_data
-        self.y_data = y_data
-
-    def __getitem__(self, index):
-        return self.x_data[index], self.y_data[index]
-
-    def __len__(self):
-        return len(self.x_data)
-
-
-def sMAPE(outputs, targets):
-    """
-    Symmetric Mean Absolute Percentage Error (sMAPE) for evaluating the model.
-    It is the sum of the absolute difference between the predicted and actual values divided by the average of
-    the predicted and actual value, therefore giving a percentage measuring the amount of error :
-    100/n * sum(|F_t - A_t| / (|F_t| + |A_t|) / 2) with t = 1 to n
-
-    :param outputs : predicted values
-    :param targets: real values
-    :return: sMAPE
-    """
-
-    return 100 / len(targets) * np.sum(np.abs(outputs - targets) / (np.abs(outputs + targets)) / 2)
-
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+import os
 
 
 class FlowerClient(fl.client.NumPyClient):
-    def __init__(self, batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
-                 diff_privacy=True, delta=1e-5, epsilon=0.5, max_grad_norm=1.2,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet"):
-        self.x_train = x_train if name_dataset == "Energy" else x_train.values
-        self.x_test = x_test if name_dataset == "Energy" else x_test.values
-        self.y_train = y_train if name_dataset == "Energy" else y_train.values
-        self.y_test = y_test if name_dataset == "Energy" else y_test.values
-        x_val = x_val if name_dataset == "Energy" else x_val.values
-        y_val = y_val if name_dataset == "Energy" else y_val.values
-
-        train_data = Data(torch.FloatTensor(self.x_train), torch.FloatTensor(self.y_train))
-        val_data = Data(torch.FloatTensor(x_val), torch.FloatTensor(y_val))
-        test_data = Data(torch.FloatTensor(self.x_test), torch.FloatTensor(self.y_test))
-
-        bool_shuffle = False if name_dataset == "Energy" else True
-        self.train_loader = DataLoader(dataset=train_data, batch_size=batch_size, shuffle=bool_shuffle)
-        self.val_loader = DataLoader(dataset=val_data, batch_size=batch_size, shuffle=bool_shuffle)
-        self.test_loader = DataLoader(dataset=test_data, batch_size=1)
+    def __init__(self, batch_size, epochs=1, model_choice="simplenet", dp=True, delta=1e-5, epsilon=0.5,
+                 max_grad_norm=1.2, name_dataset="Airline Satisfaction", device="gpu", classes=(*range(10),),
+                 learning_rate=0.001, choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None,
+                 save_results=None, matrix_path=None, roc_path=None):
         self.batch_size = batch_size
-        if model_choice == "LSTM" or model_choice == "GRU":
-            n_hidden = 25  # number of features in the hidden state h  # 32
-            n_layers = 2  # number of recurrent layers.
-            input_dim = next(iter(self.train_loader))[0].shape[2]  # 5, so number of features in the input x
-            self.criterion = nn.MSELoss()
-            model = RnnNet(model_choice=model_choice, input_size=input_dim, hidden_size=n_hidden, num_layers=n_layers,
-                           batch_first=True)
+        self.epochs = epochs
+        self.model_choice = model_choice
+        self.dp = dp
+        self.delta = delta
+        self.epsilon = epsilon
+        self.max_grad_norm = max_grad_norm
+        self.name_dataset = name_dataset
+        self.learning_rate = learning_rate
+        self.train_loader = None
+        self.val_loader = None
+        self.test_loader = None
+        self.len_train = None
+        self.device = choice_device(device)
+        self.classes = classes
+
+        # Initialize model after data loaders are potentially set
+        self.model = self.initialize_model(len(self.classes))
+        self.criterion = fct_loss(choice_loss)
+        self.optimizer = choice_optimizer_fct(self.model, choice_optim=choice_optimizer, lr=self.learning_rate, weight_decay=1e-6)
+        #self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler, step_size=10, gamma=0.1)
+        self.scheduler = None
+        self.privacy_engine = PrivacyEngine(accountant="rdp", secure_mode=False)
+
+        self.save_results = save_results
+        self.matrix_path = matrix_path
+        self.roc_path = roc_path
+
+    def initialize_model(self, num_classes=10):
+        if self.model_choice in ["LSTM", "GRU"]:
+            # Model for time series forecasting
+            # Ensure data loaders are set before this point or handle it differently
+            n_hidden = 25
+            n_layers = 2
+            input_dim = next(iter(self.train_loader))[0].shape[2] if self.train_loader else 10  # Default or error
+            model = RnnNet(model_choice=self.model_choice, input_size=input_dim, hidden_size=n_hidden,
+                           num_layers=n_layers, batch_first=True, device=self.device)
+
+        elif self.model_choice in ["CNNCifar", "mobilenet", "CNNMnist", "simpleNet"]:
+            # model for a classification problem
+            model = Net(num_classes=num_classes, arch=self.model_choice)
 
         else:
             model = Model()
-            self.criterion = nn.BCEWithLogitsLoss()
 
-        self.model = validate_dp_model(model.to(device)) if diff_privacy else model.to(device)
+        return validate_dp_model(model.to(self.device)) if self.dp else model.to(self.device)
 
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+    @classmethod
+    def node(cls, x_test, y_test, **kwargs):
+        obj = cls(**kwargs)
+        # Set data loaders
+        if kwargs['name_dataset'] in ["cifar", "mnist", "alzheimer"]:
+            test_data = TensorDataset(torch.stack(x_test), torch.tensor(y_test))
 
-        self.diff_privacy = diff_privacy
-        self.privacy_engine = PrivacyEngine(accountant="rdp", secure_mode=False)
-        self.epsilon = epsilon
-        self.delta = delta
-        self.max_grad_norm = max_grad_norm
+        else:
+            test_data = TensorDataset(torch.FloatTensor(x_test).squeeze(-1), torch.FloatTensor(y_test))
+
+        obj.test_loader = DataLoader(dataset=test_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)
+        return obj
+
+    @classmethod
+    def client(cls, x_train, y_train, x_val, y_val, x_test, y_test, **kwargs):
+        obj = cls(**kwargs)
+        # Set data loaders
+        if kwargs['name_dataset'] in ["cifar", "mnist", "alzheimer"]:
+            train_data = TensorDataset(torch.stack(x_train), torch.tensor(y_train))
+            val_data = TensorDataset(torch.stack(x_val), torch.tensor(y_val))
+            test_data = TensorDataset(torch.stack(x_test), torch.tensor(y_test))
+
+        else:
+            train_data = TensorDataset(torch.FloatTensor(x_train).squeeze(-1), torch.FloatTensor(y_train))
+            val_data = TensorDataset(torch.FloatTensor(x_val).squeeze(-1), torch.FloatTensor(y_val))
+            test_data = TensorDataset(torch.FloatTensor(x_test).squeeze(-1), torch.FloatTensor(y_test))
+
+        obj.len_train = len(y_train)
+        obj.train_loader = DataLoader(dataset=train_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)
+        obj.val_loader = DataLoader(dataset=val_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)
+        obj.test_loader = DataLoader(dataset=test_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)  # Test loader might not need padding
+        return obj
 
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
@@ -109,120 +112,47 @@ class FlowerClient(fl.client.NumPyClient):
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.load_state_dict(state_dict, strict=True)
 
-    def fit(self, parameters, config):
+    def fit(self, parameters, node_id, config):
         self.set_parameters(parameters)
-        epochs = 1
-        if self.diff_privacy:
+
+        if self.dp:
             self.model, self.optimizer, self.train_loader = self.privacy_engine.make_private_with_epsilon(
                 module=self.model,
                 optimizer=self.optimizer,
                 data_loader=self.train_loader,
-                epochs=epochs,
+                epochs=self.epochs,
                 target_epsilon=self.epsilon,
                 target_delta=self.delta,
                 max_grad_norm=self.max_grad_norm,
             )
+        results = train(node_id, self.model, self.train_loader, self.val_loader,
+                        self.epochs, self.criterion, self.optimizer, self.scheduler, device=self.device,
+                        dp=self.dp, delta=self.delta,
+                        max_physical_batch_size=int(self.batch_size / 4), privacy_engine=self.privacy_engine)
+ 
+        self.model.load_state_dict(torch.load(f"models/{node_id}_best_model.pth"))
+        best_parameters = [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+        self.set_parameters(best_parameters)
+        
+        # Save results
+        if self.save_results:
+            save_graphs(self.save_results, self.epochs, results)
 
-        epoch_loss, epoch_acc, val_loss, val_acc = self.train(epoch=epochs)
-
-        return self.get_parameters(config={}), len(self.y_train), {}
+        return self.get_parameters(config={}), {'len_train': self.len_train, **results}
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
-        list_outputs, list_targets, loss, accuracy = self.test(self.test_loader)
 
-        s_mape = round(sMAPE(np.array(list_outputs), np.array(list_targets)), 3)
+        loss, accuracy, y_pred, y_true, y_proba = test(self.model, self.test_loader, self.criterion, device=self.device)
 
-        return float(loss), len(self.y_train), {'accuracy': accuracy}
+        if self.save_results:
+            os.makedirs(self.save_results, exist_ok=True)
+            if self.matrix_path:
+                save_matrix(y_true, y_pred, self.save_results + self.matrix_path,  # + f"_client_{self.cid}.png",
+                            self.classes)
 
-    def train_step(self, dataloader):
-        epoch_loss = 0
-        epoch_acc = 0
-        for x_batch, y_batch in dataloader:
-            # Move data to device and set to float
-            x_batch, y_batch = x_batch.float().to(device), y_batch.float().to(device)
+            if self.roc_path:
+                save_roc(y_true, y_proba, self.save_results + self.roc_path,  # + f"_client_{self.cid}.png",
+                         len(self.classes))
 
-            # Get model outputs
-            y_pred = self.model(x_batch, device=device)
-
-            # Compute and accumulate metrics
-            loss = self.criterion(y_pred, y_batch)
-            acc = binary_acc(y_pred, y_batch)
-            epoch_loss += loss.item()
-            epoch_acc += acc.item()
-
-            # Optimizer zero grad
-            self.optimizer.zero_grad()
-
-            # Loss backward
-            loss.backward()
-
-            # Optimizer step
-            self.optimizer.step()
-
-        # Adjust metrics to get average loss and accuracy per batch
-        epoch_loss /= len(dataloader)
-        epoch_acc /= len(dataloader)
-        return epoch_loss, epoch_acc
-
-    def train(self, epoch=1):
-        for e in range(1, epoch+1):
-            if self.diff_privacy:
-                with BatchMemoryManager(data_loader=self.train_loader,
-                                        max_physical_batch_size=int(self.batch_size / 4),
-                                        optimizer=self.optimizer) as memory_safe_data_loader:
-                    epoch_loss, epoch_acc = self.train_step(memory_safe_data_loader)
-
-                    self.epsilon = self.privacy_engine.get_epsilon(self.delta)
-
-            else:
-                epoch_loss, epoch_acc = self.train_step(self.train_loader)
-
-            _, _, val_loss, val_acc = self.test(self.val_loader)
-            return epoch_loss, epoch_acc, val_loss, val_acc
-
-    def test(self, dataloader, scaler=None, label_scaler=None):
-        self.model.eval()
-        test_loss = 0
-        test_acc = 0
-        list_outputs = []
-        list_targets = []
-        with torch.inference_mode():  # or with torch.no_grad():
-            for x_test_batch, y_test_batch in dataloader:
-                # Move data to device and set to float
-                x_test_batch, y_test_batch = x_test_batch.float().to(device), y_test_batch.float().to(device)
-
-                # Get model outputs
-                y_test_pred = self.model(x_test_batch, device=device)
-                if isinstance(self.model, RnnNet):
-                    # y_test_pred = y_test_pred.squeeze()
-                    # y_test_batch = y_test_batch.squeeze()
-                    if label_scaler:
-                        y_test_pred = torch.tensor(scaler.inverse_transform(y_test_pred), device=device)
-                        y_test_batch = torch.tensor(label_scaler.inverse_transform(y_test_batch), device=device)
-
-                # print(y_test_batch, y_test_pred)
-                list_targets.append(y_test_batch.detach().numpy())
-                list_outputs.append(y_test_pred.detach().numpy())
-
-                # Compute and accumulate metrics
-                test_batch_loss = self.criterion(y_test_pred, y_test_batch)
-                test_batch_acc = binary_acc(y_test_pred, y_test_batch)
-                test_loss += test_batch_loss.item()
-                test_acc += test_batch_acc.item()
-
-        test_loss /= len(dataloader)
-        test_acc /= len(dataloader)
-        self.model.train()
-        #return np.array(list_outputs).flatten(), np.array(list_targets).flatten(), test_loss, test_acc
-        return list_outputs, list_targets, test_loss, test_acc
-
-
-def binary_acc(y_pred, y_test):
-    y_pred_tag = torch.round(torch.sigmoid(y_pred))
-
-    correct_results_sum = (y_pred_tag == y_test).sum().float()
-    acc = correct_results_sum/len(y_test)  # correct_results_sum/y_test.shape[0]
-    acc = torch.round(acc * 100)
-    
-    return acc
+        return {'test_loss': loss, 'test_acc': accuracy}

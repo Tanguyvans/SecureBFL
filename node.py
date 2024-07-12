@@ -5,6 +5,7 @@ import os
 import base64
 from math import floor, ceil
 import random
+import time
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
@@ -21,96 +22,7 @@ from sklearn.model_selection import train_test_split
 
 from protocols.pbft_protocol import PBFTProtocol
 from protocols.raft_protocol import RaftProtocol
-
-
-#%% Functions to reconstruct the shared secret on the node side with Shamir secret sharing
-def generate_secret_shamir(x, y, m):
-    """
-    Function to generate the secret from the given points
-    :param x: list of x
-    :param y: list of y
-    :param m: number of points to use for the reconstruction
-
-    :return: the secret
-    """
-    # Initialisation of the answer
-    ans = 0
-
-    # loop to go through the given points
-    for i in range(m):
-        l = y[i]
-        for j in range(m):
-            # Compute the Lagrange polynomial
-            if i != j:
-                temp = -x[j] / (x[i] - x[j])  # L_i(x=0)
-                l *= temp
-
-        ans += l
-
-    # return the secret
-    return ans
-
-
-def combine_shares_node(secret_list):
-    """
-    Function to combine the shares of the secret and get a dictionary with the good format for the decryption
-    :param secret_list: list of shares of each client, so secret_list[id_client][x][layer]
-    :return: dictionary of the secret, so secret_dic_final[x][layer]
-    """
-    secret_dic_final = {}
-    for id_client in range(len(secret_list)):
-        for x, list_weights in secret_list[id_client].items():
-            if x in secret_dic_final:
-                for layer in range(len(list_weights)):
-                    secret_dic_final[x][layer] += list_weights[layer]
-            else:
-                secret_dic_final[x] = list_weights
-    return secret_dic_final
-
-
-def decrypt_shamir_node(secret_dic_final, secret_shape, m):
-    """
-    Function to decrypt the secret on the node side with Shamir secret sharing
-    :param secret_dic_final: dictionary of the secret, so secret_dic_final[x][layer]
-    :param secret_shape: list of shapes of the layers
-    :param m: number of shares to use for the reconstruction of the secret
-    :return: list of the decrypted secret, so decrypted_result[layer]  = weights_layer
-    """
-    x_combine = list(secret_dic_final.keys())
-    y_combine = list(secret_dic_final.values())
-    decrypted_result = []
-    for layer in range(len(y_combine[0])):
-        list_x = []
-        list_y = []
-        for i in range(m):  # (len(x_combine)):
-            y = y_combine[i][layer]
-            x = np.ones(y.shape) * x_combine[i]
-            list_x.append(x)
-            list_y.append(y)
-
-        all_x_layer = np.array(list_x).T
-        all_y_layer = np.array(list_y).T
-
-        decrypted_result.append(
-            np.round(
-                [generate_secret_shamir(all_x_layer[i], all_y_layer[i], m) for i in range(len(all_x_layer))],
-                4).reshape(secret_shape[layer]) / len(x_combine)
-        )
-
-    return decrypted_result
-
-
-def aggregate_shamir(secret_list, secret_shape, m):
-    """
-
-    :param secret_list: list of shares of each client, so secret_list[id_client][x][layer]
-    :param secret_shape: list of shapes of the layers
-    :param m: number of shares to use for the reconstruction of the secret
-    :return: dictionary of the secret, so secret_dic_final[x] = [y1, y2, y3, y4] if we have 4 layers.
-    where x is the value of the x coordinate, and y1, y2, y3, y4 are the values of the y coordinate for each layer
-    """
-    secret_dic_final = combine_shares_node(secret_list)
-    return decrypt_shamir_node(secret_dic_final, secret_shape, m)
+from going_modular.security import aggregate_shamir
 
 
 # Other functions to handle the communication between the nodes
@@ -170,9 +82,7 @@ def start_server(host, port, handle_message, num_node):
 
 
 class Node:
-    def __init__(self, id, host, port, consensus_protocol, batch_size, train, test, coef_usefull=1.05,
-                 dp=False, ss_type="additif", m=3,
-                 name_dataset="Airline Satisfaction", model_choice="simplenet"):
+    def __init__(self, id, host, port, consensus_protocol, test, coef_usefull=1.01, ss_type="additif", m=3, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -190,13 +100,16 @@ class Node:
         public_key_path = f"keys/{id}_public_key.pem"
         self.get_keys(private_key_path, public_key_path)
 
-        x_train, y_train = train
         x_test, y_test = test
-        x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
-                                                          stratify=y_train if name_dataset == "Airline Satisfaction" else None)
-        self.flower_client = FlowerClient(batch_size, x_train, x_val, x_test, y_train, y_val, y_test,
-                                          dp, delta=1/(2*len(x_train)),
-                                          name_dataset=name_dataset, model_choice=model_choice)
+        #x_test, y_test = [], []  # test
+        #[(x_test.append(test[i][0]), y_test.append(test[i][1])) for i in range(len(test))]
+
+        self.flower_client = FlowerClient.node(
+            x_test=x_test, 
+            y_test=y_test,
+            **kwargs
+        )
+
         self.ss_type = ss_type
         self.secret_shape = None
         self.m = m
@@ -234,7 +147,6 @@ class Node:
 
         message = pickle.loads(data)
         message_type = message.get("type")
-
 
         if message_type == "frag_weights":
             message_id = message.get("id")
@@ -280,12 +192,13 @@ class Node:
 
         client_socket.close()
 
-    def is_update_usefull(self, model_directory): 
+    def is_update_usefull(self, model_directory, participants): 
 
-        print(f"node: {self.id} GM: {self.global_params_directory}, {model_directory} ")
-        if self.evaluate_model(model_directory)[0] <= self.evaluate_model(self.global_params_directory)[0]*self.coef_usefull:
+        update_eval = self.evaluate_model(model_directory, participants, write=True)
+        gm_eval = self.evaluate_model(self.global_params_directory, participants, write=False)
+
+        if update_eval[0] <= gm_eval[0]*self.coef_usefull:
             return True
-
         else: 
             return False
 
@@ -301,6 +214,9 @@ class Node:
 
             else:
                 break
+
+        if len(params_list) == 0:
+            return None
 
         self.aggregated_params = aggregate(params_list)
 
@@ -324,13 +240,17 @@ class Node:
         else:
             return False
 
-    def evaluate_model(self, model_directory):
+    def evaluate_model(self, model_directory, participants, write=True):
+
         loaded_weights_dict = np.load(model_directory)
         loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
-        loss = self.flower_client.evaluate(loaded_weights, {})[0]
-        acc = self.flower_client.evaluate(loaded_weights, {})[2]['accuracy']
+        test_metrics = self.flower_client.evaluate(loaded_weights, {})
 
-        return loss, acc
+        if write: 
+            with open('output.txt', 'a') as f:
+                f.write(f"node: {self.id} model: {model_directory} cluster: {participants} loss: {test_metrics['test_loss']} acc: {test_metrics['test_acc']} \n")
+
+        return test_metrics['test_loss'], test_metrics['test_acc']
 
     def broadcast_model_to_clients(self):
         for block in self.blockchain.blocks[::-1]: 
@@ -402,12 +322,10 @@ class Node:
         return hash_model
    
     def create_first_global_model_request(self): 
-        old_params = self.flower_client.get_parameters({})
-        len_dataset = self.flower_client.fit(old_params, {})[1]
 
         weights_dict = self.flower_client.get_dict_params({})
-        weights_dict['len_dataset'] = len_dataset
-        model_type = "global_model"
+        weights_dict['len_dataset'] = 0
+        model_type = "first_global_model"
         
         filename = f"models/m0.npz"
         self.global_params_directory = filename
@@ -426,15 +344,21 @@ class Node:
             }
         }
 
+        time.sleep(10)
+
         self.consensus_protocol.handle_message(message)
 
     def create_global_model(self): 
         weights_dict = self.get_weights(len_dataset=10)
 
+        if weights_dict is None:
+            print("No weights to save")
+            return
+
         model_type = "global_model"
 
         filename = f"models/{self.id}m{self.blockchain.len_chain}.npz"
-        self.global_params_directory = filename
+        #self.global_params_directory = filename
 
         with open(filename, "wb") as f:
             np.savez(f, **weights_dict)
@@ -489,10 +413,10 @@ class Node:
             # shamir secret sharing
             aggregated_weights = aggregate_shamir(self.cluster_weights[pos], self.secret_shape, self.m)
 
-        loss = self.flower_client.evaluate(aggregated_weights, {})[0]
+        test_metrics = self.flower_client.evaluate(aggregated_weights, {})
 
         with open('output.txt', 'a') as f: 
-            f.write(f"cluster {pos} node {self.id}: {loss} \n")
+            f.write(f"cluster {pos} node {self.id} block {self.blockchain.len_chain} loss: {test_metrics['test_loss']} acc: {test_metrics['test_acc']} \n")
 
         self.cluster_weights[pos] = []
         for k, v in self.clusters[pos].items():

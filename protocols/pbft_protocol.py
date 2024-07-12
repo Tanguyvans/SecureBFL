@@ -73,7 +73,18 @@ class PBFTProtocol(ConsensusProtocol):
         self.prepare_counts[block_hash] += 1
 
         if self.is_prepared(block_hash): 
-            message["usefull"] = self.node.is_update_usefull(message["storage_reference"]) if message["model_type"] == "upadate" else True
+            if message["model_type"] == "update": 
+                message["usefull"] = self.node.is_update_usefull(message["storage_reference"], message["participants"])
+
+                if block_hash not in self.commit_counts: 
+                    self.commit_counts[block_hash] = {"count": 0, "senders": []}
+
+                if message["usefull"] == True and self.node_id not in self.commit_counts[block_hash]["senders"]:
+                    self.commit_counts[block_hash]["count"] += 1
+                    self.commit_counts[block_hash]["senders"].append(self.node_id)
+            else:
+                message["usefull"] = True
+
             commit_message = {"type": "commit", "content": message}
             self.node.broadcast_message(commit_message)
             logging.info("Node %s prepared block to %s", self.node_id, self.node.peers)
@@ -102,12 +113,21 @@ class PBFTProtocol(ConsensusProtocol):
             message["previous_hash"]
         )
 
+
         if self.can_commit(block_hash):
             logging.info("Node %s committing block %s", self.node_id, block_hash)
 
             if self.validate_block(message):
                 
-                self.blockchain.add_block(block)
+                # il faut améliorer cette condition
+                if self.blockchain.blocks[-1].index + 1 == block.index:
+                    self.blockchain.add_block(block)
+
+                if message["model_type"] == "first_global_model" and self.node.global_params_directory == "": 
+                    self.node.global_params_directory = message["storage_reference"]
+
+                if message["model_type"] == "global_model": 
+                    self.node.global_params_directory = message["storage_reference"]
 
                 logging.info("Node %s committed block %s", self.node_id, block_hash)
 
@@ -131,7 +151,7 @@ class PBFTProtocol(ConsensusProtocol):
             return False
 
         # Verify that the index is correctly incremented
-        if block_data["index"] != len(self.blockchain.blocks):
+        if block_data["index"] != self.blockchain.blocks[-1].index + 1:
             return False
 
         # Verify the validity of the previous hash
@@ -139,13 +159,17 @@ class PBFTProtocol(ConsensusProtocol):
         if previous_block and block_data["previous_hash"] != previous_block.current_hash:
             return False
 
-        # if block_data["model_type"] == "update": 
-        #     return self.node.is_update_usefull(block_data["storage_reference"])
+        if block_data["model_type"] == "update": 
+            return self.node.is_update_usefull(block_data["storage_reference"], block_data["participants"])
         
-        # if block_data["index"] > 2 and block_data["model_type"] == "global_model": 
-        #     return self.node.is_global_valid(block_data["calculated_hash"])
+        if block_data["model_type"] == "global_model":
+            # return self.node.is_global_valid(block_data["calculated_hash"])
+            return True
 
-        return True
+        if block_data["model_type"] == "first_global_model":
+            return True
+        
+        return False
 
     def create_block_from_request(self, content):
         previous_blocks = self.blockchain.blocks

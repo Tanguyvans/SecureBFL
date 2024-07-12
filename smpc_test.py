@@ -1,9 +1,9 @@
 # %%
 from flowerclient import FlowerClient
 from sklearn.model_selection import train_test_split
-from client import (apply_smpc, get_dataset, data_preparation, sum_shares,
-                    apply_shamir, sum_shares_shamir, apply_additif, sum_shares_additif)
-from node import aggregate_shamir, decrypt_shamir_node, combine_shares_node
+
+from going_modular import *
+
 import numpy as np
 import random
 
@@ -145,8 +145,10 @@ if __name__ == '__main__':
     x_test, y_test = test_sets[0]
 
     # %%
-    flower_client = FlowerClient(256, x_train, x_val, x_test, y_train, y_val, y_test, dp, delta=1/(2 * len(x_train)),
-                                 name_dataset=name_dataset, model_choice=model_choice)
+    flower_client = FlowerClient.client(
+        x_train, x_val, x_test, y_train, y_val, y_test, batch_size=256, diff_privacy=dp,
+        delta=1/(2 * len(x_train)), name_dataset=name_dataset, model_choice=model_choice
+    )
 
     # %%
     old_params = flower_client.get_parameters({})

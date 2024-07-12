@@ -1,0 +1,9 @@
+CFL: batch = 32 loss = "cross_entropy" optimizer = "Adam" lr = 0.001 clients = 18 epochs = 5 poisonned = 0 rounds = 20
+
+round 15: flower aggregation {'test_loss': 1.3381628192579136, 'test_acc': 66.66666666666667}
+round 16: flower aggregation {'test_loss': 1.3266067382616875, 'test_acc': 66.50641025641026}
+round 17: flower aggregation {'test_loss': 1.3465948460193782, 'test_acc': 66.53645833333333}
+round 18: flower aggregation {'test_loss': 1.3644612644536374, 'test_acc': 66.77684294871794}
+round 19: flower aggregation {'test_loss': 1.3949236683547497, 'test_acc': 66.47636217948718}
+round 20: flower aggregation {'test_loss': 1.3925706890340035, 'test_acc': 66.63661858974359}
+
