@@ -15,7 +15,7 @@ import os
 
 
 class FlowerClient(fl.client.NumPyClient):
-    def __init__(self, batch_size, epochs=1, model_choice="simplenet", dp=True, delta=1e-5, epsilon=0.5,
+    def __init__(self, batch_size, epochs=1, model_choice="simpleNet", dp=True, delta=1e-5, epsilon=0.5,
                  max_grad_norm=1.2, name_dataset="cifar", device="gpu", classes=(*range(10),),
                  learning_rate=0.001, choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None,
                  save_results=None, matrix_path=None, roc_path=None, patience=2):

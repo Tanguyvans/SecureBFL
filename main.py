@@ -20,7 +20,7 @@ def train_client(client):
 
 # %%
 def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type="additif", m=3,
-                 name_dataset="cifar", model_choice="simplenet", batch_size=256, classes=(*range(10),),
+                 name_dataset="cifar", model_choice="simpleNet", batch_size=256, classes=(*range(10),),
                  choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None):
     nodes = []
     for i in range(number_of_nodes):
@@ -49,7 +49,7 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type=
 
 
 def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", threshold=3, m=3,
-                   name_dataset="cifar", model_choice="simplenet",
+                   name_dataset="cifar", model_choice="simpleNet",
                    batch_size=256, epochs=3, classes=(*range(10),), learning_rate=0.003,
                    choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None, patience=2):
     clients = {}
