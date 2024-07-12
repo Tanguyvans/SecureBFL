@@ -40,9 +40,8 @@ class FlowerClient(fl.client.NumPyClient):
         model = Net(num_classes=len(self.classes), arch=self.model_choice)
         self.model = validate_dp_model(model.to(self.device)) if self.dp else model.to(self.device)
         self.criterion = fct_loss(choice_loss)
-        self.optimizer = choice_optimizer_fct(self.model, choice_optim=choice_optimizer, lr=self.learning_rate, weight_decay=1e-6)
-        #self.scheduler = choice_scheduler_fct(self.optimizer, choice_scheduler=choice_scheduler, step_size=10, gamma=0.1)
-        self.scheduler = None
+        self.choice_optimizer = choice_optimizer
+        self.choice_scheduler = choice_scheduler
         self.privacy_engine = PrivacyEngine(accountant="rdp", secure_mode=False)
 
         self.save_results = save_results
@@ -73,31 +72,37 @@ class FlowerClient(fl.client.NumPyClient):
         return obj
 
     def get_parameters(self, config):
-        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+        # excluding parameters of BN layers when using FedBN
+        return [val.cpu().numpy() for name, val in self.model.state_dict().items() if 'bn' not in name]
 
     def get_dict_params(self, config):
-        return {f'param_{i}': val.cpu().numpy() for i, (_, val) in enumerate(self.model.state_dict().items())}
+        return {f'param_{i}': val.cpu().numpy() for i, (name, val) in enumerate(self.model.state_dict().items()) if 'bn' not in name}
 
     def set_parameters(self, parameters):
-        params_dict = zip(self.model.state_dict().keys(), parameters)
+        keys = [k for k in self.model.state_dict().keys() if 'bn' not in k]
+        params_dict = zip(keys, parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.load_state_dict(state_dict, strict=True)
 
     def fit(self, parameters, node_id, config):
         self.set_parameters(parameters)
-
+        optimizer = choice_optimizer_fct(self.model, choice_optim=self.choice_optimizer, lr=self.learning_rate, weight_decay=1e-6)
         if self.dp:
-            self.model, self.optimizer, self.train_loader = self.privacy_engine.make_private_with_epsilon(
+            self.model, optimizer, self.train_loader = self.privacy_engine.make_private_with_epsilon(
                 module=self.model,
-                optimizer=self.optimizer,
+                optimizer=optimizer,
                 data_loader=self.train_loader,
                 epochs=self.epochs,
                 target_epsilon=self.epsilon,
                 target_delta=self.delta,
                 max_grad_norm=self.max_grad_norm,
             )
+
+        scheduler = choice_scheduler_fct(optimizer, choice_scheduler=self.choice_scheduler,
+                                         step_size=3,  gamma=0.5)
+
         results = train(node_id, self.model, self.train_loader, self.val_loader,
-                        self.epochs, self.criterion, self.optimizer, self.scheduler, device=self.device,
+                        self.epochs, self.criterion, optimizer, scheduler, device=self.device,
                         dp=self.dp, delta=self.delta,
                         max_physical_batch_size=int(self.batch_size / 4), privacy_engine=self.privacy_engine,
                         patience=self.patience)
