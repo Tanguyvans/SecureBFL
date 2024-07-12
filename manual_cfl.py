@@ -95,31 +95,6 @@ def start_server(host, port, handle_message, num_node):
         client_socket, addr = server_socket.accept()
         threading.Thread(target=handle_message, args=(client_socket,)).start()
 
-def aggregate_weights(weight_lists):
-    """
-    Aggregates a list of weights by averaging them.
-    
-    Args:
-    weight_lists (list of list of np.array): Each element is a list of np.array,
-                                             where each list corresponds to a model's weights.
-    
-    Returns:
-    list of np.array: Averaged weights.
-    """
-    # Initialize the sum of weights as zero arrays based on the shape of the first model's weights
-    sum_weights = [np.zeros_like(weights) for weights in weight_lists[0]]
-
-    # Sum all weights
-    for weights in weight_lists:
-        for i, weight in enumerate(weights):
-            sum_weights[i] += weight
-
-    # Divide by the number of weight sets to get the average
-    num_models = len(weight_lists)
-    average_weights = [weights / num_models for weights in sum_weights]
-
-    return average_weights
-
 class Client:
     def __init__(self, id, host, port, train, test, type_ss="additif", threshold=3, m=3, **kwargs):
         self.id = id
@@ -200,7 +175,7 @@ class Client:
         res, metrics = self.flower_client.fit(res, self.id, {})
         test_metrics = self.flower_client.evaluate(res, {})
 
-        with open(f"output.txt", "a") as f:
+        with open(f"output_cfl.txt", "a") as f:
             f.write(f"client {self.id}: data:{metrics['len_train']} train: {metrics['len_train']} train: {metrics['train_loss']} {metrics['train_acc']} val: {metrics['val_loss']} {metrics['val_acc']} test: {test_metrics['test_loss']} {test_metrics['test_acc']}\n")
 
         return res
@@ -354,10 +329,24 @@ class Node:
 
         self.broadcast_model_to_clients(filename)
 
-    def create_global_model(self, weights, index): 
-        aggregated_weights = aggregate(
-                [(weights[i], 20) for i in range(len(weights))]
-        )
+    def create_global_model(self, weights, index, two_step=False): 
+
+        if two_step:
+            cluster_weights = []
+            for i in range(0, len(weights), 3):
+                aggregated_weights = aggregate([(weights[j], 20) for j in range(i, i+3)])
+                cluster_weights.append(aggregated_weights)
+                metrics = self.flower_client.evaluate(aggregated_weights, {})
+                with open("output_cfl.txt", "a") as f:
+                    f.write(f"cluster {i//3} node {self.id} {metrics} \n")
+            
+            aggregated_weights = aggregate(
+                    [(cluster_weights[i], 20) for i in range(len(cluster_weights))]
+            )
+        else:
+            aggregated_weights = aggregate(
+                    [(weights[i], 20) for i in range(len(weights))]
+            )
 
         metrics = self.flower_client.evaluate(aggregated_weights, {})
 
@@ -370,6 +359,9 @@ class Node:
         os.makedirs("models/", exist_ok=True)
         with open(filename, "wb") as f:
             np.savez(f, **weights_dict)
+
+        with open("output_cfl.txt", "a") as f:
+            f.write(f"flower aggregation {metrics} \n")
 
         print(f"flower aggregation {metrics}")
         self.broadcast_model_to_clients(filename)
@@ -454,6 +446,9 @@ def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type
     return clients
 
 if __name__ == "__main__":
+
+    with open("output_cfl.txt", "w") as f:
+        f.write("")
     # %%
     logging.basicConfig(level=logging.DEBUG)
     # %%
@@ -475,9 +470,6 @@ if __name__ == "__main__":
     diff_privacy = False  # True if you want to apply differential privacy
 
     training_barrier = threading.Barrier(numberOfClientsPerNode)
-
-    with open("output.txt", "w") as f:
-        f.write("")
 
     # %%
     classes = ()
@@ -554,7 +546,9 @@ if __name__ == "__main__":
         for t in threads:
             t.join()
 
-        node.create_global_model(client_weights, round_i)
+
+        print(f"the len of the client wiehgts: {len(client_weights)}")
+        node.create_global_model(client_weights, round_i, two_step=True)
 
         time.sleep(60)
         client_weights = []

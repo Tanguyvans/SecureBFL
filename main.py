@@ -8,16 +8,15 @@ import random
 from node import Node
 from client import Client
 
+from flwr.server.strategy.aggregate import aggregate
 from going_modular.data_setup import load_dataset
 import warnings
 warnings.filterwarnings("ignore")
-
 
 def train_client(client):
     frag_weights = client.train()  # Train the client
     client.send_frag_clients(frag_weights)  # Send the shares to other clients
     training_barrier.wait()  # Wait here until all clients have trained
-
 
 # %%
 def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type="additif", m=3,
@@ -223,7 +222,8 @@ if __name__ == "__main__":
             threading.Thread(target=client.start_server).start()
 
     nodes[0].create_first_global_model_request()
-    time.sleep(10)
+
+    time.sleep(30)
 
     # %% training and SMPC
     for round_i in range(n_rounds):
@@ -244,6 +244,7 @@ if __name__ == "__main__":
                 t.join()
 
             print(f"Node {i + 1} : SMPC\n")
+            
             for client in clients[i].values():
                 client.send_frag_node()
                 time.sleep(ts)

@@ -90,6 +90,11 @@ class Client:
             weights = pickle.loads(message.get("value"))
             self.flower_client.set_parameters(weights)
 
+        elif message_type == "first_global_model":
+            weights = pickle.loads(message.get("value"))
+            self.flower_client.set_parameters(weights)
+            print(f"client {self.id} received the global model")
+
         client_socket.close()
 
     def train(self):
@@ -179,3 +184,5 @@ class Client:
 
     def get_keys(self, private_key_path, public_key_path):
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
+
+

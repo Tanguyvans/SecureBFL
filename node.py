@@ -174,6 +174,7 @@ class Node:
             result = self.consensus_protocol.handle_message(message)
 
             if result == "added":
+                
                 block = self.blockchain.blocks[-1]
                 model_type = block.model_type
 
@@ -185,7 +186,7 @@ class Node:
                         else:
                             break
 
-                elif model_type == "global_model":
+                elif model_type == "global_model" or model_type == "first_global_model":
 
                     print(f"updating GM {self.global_params_directory}")
                     self.broadcast_model_to_clients()
@@ -204,6 +205,7 @@ class Node:
 
     def get_weights(self, len_dataset=10):
         params_list = []
+        cnt = 0
         for block in self.blockchain.blocks[::-1]:
             if block.model_type == "update":
                 loaded_weights_dict = np.load(block.storage_reference)
@@ -211,7 +213,7 @@ class Node:
 
                 loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
                 params_list.append(loaded_weights)
-
+                cnt += 1
             else:
                 break
 
@@ -254,7 +256,7 @@ class Node:
 
     def broadcast_model_to_clients(self):
         for block in self.blockchain.blocks[::-1]: 
-            if block.model_type == "global_model":
+            if block.model_type == "global_model" or block.model_type == "first_global_model":
                 block_model = block 
                 break 
 
@@ -497,8 +499,6 @@ class Node:
 
         for i in range(1, len(sol)): 
             self.create_cluster(clients[sol[i-1]: sol[i]])
-
-        print(self.clusters)
 
     def create_cluster(self, clients): 
         self.clusters.append({client: 0 for client in clients})
