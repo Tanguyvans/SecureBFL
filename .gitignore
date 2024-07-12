@@ -5,10 +5,9 @@
 /models
 /env
 /keys
-node1.txt
-node2.txt
-node3.txt
-output.txt
+node*.txt
+output*.txt
+evaluatino*.txt
 *.pyc
 client_test.py
 *__pycache__
