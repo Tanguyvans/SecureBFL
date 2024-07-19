@@ -3,14 +3,12 @@ import torch
 from torchvision import datasets, transforms
 from sklearn.model_selection import train_test_split
 
-
 # Normalization values for the different datasets
 NORMALIZE_DICT = {
     'mnist': dict(mean=(0.1307,), std=(0.3081,)),
     'cifar': dict(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),  # dict(mean=(0.4914, 0.4822, 0.4465), std=(0.2023, 0.1994, 0.2010)),
     'alzheimer': dict(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     }
-
 
 def splitting_dataset(dataset, nb_clients):
     """
@@ -35,7 +33,6 @@ def splitting_dataset(dataset, nb_clients):
 
     return clients_dataset
 
-
 def split_data_client(dataset, num_clients, seed):
     """
         This function is used to split the dataset into train and test for each client.
@@ -49,7 +46,6 @@ def split_data_client(dataset, num_clients, seed):
     lengths += [len(dataset) - sum(lengths)]
     ds = random_split(dataset, lengths, torch.Generator().manual_seed(seed))
     return ds
-
 
 def load_data_from_path(resize=None, name_dataset="cifar", data_root="./data/"):
     data_folder = f"{data_root}/{name_dataset}"
@@ -76,7 +72,6 @@ def load_data_from_path(resize=None, name_dataset="cifar", data_root="./data/"):
 
     return dataset_train, dataset_test
 
-
 def load_dataset(resize=None, name_dataset="cifar", data_root="./data/", numberOfClientsPerNode=3, numberOfNodes=3):
     # Case for the classification problems
     dataset_train, dataset_test = load_data_from_path(resize, name_dataset, data_root)
@@ -92,7 +87,6 @@ def load_dataset(resize=None, name_dataset="cifar", data_root="./data/", numberO
     classes = dataset_train.classes
 
     return client_train_sets, client_test_sets, node_test_sets, classes
-
 
 def load_data(partition_id, num_clients, name_dataset="cifar", data_root="./data", resize=None, batch_size=256):
     dataset_train, dataset_test = load_data_from_path(resize, name_dataset, data_root)
@@ -113,7 +107,6 @@ def load_data(partition_id, num_clients, name_dataset="cifar", data_root="./data
     testloader = DataLoader(dataset=test_data, batch_size=batch_size)
 
     return trainloader, valloader, testloader, dataset_train.classes
-
 
 class Data(Dataset):
     def __init__(self, x_data, y_data):

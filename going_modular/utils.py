@@ -1,14 +1,61 @@
 import numpy as np
 import torch
 
-
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc, confusion_matrix
 # import scikitplot as skplt
 import os
 import pandas as pd
 import seaborn as sn
+import threading
 
+
+def initialize_parameters(settings):
+    data_root = "Data"
+    name_dataset = settings["name_dataset"]
+    model_choice = settings["arch"]
+    batch_size = settings["batch_size"]
+    choice_loss = settings["choice_loss"]
+    choice_optimizer = settings["choice_optimizer"]
+    choice_scheduler = settings["choice_scheduler"]
+    learning_rate = settings["lr"]
+    step_size = settings["step_size"]
+    gamma = settings["gamma"]
+    patience = settings["patience"]
+    roc_path = None  # "roc"
+    matrix_path = None  # "matrix"
+    save_results = "results/BFL/"
+    output_path = "results.txt"
+
+    # nodes
+    numberOfNodes = settings["numberOfNodes"]
+    coef_usefull = settings["coef_usefull"]
+
+    # clients
+    numberOfClientsPerNode = settings["numberOfClientsPerNode"]
+    min_number_of_clients_in_cluster = settings["min_number_of_clients_in_cluster"]
+    n_epochs = settings["n_epochs"]
+    n_rounds = settings["n_rounds"]
+    poisonned_number = settings["poisonned_number"]
+    ts = 10
+    diff_privacy = settings["diff_privacy"]
+
+    training_barrier = threading.Barrier(numberOfClientsPerNode)
+
+    type_ss = settings["secret_sharing"]
+    k = settings["k"]
+    m = settings["m"]
+
+    if m < k:
+        raise ValueError("the number of parts used to reconstruct the secret must be greater than the threshold (k)")
+    print("Number of Nodes: ", numberOfNodes,
+          "\tNumber of Clients per Node: ", numberOfClientsPerNode,
+          "\tNumber of Clients per Cluster: ", min_number_of_clients_in_cluster, "\n")
+
+    return (data_root, name_dataset, model_choice, batch_size, choice_loss, choice_optimizer, choice_scheduler,
+            learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results, output_path,
+            numberOfNodes, coef_usefull, numberOfClientsPerNode, min_number_of_clients_in_cluster, n_epochs,
+            n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m)
 
 def sMAPE(outputs, targets):
     """
@@ -23,7 +70,6 @@ def sMAPE(outputs, targets):
     """
 
     return 100 / len(targets) * np.sum(np.abs(outputs - targets) / (np.abs(outputs + targets)) / 2)
-
 
 def fct_loss(choice_loss):
     """
@@ -61,7 +107,6 @@ def fct_loss(choice_loss):
 
     return loss
 
-
 def choice_optimizer_fct(model, choice_optim="Adam", lr=0.001, momentum=0.9, weight_decay=1e-6):
     """
     A function to choose the optimizer
@@ -92,7 +137,6 @@ def choice_optimizer_fct(model, choice_optim="Adam", lr=0.001, momentum=0.9, wei
         return None
 
     return optimizer
-
 
 def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0.1, base_lr=0.0001, max_lr=0.1):
     """
@@ -143,7 +187,6 @@ def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0
     print("scheduler : ", scheduler)
     return scheduler
 
-
 def choice_device(device):
     """
         A function to choose the device
@@ -167,7 +210,6 @@ def choice_device(device):
 
     print("The device is : ", device)
     return device
-
 
 def save_matrix(y_true, y_pred, path, classes):
     """
@@ -199,7 +241,6 @@ def save_matrix(y_true, y_pred, path, classes):
 
     plt.savefig(path)
     plt.close()
-
 
 def save_roc(targets, y_proba, path, nbr_classes):
     """
@@ -283,7 +324,6 @@ def save_roc(targets, y_proba, path, nbr_classes):
     plt.savefig(path)
     plt.close()
 
-
 def save_graphs(path_save, local_epoch, results, end_file=""):
     """
     Save the graphs in the path given in argument.
@@ -312,7 +352,6 @@ def save_graphs(path_save, local_epoch, results, end_file=""):
         title="Loss curves",
         path=path_save + "Loss_curves" + end_file)
 
-
 def plot_graph(list_xplot, list_yplot, x_label, y_label, curve_labels, title, path=None):
     """
     Plot the graph of the list of points (list_xplot, list_yplot)
@@ -339,4 +378,3 @@ def plot_graph(list_xplot, list_yplot, x_label, y_label, curve_labels, title, pa
 
     if path:
         plt.savefig(path)
-

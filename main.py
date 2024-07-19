@@ -9,18 +9,19 @@ import json
 from node import Node
 from client import Client
 
+from going_modular.utils import initialize_parameters
 from going_modular.data_setup import load_dataset
 import warnings
-warnings.filterwarnings("ignore")
 
+from config import settings
+
+warnings.filterwarnings("ignore")
 
 def train_client(client):
     frag_weights = client.train()  # Train the client
     client.send_frag_clients(frag_weights)  # Send the shares to other clients
     training_barrier.wait()  # Wait here until all clients have trained
 
-
-# %%
 def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, ss_type="additif", m=3, **kwargs):
     nodes = []
     for i in range(number_of_nodes):
@@ -40,7 +41,6 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, ss_type="additif"
         
     return nodes
 
-
 def create_clients(train_sets, test_sets, node, number_of_clients, type_ss="additif", threshold=3, m=3, **kwargs):
     clients = {}
     for i in range(number_of_clients):
@@ -58,7 +58,6 @@ def create_clients(train_sets, test_sets, node, number_of_clients, type_ss="addi
 
     return clients
 
-
 def cluster_generation(nodes, clients, min_number_of_clients_in_cluster): 
     for i in range(numberOfNodes): 
         nodes[i].generate_clusters(min_number_of_clients_in_cluster)
@@ -73,7 +72,6 @@ def cluster_generation(nodes, clients, min_number_of_clients_in_cluster):
                     if client_id_1 != client_id_2: 
                         clients[i][client_id_1].add_connections(client_id_2, clients[i][client_id_2].port)
 
-
 # todo:
 #  Gérer l'attente : attendre de recevoir les parts de k clients pour un cluster pour commencer shamir (pour le moment on attend les min_number_of_clients_in_cluster shares)
 #  Ajouter le checksum pour verifier la non altération des shares du smpc.
@@ -81,76 +79,16 @@ def cluster_generation(nodes, clients, min_number_of_clients_in_cluster):
 #  Utiliser la moyenne pondérée par la taille des datasets pour la reconstruction du modèle global (pour le moment on fait la moyenne arithmétique car même pondération pour tous les clients). Cela permettra de donner plus de poids aux modèles réalisées par des clients plus importants.
 # %%
 if __name__ == "__main__":
-    # %%
     logging.basicConfig(level=logging.DEBUG)
-    # %%
-    data_root = "Data"
-    name_dataset = "alzheimer"  # "cifar" or "mnist" or "alzheimer"
-    model_choice = "simpleNet"  # "simpleNet" or "CNNCifar" or "CNNMnist" or "mobilenet"
-    batch_size = 32
-    choice_loss = "cross_entropy"
-    choice_optimizer = "Adam"
-    choice_scheduler = "StepLR"  # 'cycliclr'
-    learning_rate = 0.001
-    step_size = 5
-    gamma = 0.5
-    patience = 3
-    roc_path = None  # "roc"
-    matrix_path = None  # "matrix"
-    save_results = "results/BFL/"
-    output_path = "results.txt"
-
-    # nodes
-    numberOfNodes = 3  # minimum 3 for the pbft (else they will not reach a consensus)
-    coef_usefull = 2
-
-    # clients
-    numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
-    min_number_of_clients_in_cluster = 3
-    n_epochs = 20
-    n_rounds = 25
-    poisonned_number = 0
-    ts = 10
-    diff_privacy = False  # True if you want to apply differential privacy
-
-    training_barrier = threading.Barrier(numberOfClientsPerNode)
-
-    type_ss = "additif"  # "shamir" or "additif"
-    k = 3  # The threshold : The minimum number of parts to reconstruct the secret (so with a polynomial of order k-1)
-    m = min_number_of_clients_in_cluster  # The number of parts used to reconstruct the secret (M <= K)
-
-    if m < k:
-        raise ValueError("the number of parts used to reconstruct the secret must be greater than the threshold (k)")
-    print("Number of Nodes: ", numberOfNodes,
-          "\tNumber of Clients per Node: ", numberOfClientsPerNode,
-          "\tNumber of Clients per Cluster: ", min_number_of_clients_in_cluster, "\n")
-
-    # %% save results
+    
+    (data_root, name_dataset, model_choice, batch_size, choice_loss, choice_optimizer, choice_scheduler,
+    learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results, output_path,
+    numberOfNodes, coef_usefull, numberOfClientsPerNode, min_number_of_clients_in_cluster, n_epochs,
+    n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m) = initialize_parameters(settings)
+    
+    # save results
     json_dict = {
-        'settings': {
-            'arch': model_choice,
-            'pretrained': True,
-            'name_dataset': name_dataset,
-            'patience': patience,
-            'batch_size': batch_size,
-            'n_epochs': n_epochs,
-            "numberOfNodes": numberOfNodes,
-            "numberOfClientsPerNode": numberOfClientsPerNode,
-            "min_number_of_clients_in_cluster": min_number_of_clients_in_cluster,
-            'coef_usefull': coef_usefull,
-            'poisonned_number': poisonned_number,
-            "n_rounds": n_rounds,
-            'choice_loss': choice_loss,
-            'choice_optimizer': choice_optimizer,
-            'lr': learning_rate,
-            'choice_scheduler': choice_scheduler,
-            'step_size': step_size,
-            'gamma': gamma,
-            'diff_privacy': diff_privacy,
-            'secret_sharing': type_ss,
-            'k': k,
-            'm': m
-        }
+        'settings': settings
     }
     with open(save_results + "config.json", 'w', encoding='utf-8') as f:
         json.dump(json_dict, f, ensure_ascii=False, indent=4)
@@ -158,14 +96,11 @@ if __name__ == "__main__":
     with open(save_results + output_path, "w") as f:
         f.write("")
 
-    # %%
     length = 32 if name_dataset == 'alzheimer' else None
     client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, name_dataset,
-                                                                                     data_root, numberOfClientsPerNode,
-                                                                                     numberOfNodes)
+                                                                                     data_root, numberOfClientsPerNode,                                                                              numberOfNodes)
     n_classes = len(list_classes)
 
-    # %%
     # Change the poisonning for cifar
     for i in random.sample(range(numberOfClientsPerNode * numberOfNodes), poisonned_number):
         print("Poisonning client ", i)
@@ -182,7 +117,7 @@ if __name__ == "__main__":
         save_results=None, matrix_path=matrix_path, roc_path=roc_path,
     )
 
-    # %%## client to node connections ###
+    ### client to node connections ###
     clients = []
     for i in range(numberOfNodes): 
         node_clients = create_clients(
@@ -198,7 +133,7 @@ if __name__ == "__main__":
         for client_id, client in node_clients.items(): 
             client.update_node_connection(nodes[i].id, nodes[i].port)
 
-    # %% All nodes connections ###
+    # All nodes connections ###
     for i in range(numberOfNodes): 
         node_i = nodes[i]
         # ## node to node ###
@@ -211,7 +146,7 @@ if __name__ == "__main__":
         for client_j in clients[i].values():
             node_i.add_client(client_id=client_j.id, client_address=("localhost", client_j.port))
 
-    # %% run threads ###
+    # run threads ###
     for i in range(numberOfNodes): 
         threading.Thread(target=nodes[i].start_server).start()
         for client in clients[i].values(): 
@@ -221,7 +156,7 @@ if __name__ == "__main__":
 
     time.sleep(ts*3)
 
-    # %% training and SMPC
+    # training and SMPC
     for round_i in range(n_rounds):
         print(f"### ROUND {round_i + 1} ###")
         # ## Creation of the clusters + client to client connections ###
@@ -255,6 +190,6 @@ if __name__ == "__main__":
 
     nodes[0].blockchain.print_blockchain()
 
-    # %%
+    #
     for i in range(numberOfNodes):
         nodes[i].blockchain.save_chain_in_file(save_results + f"node{i + 1}.txt")

@@ -19,7 +19,10 @@ from flowerclient import FlowerClient
 from node import get_keys, start_server
 from going_modular.security import sum_shares
 
+from going_modular.utils import initialize_parameters
 from going_modular.data_setup import load_dataset
+from config import settings
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -107,9 +110,6 @@ class Client:
         # No apply_smpc() so we don't return encrypted_list but res directly (and no self.frag_weights)
         return res
 
-    # No functions send_frag_clients and send_frag_node because no SMPC.
-    # No functions reset_connections because ?
-    # No functions add_connections because ?
     def update_node_connection(self, id, address):
         # same
         with open(f"keys/{id}_public_key.pem", 'rb') as f:
@@ -129,14 +129,8 @@ class Client:
         # same
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
 
-
-###############################################################
-
-
 class Node:
     def __init__(self, id, host, port, test, **kwargs):
-        # def __init__(self, id, host, port, consensus_protocol, test, coef_usefull=1.01, ss_type="additif",
-        # m=3, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -185,7 +179,6 @@ class Node:
         message_type = message.get("type")
 
         if message_type == "frag_weights":
-            # Here we don't do SMPC so nothing to do
             pass
 
         else:
@@ -193,7 +186,6 @@ class Node:
 
         client_socket.close()
 
-    # No function is_update_usefull()
     def get_weights(self, len_dataset=10):
         # same
         params_list = []
@@ -219,8 +211,6 @@ class Node:
         weights_dict['len_dataset'] = len_dataset
         return weights_dict
 
-    # No function is_global_valid()
-    # No function evaluate_model()
     def broadcast_model_to_clients(self, filename):
         # The loop is missing : for block in self.blockchain.blocks[::-1]:
         # The rest is identical.
@@ -247,9 +237,6 @@ class Node:
             # Close the socket after sending
             client_socket.close()
 
-    # No function broadcast_message()
-    # No function send_message()
-    # No function calculate_model_hash()
     def create_first_global_model(self):
         # Different of create_first_global_model_request()
         weights_dict = self.flower_client.get_dict_params({})
@@ -300,15 +287,10 @@ class Node:
         print(f"flower aggregation {metrics}")
         self.broadcast_model_to_clients(filename)
 
-    # No function create_update_request()
-    # No function aggregation_cluster()
     def get_keys(self, private_key_path, public_key_path):
         # same
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
 
-    # No function sign_message()
-    # No function verify_signature()
-    # No function add_peer()
     def add_client(self, client_id, client_address):
         with open(f"keys/{client_id}_public_key.pem", 'rb') as f:
             public_key = serialization.load_pem_public_key(
@@ -318,14 +300,7 @@ class Node:
 
         self.clients[client_id] = {"address": client_address, "public_key": public_key}
 
-    # No function generate_clusters()
-    # No function create_cluster()
-
-
-###############################################################
-
 client_weights = []
-
 
 def train_client(client):
     weights = client.train()  # Train the client
@@ -333,8 +308,6 @@ def train_client(client):
     # client.send_frag_clients(frag_weights)  # Send the shares to other clients
     training_barrier.wait()  # Wait here until all clients have trained
 
-
-# %%
 def create_nodes(test_sets, number_of_nodes,
                  **kwargs):
     # The same as the create_nodes() function in main.py but without the smpc and blockchain parameters
@@ -352,7 +325,6 @@ def create_nodes(test_sets, number_of_nodes,
 
     return nodes
 
-
 def create_clients(train_sets, test_sets, node, number_of_clients, **kwargs):
     # Exactly the same as the create_clients() function
     # but it called Client class from manual_cfl.py and not from client.py
@@ -369,68 +341,26 @@ def create_clients(train_sets, test_sets, node, number_of_clients, **kwargs):
 
     return clients
 
-
 if __name__ == "__main__":
-    # %%
-    logging.basicConfig(level=logging.DEBUG)
-    # %%
-    data_root = "Data"
-    matrix_path = None  # "matrix"
-    roc_path = None  # "roc"
-    save_results = "results/CFL/"
-    output_path = "output_cfl.txt"
-    directory = 'models/'
-    name_dataset = "alzheimer"  # "cifar" or "mnist" or "alzheimer"
-    model_choice = "simpleNet"
 
-    batch_size = 32
-    choice_loss = "cross_entropy"
-    choice_optimizer = "Adam"
-    choice_scheduler = "StepLR"
-    learning_rate = 0.001
-    step_size = 5
-    gamma = 0.5
-    patience = 3
+    logging.basicConfig(level=logging.DEBUG)
+
+    (data_root, name_dataset, model_choice, batch_size, choice_loss, choice_optimizer, choice_scheduler,
+    learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results, output_path,
+    numberOfNodes, coef_usefull, numberOfClientsPerNode, min_number_of_clients_in_cluster, n_epochs,
+    n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m) = initialize_parameters(settings)
+
     length = 32 if name_dataset == 'alzheimer' else None
 
-    numberOfNodes = 1
-    numberOfClientsPerNode = 18
-
-    epochs = 20
-    poisonned_number = 0
-    n_rounds = 25
-    ts = 20
-    diff_privacy = False  # True if you want to apply differential privacy
-
-    training_barrier = threading.Barrier(numberOfClientsPerNode)
-    # %% save results in json file
     json_dict = {
-        'settings': {
-            'arch': model_choice,
-            'pretrained': True,
-            'name_dataset': name_dataset,
-            'patience': patience,
-            'batch_size': batch_size,
-            'n_epochs': epochs,
-            'n_clients': numberOfClientsPerNode,
-            'poisonned_number': poisonned_number,
-            "n_rounds": n_rounds,
-            'choice_loss': choice_loss,
-            'choice_optimizer': choice_optimizer,
-            'lr': learning_rate,
-            'choice_scheduler': choice_scheduler,
-            'step_size': step_size,
-            'gamma': gamma,
-            'diff_privacy': diff_privacy
-
-        }
+        'settings': settings
     }
     with open(save_results + "config.json", 'w', encoding='utf-8') as f:
         json.dump(json_dict, f, ensure_ascii=False, indent=4)
 
     with open(save_results + output_path, "w") as f:
         f.write("")
-    # %%
+
     client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, name_dataset,
                                                                                      data_root, numberOfClientsPerNode,
                                                                                      numberOfNodes)
@@ -443,12 +373,12 @@ if __name__ == "__main__":
         save_results=None, matrix_path=matrix_path, roc_path=roc_path,
     )[0]
 
-    # %%## client to node connections ###
+    ### client to node connections ###
 
     node_clients = create_clients(
         client_train_sets, client_test_sets, 0, numberOfClientsPerNode,
         dp=diff_privacy, model_choice=model_choice,
-        batch_size=batch_size, epochs=epochs, classes=list_classes, learning_rate=learning_rate,
+        batch_size=batch_size, epochs=n_epochs, classes=list_classes, learning_rate=learning_rate,
         choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler,
         step_size=step_size, gamma=gamma,
         save_results=None, matrix_path=matrix_path, roc_path=roc_path,
@@ -458,13 +388,13 @@ if __name__ == "__main__":
     for client_id, client in node_clients.items():
         client.update_node_connection(node.id, node.port)
 
-    # ## node to client ###
+    ### node to client ###
     for client_j in node_clients.values():
         node.add_client(client_id=client_j.id, client_address=("localhost", client_j.port))
 
     print("done with the connections")
 
-    # %% run threads ###
+    ### run threads ###
     threading.Thread(target=node.start_server).start()
     for client in node_clients.values():
         threading.Thread(target=client.start_server).start()
@@ -472,7 +402,7 @@ if __name__ == "__main__":
     node.create_first_global_model()
     time.sleep(30)
 
-    # %% training and SMPC
+    ### training and SMPC
     for round_i in range(n_rounds):
         print(f"### ROUND {round_i + 1} ###")
 
