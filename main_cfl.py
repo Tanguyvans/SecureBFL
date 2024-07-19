@@ -348,7 +348,7 @@ if __name__ == "__main__":
     (data_root, name_dataset, model_choice, batch_size, choice_loss, choice_optimizer, choice_scheduler,
     learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results, output_path,
     numberOfNodes, coef_usefull, numberOfClientsPerNode, min_number_of_clients_in_cluster, n_epochs,
-    n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m) = initialize_parameters(settings)
+    n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m) = initialize_parameters(settings, 'cfl')
 
     length = 32 if name_dataset == 'alzheimer' else None
 
@@ -358,7 +358,7 @@ if __name__ == "__main__":
     with open(save_results + "config.json", 'w', encoding='utf-8') as f:
         json.dump(json_dict, f, ensure_ascii=False, indent=4)
 
-    with open(save_results + output_path, "w") as f:
+    with open('output.txt', "w") as f:
         f.write("")
 
     client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, name_dataset,

@@ -10,7 +10,7 @@ import seaborn as sn
 import threading
 
 
-def initialize_parameters(settings):
+def initialize_parameters(settings, type):
     data_root = "Data"
     name_dataset = settings["name_dataset"]
     model_choice = settings["arch"]
@@ -24,7 +24,7 @@ def initialize_parameters(settings):
     patience = settings["patience"]
     roc_path = None  # "roc"
     matrix_path = None  # "matrix"
-    save_results = "results/BFL/"
+    save_results = "results/" + type + "/"
     output_path = "results.txt"
 
     # nodes

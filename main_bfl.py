@@ -77,14 +77,13 @@ def cluster_generation(nodes, clients, min_number_of_clients_in_cluster):
 #  Ajouter le checksum pour verifier la non altération des shares du smpc.
 #  Ajouter les courbes d'entrainement et de validation coté clients et Nodes car pour le moment problèmes de threads.
 #  Utiliser la moyenne pondérée par la taille des datasets pour la reconstruction du modèle global (pour le moment on fait la moyenne arithmétique car même pondération pour tous les clients). Cela permettra de donner plus de poids aux modèles réalisées par des clients plus importants.
-# %%
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     
     (data_root, name_dataset, model_choice, batch_size, choice_loss, choice_optimizer, choice_scheduler,
     learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results, output_path,
     numberOfNodes, coef_usefull, numberOfClientsPerNode, min_number_of_clients_in_cluster, n_epochs,
-    n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m) = initialize_parameters(settings)
+    n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m) = initialize_parameters(settings, "BFL")
     
     # save results
     json_dict = {
