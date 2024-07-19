@@ -104,12 +104,12 @@ if __name__ == "__main__":
     # %%
     data_root = "Data"
     name_dataset = "cifar"  # "cifar" or "mnist" or "alzheimer"
-    model_choice = "simpleNet"  # "simpleNet" or "CNNCifar" or "CNNMnist" or "mobilenet"
+    model_choice = "mobilenet"  # "simpleNet" or "CNNCifar" or "CNNMnist" or "mobilenet"
     batch_size = 32
     choice_loss = "cross_entropy"
-    choice_optimizer = "SGD"
-    choice_scheduler = "StepLR"  # 'cycliclr'
-    learning_rate = 0.01
+    choice_optimizer = "Adam"
+    choice_scheduler = None  # 'cycliclr'
+    learning_rate = 0.001
     patience = 3
 
     # nodes
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     # clients
     numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
     min_number_of_clients_in_cluster = 3
-    n_epochs = 10
+    n_epochs = 5
     n_rounds = 20
     poisonned_number = 0
     ts = 10

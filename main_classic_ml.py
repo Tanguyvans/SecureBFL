@@ -4,13 +4,18 @@ from going_modular.utils import choice_device, fct_loss, choice_optimizer_fct, c
 from going_modular.model import Net
 from going_modular.engine import train, test
 
+import ssl
+import urllib.request
+
+ssl._create_default_https_context = ssl._create_unverified_context
+
 
 #%%
 if __name__ == '__main__':
     # %% Parameters
-    arch = 'simpleNet'  # "simpleNet" # "CNNCifar" # "mobilenet" # "SqueezeNet" # 'efficientnetB0'  # ''Resnet50'
+    arch = 'SqueezeNet'  # "simpleNet" # "CNNCifar" # "mobilenet" # "SqueezeNet" # 'efficientnetB0'  # ''Resnet50'
     pretrained = True
-    name_dataset = 'alzheimer'  # "cifar"
+    name_dataset = 'cifar'  # "cifar"
     data_root = "data/"
     directory = 'models/'  # Update this path
     device = "mps"

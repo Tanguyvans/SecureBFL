@@ -41,83 +41,44 @@ class CNNMnist(nn.Module):
 
 
 class SimpleNetMnist(nn.Module):
-    """
-    A simple CNN model for MNIST
-    """
     def __init__(self, num_classes=10, input_channels=3) -> None:
         super(SimpleNetMnist, self).__init__()
-        # 3 input image channel, 6 output channels, 5x5 square convolution
         self.conv1 = nn.Conv2d(input_channels, 6, 5)
-        # Max pooling over a (2, 2) window
         self.pool = nn.MaxPool2d(2, 2)
-        # 6 input image channel, 16 output channels, 5x5 square convolution
         self.conv2 = nn.Conv2d(6, 16, 5)
-        # an affine operation: y = Wx + b
         self.fc1 = nn.Linear(16 * 4 * 4, 120)
         self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, num_classes)  # 1 if num_classes <= 2 else num_classes)
+        self.fc3 = nn.Linear(84, num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the neural network
-        """
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        # Flatten the tensor into a vector
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        # output layer
         x = self.fc3(x)
         return x
 
 
 class SimpleNet(nn.Module):
-    """
-    A simple CNN model
-    """
     def __init__(self, num_classes=10) -> None:
         super(SimpleNet, self).__init__()
         # 3 input image channel, 6 output channels, 5x5 square convolution
         self.conv1 = nn.Conv2d(3, 6, 5)
-
-        # with Batch Normalization layers for the non-iid data
-        # self.bn1 = nn.BatchNorm2d(6)
-
-        # Max pooling over a (2, 2) window
         self.pool = nn.MaxPool2d(2, 2)
-        # 6 input image channel, 16 output channels, 5x5 square convolution
         self.conv2 = nn.Conv2d(6, 16, 5)
-
-        # with Batch Normalization layers
-        # self.bn2 = nn.BatchNorm2d(16)
-
-        # an affine operation: y = Wx + b
         self.fc1 = nn.Linear(16 * 5 * 5, 120)
-
-        # with Batch Normalization layers
-        # self.bn3 = nn.BatchNorm1d(120)
-
         self.fc2 = nn.Linear(120, 84)
-
-        # with Batch Normalization layers
-        # self.bn4 = nn.BatchNorm1d(84)
 
         self.fc3 = nn.Linear(84, num_classes)  # 1 if num_classes <= 2 else num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the neural network
-        """
-        x = self.pool(F.relu(self.conv1(x)))  # self.pool(F.relu(self.bn1(self.conv1(x))))
-        x = self.pool(F.relu(self.conv2(x)))  # self.pool(F.relu(self.bn2(self.conv2(x))))
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
 
-        # Flatten the tensor into a vector
         x = x.view(-1, 16 * 5 * 5)
-        x = F.relu(self.fc1(x))  # F.relu(self.bn3(self.fc1(x)))
-        x = F.relu(self.fc2(x))  # F.relu(self.bn4(self.fc2(x)))
-
-        # output layer
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
 
@@ -247,14 +208,10 @@ class ResNet(nn.Module):
             raise NotImplementedError("The architecture is not implemented")
 
         if pretrained:
-            # DEFAULT means the best available weights from ImageNet.
             self.model = archi(weights="DEFAULT")
             num_ftrs = self.model.fc.in_features
             self.model.fc = nn.Sequential(
                 nn.Linear(num_ftrs, num_classes, bias=True),
-                # nn.Linear(num_ftrs//4, num_ftrs//8, bias=True),
-                # nn.Linear(num_ftrs // 8, num_classes, bias=True),
-                # nn.Softmax(dim=1)
             )
 
         else:
@@ -265,8 +222,6 @@ class ResNet(nn.Module):
 
         return out
 
-
-# generic class to choose the architecture of the model
 class Net(nn.Module):
     """
     This is a generic class to choose the architecture of the model.

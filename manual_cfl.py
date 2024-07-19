@@ -200,20 +200,7 @@ class Node:
             pass
 
         else:
-            result = self.consensus_protocol.handle_message(message)
-
-            if result == "added":
-                # same
-                block = self.blockchain.blocks[-1]
-                model_type = block.model_type
-
-                if model_type == "update":
-                    nb_updates = 0
-                    for block in self.blockchain.blocks[::-1]:
-                        if block.model_type == "update":
-                            nb_updates += 1
-                        else:
-                            break
+            print("in else")
 
         client_socket.close()
 
@@ -425,17 +412,17 @@ if __name__ == "__main__":
     # %%
     data_root = "Data"
     name_dataset = "cifar"  # "cifar" or "mnist" or "alzheimer"
-    model_choice = "simpleNet"
+    model_choice = "CNNCifar"
 
     batch_size = 32
     choice_loss = "cross_entropy"
     choice_optimizer = "Adam"
-    choice_scheduler = "StepLR"
+    choice_scheduler = None
     learning_rate = 0.001
     length = 32 if name_dataset == 'alzheimer' else None
 
     numberOfNodes = 1
-    numberOfClientsPerNode = 18
+    numberOfClientsPerNode = 6
 
     epochs = 5
     poisonned_number = 0

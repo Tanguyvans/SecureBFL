@@ -12,7 +12,7 @@ def get_model_files(directory):
 
 
 if __name__ == '__main__':
-    arch = 'simplenet'  # "CNNCifar"
+    arch = 'CNNCifar'  # "CNNCifar"
     name_dataset = 'cifar'  # "cifar"
     data_root = "data/"
     directory = 'models/'  # Update this path
@@ -50,6 +50,8 @@ if __name__ == '__main__':
         choice_scheduler=None
     )
 
+    evaluation = []
+
     for model_file in model_list:
         loaded_weights_dict = np.load(directory+model_file)
         loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
@@ -57,7 +59,14 @@ if __name__ == '__main__':
         # Evaluate the model
         metrics = flower_client.evaluate(loaded_weights, {})
 
-        print(metrics)
+        if model_file[0:2] == "n1":
+            model_file = model_file[2:]
 
-        with open("evaluation.txt", "a") as file: 
-            file.write(f"{model_file}: {metrics['test_loss']}, {metrics['test_acc']} \n")
+        evaluation.append((model_file, metrics['test_loss'], metrics['test_acc']))
+
+    evaluation.sort(key=lambda x: int(x[0][1:].split('.')[0]))
+    with open("evaluation.txt", "w") as file: 
+        for model_file, loss, acc in evaluation:
+            file.write(f"{model_file}: {loss}, {acc} \n")
+
+        
