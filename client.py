@@ -23,7 +23,6 @@ class Client:
         self.host = host
         self.port = port
 
-        self.epochs = kwargs['epochs']
         self.type_ss = type_ss
         self.threshold = threshold
         self.m = m
@@ -102,7 +101,7 @@ class Client:
         res = old_params[:]
         
         res, metrics = self.flower_client.fit(res, self.id, {})
-        test_metrics = self.flower_client.evaluate(res, {})
+        test_metrics = self.flower_client.evaluate(res, {'name': f'Client {self.id}'})
 
         with open(f"output.txt", "a") as f:
             f.write(f"client {self.id}: data:{metrics['len_train']} train: {metrics['len_train']} train: {metrics['train_loss']} {metrics['train_acc']} val: {metrics['val_loss']} {metrics['val_acc']} test: {test_metrics['test_loss']} {test_metrics['test_acc']}\n")

@@ -115,6 +115,7 @@ def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
 
     elif choice_scheduler == "cycliclr":
+        # use per batch (not per epoch)
         scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=base_lr, max_lr=max_lr)
 
     elif choice_scheduler == "cosineannealinglr":
@@ -133,6 +134,10 @@ def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0
 
     else:
         print("Warning problem : unspecified scheduler")
+        # There are other schedulers like OneCycleLR, etc
+        # but generally, they are used per batch and not per epoch.
+        # For example, OneCycleLR : total_steps = n_epochs * steps_per_epoch
+        # https://www.kaggle.com/code/isbhargav/guide-to-pytorch-learning-rate-scheduling
         return None
 
     print("scheduler : ", scheduler)

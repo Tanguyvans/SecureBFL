@@ -1,16 +1,15 @@
 import numpy as np
 import torch
 from tqdm.auto import tqdm
-
+import os
 from going_modular.security import BatchMemoryManager
 
 
 def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, scheduler=None, device="cpu",
-          dp=False, delta=1e-5, max_physical_batch_size=256, privacy_engine=None, patience=2):
-    
-    save_path = f'models/{node_id}_best_model.pth'
+          dp=False, delta=1e-5, max_physical_batch_size=256, privacy_engine=None, patience=2, save_model=None):
+
     # Create empty results dictionary
-    results = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
+    results = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": [], "stopping_n_epoch": None}
     best_val_loss = float('inf')
     epochs_no_improve = 0
 
@@ -50,13 +49,14 @@ def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, 
             best_val_loss = val_loss
             epochs_no_improve = 0
             # Save the best model weights
-            torch.save(model.state_dict(), save_path)
-            print(f"Model improved and saved to {save_path}")
+            torch.save(model.state_dict(), save_model)
+            print(f"Model improved and saved to {save_model}")
         else:
             epochs_no_improve += 1
 
         if epochs_no_improve >= patience:
             print(f"Early stopping triggered after {epoch + 1} epochs.")
+            results["stopping_n_epoch"] = epoch + 1
             break
 
     return results
@@ -99,6 +99,8 @@ def train_step(model, dataloader, loss_fn, optimizer, device, scheduler=None):
 
     if scheduler:
         scheduler.step()
+    else:
+        print("\nNo scheduler")
 
     return epoch_loss, accuracy
 

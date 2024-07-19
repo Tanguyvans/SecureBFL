@@ -93,15 +93,13 @@ class Node:
         self.cluster_weights = []
 
         self.global_params_directory = ""
-        self.nb_updates = 0
+        self.nb_updates = 0  # not used ?
 
         private_key_path = f"keys/{id}_private_key.pem"
         public_key_path = f"keys/{id}_public_key.pem"
         self.get_keys(private_key_path, public_key_path)
 
         x_test, y_test = test
-        #x_test, y_test = [], []  # test
-        #[(x_test.append(test[i][0]), y_test.append(test[i][1])) for i in range(len(test))]
 
         self.flower_client = FlowerClient.node(
             x_test=x_test, 
@@ -197,7 +195,7 @@ class Node:
         update_eval = self.evaluate_model(model_directory, participants, write=True)
         gm_eval = self.evaluate_model(self.global_params_directory, participants, write=False)
 
-        if update_eval[0] <= gm_eval[0]*self.coef_usefull:
+        if update_eval[0] <= gm_eval[0] * self.coef_usefull:
             return True
         else: 
             return False
@@ -208,7 +206,7 @@ class Node:
         for block in self.blockchain.blocks[::-1]:
             if block.model_type == "update":
                 loaded_weights_dict = np.load(block.storage_reference)
-                loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict) - 1)]
+                loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
 
                 loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
                 params_list.append(loaded_weights)
@@ -228,7 +226,7 @@ class Node:
         return weights_dict
 
     def is_global_valid(self, proposed_hash):
-        weights_dict = self.get_weights(len_dataset=10)
+        weights_dict = self.get_weights()
 
         filename = f"models/{self.id}temp.npz"
 
@@ -242,10 +240,9 @@ class Node:
             return False
 
     def evaluate_model(self, model_directory, participants, write=True):
-
         loaded_weights_dict = np.load(model_directory)
-        loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
-        test_metrics = self.flower_client.evaluate(loaded_weights, {})
+        loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
+        test_metrics = self.flower_client.evaluate(loaded_weights, {'name': f'Node {self.id}_Clusters {participants}'})
         print(f"In evaluate Model (node: {self.id}) \tTest Loss: {test_metrics['test_loss']:.4f}, "
               f"\tAccuracy: {test_metrics['test_acc']:.2f}%")
         if write: 
@@ -261,7 +258,7 @@ class Node:
                 break 
 
         loaded_weights_dict = np.load(block_model.storage_reference)
-        loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
+        loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
 
         for k, v in self.clients.items():
             address = v.get('address')
@@ -314,7 +311,7 @@ class Node:
 
     def calculate_model_hash(self, filename): 
         loaded_weights_dict = np.load(filename)
-        loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
+        loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
         loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
 
         hash_model = hashlib.sha256()
@@ -350,7 +347,7 @@ class Node:
         self.consensus_protocol.handle_message(message)
 
     def create_global_model(self): 
-        weights_dict = self.get_weights(len_dataset=10)
+        weights_dict = self.get_weights()
 
         if weights_dict is None:
             print("No weights to save")
@@ -417,7 +414,7 @@ class Node:
 
         self.flower_client.set_parameters(aggregated_weights)
 
-        test_metrics = self.flower_client.evaluate(aggregated_weights, {})
+        test_metrics = self.flower_client.evaluate(aggregated_weights, {'name': f'Node {self.id}_agg_cluster{pos}'})
         print(f"aggregation_cluster {pos} : Test Loss: {test_metrics['test_loss']:.4f}, \tAccuracy: {test_metrics['test_acc']:.2f}%")
         with open('output.txt', 'a') as f: 
             f.write(f"cluster {pos} node {self.id} block {self.blockchain.len_chain} loss: {test_metrics['test_loss']} acc: {test_metrics['test_acc']} \n")

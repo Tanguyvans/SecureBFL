@@ -13,7 +13,7 @@ class Blockchain:
 
     def is_valid_block(self, block, hash):
         loaded_weights_dict = np.load(block.storage_reference)
-        loaded_weights = [loaded_weights_dict[f'param_{i}'] for i in range(len(loaded_weights_dict)-1)]
+        loaded_weights = [val for name, val in loaded_weights_dict.items() if name != 'len_dataset']
         loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
 
         hash_model = hashlib.sha256()

@@ -15,10 +15,12 @@ import os
 
 
 class FlowerClient(fl.client.NumPyClient):
-    def __init__(self, batch_size, epochs=1, model_choice="simpleNet", dp=True, delta=1e-5, epsilon=0.5,
-                 max_grad_norm=1.2, name_dataset="cifar", device="gpu", classes=(*range(10),),
+    def __init__(self, batch_size, epochs=1, model_choice="simpleNet", dp=False, delta=1e-5, epsilon=0.5,
+                 max_grad_norm=1.2, device="gpu", classes=(*range(10),),
                  learning_rate=0.001, choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None,
+                 step_size=5, gamma=0.1,
                  save_results=None, matrix_path=None, roc_path=None, patience=2):
+
         self.batch_size = batch_size
         self.epochs = epochs
         self.model_choice = model_choice
@@ -26,7 +28,6 @@ class FlowerClient(fl.client.NumPyClient):
         self.delta = delta
         self.epsilon = epsilon
         self.max_grad_norm = max_grad_norm
-        self.name_dataset = name_dataset
         self.learning_rate = learning_rate
         self.train_loader = None
         self.val_loader = None
@@ -42,6 +43,8 @@ class FlowerClient(fl.client.NumPyClient):
         self.criterion = fct_loss(choice_loss)
         self.choice_optimizer = choice_optimizer
         self.choice_scheduler = choice_scheduler
+        self.step_size = step_size
+        self.gamma = gamma
         self.privacy_engine = PrivacyEngine(accountant="rdp", secure_mode=False)
 
         self.save_results = save_results
@@ -76,17 +79,20 @@ class FlowerClient(fl.client.NumPyClient):
         return [val.cpu().numpy() for name, val in self.model.state_dict().items() if 'bn' not in name]
 
     def get_dict_params(self, config):
-        return {f'param_{i}': val.cpu().numpy() for i, (name, val) in enumerate(self.model.state_dict().items()) if 'bn' not in name}
+        # return {f'param_{i}': val.cpu().numpy() for i, (name, val) in enumerate(self.model.state_dict().items()) if 'bn' not in name}
+        return {name: val.cpu().numpy() for name, val in self.model.state_dict().items() if 'bn' not in name}
 
     def set_parameters(self, parameters):
-        keys = [k for k in self.model.state_dict().keys() if 'bn' not in k]
+        keys = [k for k in self.model.state_dict().keys() if "bn" not in k]
         params_dict = zip(keys, parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        self.model.load_state_dict(state_dict, strict=True)
+        self.model.load_state_dict(state_dict, strict=False)
 
     def fit(self, parameters, node_id, config):
+        save_model = f"models/{node_id}_best_model.pth"
         self.set_parameters(parameters)
-        optimizer = choice_optimizer_fct(self.model, choice_optim=self.choice_optimizer, lr=self.learning_rate, weight_decay=1e-6)
+        optimizer = choice_optimizer_fct(self.model, choice_optim=self.choice_optimizer, lr=self.learning_rate,
+                                         weight_decay=1e-6)
         if self.dp:
             self.model, optimizer, self.train_loader = self.privacy_engine.make_private_with_epsilon(
                 module=self.model,
@@ -99,16 +105,16 @@ class FlowerClient(fl.client.NumPyClient):
             )
 
         scheduler = choice_scheduler_fct(optimizer, choice_scheduler=self.choice_scheduler,
-                                         step_size=3,  gamma=0.5)
+                                         step_size=self.step_size, gamma=self.gamma)
 
         results = train(node_id, self.model, self.train_loader, self.val_loader,
                         self.epochs, self.criterion, optimizer, scheduler, device=self.device,
                         dp=self.dp, delta=self.delta,
                         max_physical_batch_size=int(self.batch_size / 4), privacy_engine=self.privacy_engine,
-                        patience=self.patience)
- 
-        self.model.load_state_dict(torch.load(f"models/{node_id}_best_model.pth"))
-        best_parameters = [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+                        patience=self.patience, save_model=save_model)
+
+        self.model.load_state_dict(torch.load(save_model))
+        best_parameters = [val.cpu().numpy() for name, val in self.model.state_dict().items() if 'bn' not in name]
         self.set_parameters(best_parameters)
         
         # Save results
@@ -124,11 +130,12 @@ class FlowerClient(fl.client.NumPyClient):
         if self.save_results:
             os.makedirs(self.save_results, exist_ok=True)
             if self.matrix_path:
-                save_matrix(y_true, y_pred, self.save_results + self.matrix_path,  # + f"_client_{self.cid}.png",
+                save_matrix(y_true, y_pred,
+                            self.save_results + config['name'] + self.matrix_path,
                             self.classes)
 
             if self.roc_path:
-                save_roc(y_true, y_proba, self.save_results + self.roc_path,  # + f"_client_{self.cid}.png",
+                save_roc(y_true, y_proba, self.save_results + config['name'] + self.roc_path,  # + f"_client_{self.cid}.png",
                          len(self.classes))
 
         return {'test_loss': loss, 'test_acc': accuracy}

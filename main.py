@@ -4,6 +4,7 @@ import logging
 
 import numpy as np
 import random
+import json
 
 from node import Node
 from client import Client
@@ -18,10 +19,9 @@ def train_client(client):
     client.send_frag_clients(frag_weights)  # Send the shares to other clients
     training_barrier.wait()  # Wait here until all clients have trained
 
+
 # %%
-def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type="additif", m=3,
-                 name_dataset="cifar", model_choice="simpleNet", batch_size=256, classes=(*range(10),),
-                 choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None):
+def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, ss_type="additif", m=3, **kwargs):
     nodes = []
     for i in range(number_of_nodes):
         nodes.append(
@@ -34,24 +34,14 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, dp=True, ss_type=
                 coef_usefull=coef_usefull,
                 ss_type=ss_type,
                 m=m,
-                batch_size=batch_size,
-                dp=dp,
-                name_dataset=name_dataset,
-                model_choice=model_choice,
-                classes=classes,
-                choice_loss=choice_loss,
-                choice_optimizer=choice_optimizer,
-                choice_scheduler=choice_scheduler
+                **kwargs
             )
         )
         
     return nodes
 
 
-def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type_ss="additif", threshold=3, m=3,
-                   name_dataset="cifar", model_choice="simpleNet",
-                   batch_size=256, epochs=3, classes=(*range(10),), learning_rate=0.003,
-                   choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None, patience=2):
+def create_clients(train_sets, test_sets, node, number_of_clients, type_ss="additif", threshold=3, m=3, **kwargs):
     clients = {}
     for i in range(number_of_clients):
         clients[f"c{node}_{i+1}"] = Client(
@@ -63,17 +53,7 @@ def create_clients(train_sets, test_sets, node, number_of_clients, dp=True, type
             type_ss=type_ss,
             threshold=threshold,
             m=m,
-            batch_size=batch_size,
-            epochs=epochs,
-            dp=dp,
-            name_dataset=name_dataset,
-            model_choice=model_choice,
-            classes=classes,
-            learning_rate=learning_rate,
-            choice_loss=choice_loss,
-            choice_optimizer=choice_optimizer,
-            choice_scheduler=choice_scheduler,
-            patience=patience
+            **kwargs
         )
 
     return clients
@@ -97,20 +77,28 @@ def cluster_generation(nodes, clients, min_number_of_clients_in_cluster):
 # todo:
 #  Gérer l'attente : attendre de recevoir les parts de k clients pour un cluster pour commencer shamir (pour le moment on attend les min_number_of_clients_in_cluster shares)
 #  Ajouter le checksum pour verifier la non altération des shares du smpc.
+#  Ajouter les courbes d'entrainement et de validation coté clients et Nodes car pour le moment problèmes de threads.
+#  Utiliser la moyenne pondérée par la taille des datasets pour la reconstruction du modèle global (pour le moment on fait la moyenne arithmétique car même pondération pour tous les clients). Cela permettra de donner plus de poids aux modèles réalisées par des clients plus importants.
 # %%
 if __name__ == "__main__":
     # %%
     logging.basicConfig(level=logging.DEBUG)
     # %%
     data_root = "Data"
-    name_dataset = "cifar"  # "cifar" or "mnist" or "alzheimer"
-    model_choice = "mobilenet"  # "simpleNet" or "CNNCifar" or "CNNMnist" or "mobilenet"
+    name_dataset = "alzheimer"  # "cifar" or "mnist" or "alzheimer"
+    model_choice = "simpleNet"  # "simpleNet" or "CNNCifar" or "CNNMnist" or "mobilenet"
     batch_size = 32
     choice_loss = "cross_entropy"
     choice_optimizer = "Adam"
-    choice_scheduler = None  # 'cycliclr'
+    choice_scheduler = "StepLR"  # 'cycliclr'
     learning_rate = 0.001
+    step_size = 5
+    gamma = 0.5
     patience = 3
+    roc_path = None  # "roc"
+    matrix_path = None  # "matrix"
+    save_results = "results/BFL/"
+    output_path = "results.txt"
 
     # nodes
     numberOfNodes = 3  # minimum 3 for the pbft (else they will not reach a consensus)
@@ -119,8 +107,8 @@ if __name__ == "__main__":
     # clients
     numberOfClientsPerNode = 6  # corresponds to the number of clients per node, n in the shamir scheme
     min_number_of_clients_in_cluster = 3
-    n_epochs = 5
-    n_rounds = 20
+    n_epochs = 20
+    n_rounds = 25
     poisonned_number = 0
     ts = 10
     diff_privacy = False  # True if you want to apply differential privacy
@@ -136,9 +124,38 @@ if __name__ == "__main__":
     print("Number of Nodes: ", numberOfNodes,
           "\tNumber of Clients per Node: ", numberOfClientsPerNode,
           "\tNumber of Clients per Cluster: ", min_number_of_clients_in_cluster, "\n")
-    # %%
 
-    with open("output.txt", "w") as f:
+    # %% save results
+    json_dict = {
+        'settings': {
+            'arch': model_choice,
+            'pretrained': True,
+            'name_dataset': name_dataset,
+            'patience': patience,
+            'batch_size': batch_size,
+            'n_epochs': n_epochs,
+            "numberOfNodes": numberOfNodes,
+            "numberOfClientsPerNode": numberOfClientsPerNode,
+            "min_number_of_clients_in_cluster": min_number_of_clients_in_cluster,
+            'coef_usefull': coef_usefull,
+            'poisonned_number': poisonned_number,
+            "n_rounds": n_rounds,
+            'choice_loss': choice_loss,
+            'choice_optimizer': choice_optimizer,
+            'lr': learning_rate,
+            'choice_scheduler': choice_scheduler,
+            'step_size': step_size,
+            'gamma': gamma,
+            'diff_privacy': diff_privacy,
+            'secret_sharing': type_ss,
+            'k': k,
+            'm': m
+        }
+    }
+    with open(save_results + "config.json", 'w', encoding='utf-8') as f:
+        json.dump(json_dict, f, ensure_ascii=False, indent=4)
+
+    with open(save_results + output_path, "w") as f:
         f.write("")
 
     # %%
@@ -160,19 +177,22 @@ if __name__ == "__main__":
     # the nodes should not have a train dataset
     nodes = create_nodes(
         node_test_sets, numberOfNodes, coef_usefull=coef_usefull, dp=diff_privacy, ss_type=type_ss, m=m,
-        name_dataset=name_dataset, model_choice=model_choice, batch_size=batch_size, classes=list_classes,
-        choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler
+        model_choice=model_choice, batch_size=batch_size, classes=list_classes,
+        choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler,
+        save_results=None, matrix_path=matrix_path, roc_path=roc_path,
     )
 
     # %%## client to node connections ###
     clients = []
     for i in range(numberOfNodes): 
         node_clients = create_clients(
-            client_train_sets, client_test_sets, i, numberOfClientsPerNode,
-            dp=diff_privacy, type_ss=type_ss, m=m, name_dataset=name_dataset, model_choice=model_choice,
+            client_train_sets, client_test_sets, i, numberOfClientsPerNode, type_ss=type_ss, m=m,
+            dp=diff_privacy, model_choice=model_choice,
             batch_size=batch_size, epochs=n_epochs, classes=list_classes, learning_rate=learning_rate,
             choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler,
-            patience=patience
+            step_size=step_size, gamma=gamma,
+            save_results=None, matrix_path=matrix_path, roc_path=roc_path,
+            patience=patience,
         )
         clients.append(node_clients)
         for client_id, client in node_clients.items(): 
@@ -237,4 +257,4 @@ if __name__ == "__main__":
 
     # %%
     for i in range(numberOfNodes):
-        nodes[i].blockchain.save_chain_in_file(f"node{i + 1}.txt")
+        nodes[i].blockchain.save_chain_in_file(save_results + f"node{i + 1}.txt")
