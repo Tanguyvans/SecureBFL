@@ -12,12 +12,12 @@ def get_model_files(directory):
 
 
 if __name__ == '__main__':
-    arch = 'simpleNet'  # "CNNCifar"
-    name_dataset = 'alzheimer'  # "cifar"
+    arch = 'CNNCifar'  # "CNNCifar"
+    name_dataset = 'cifar'  # "cifar"
     data_root = "data/"
     type_arch = "BFL"
-    directory = f'models/{type_arch}/'  # Update this path
-    save_results = f"results/{type_arch}/"
+    directory = f'models/'  # Update this path
+    save_results = f""
     matrix_path = "matrix"
     roc_path = "roc"
     device = "mps"

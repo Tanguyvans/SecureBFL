@@ -37,7 +37,7 @@ def initialize_parameters(settings, type):
     n_epochs = settings["n_epochs"]
     n_rounds = settings["n_rounds"]
     poisonned_number = settings["poisonned_number"]
-    ts = 10
+    ts = settings["ts"]
     diff_privacy = settings["diff_privacy"]
 
     training_barrier = threading.Barrier(numberOfClientsPerNode)

@@ -195,6 +195,7 @@ class Node:
         update_eval = self.evaluate_model(model_directory, participants, write=True)
         gm_eval = self.evaluate_model(self.global_params_directory, participants, write=False)
 
+        print(f"node: {self.id} update_eval: {update_eval} gm_eval: {gm_eval}")
         if update_eval[0] <= gm_eval[0] * self.coef_usefull:
             return True
         else: 
@@ -397,8 +398,6 @@ class Node:
                 "participants": participants
             }
         }
-
-        # self.isModelUpdateUsefull(filename)
 
         return message
 

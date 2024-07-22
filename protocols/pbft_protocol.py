@@ -190,4 +190,5 @@ class PBFTProtocol(ConsensusProtocol):
         return self.prepare_counts[id] >= 1
 
     def can_commit(self, id):
+        print(self.commit_counts[id])
         return self.commit_counts[id]["count"] >= 2

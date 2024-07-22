@@ -44,12 +44,13 @@ def create_nodes(test_sets, number_of_nodes, coef_usefull=1.2, ss_type="additif"
 def create_clients(train_sets, test_sets, node, number_of_clients, type_ss="additif", threshold=3, m=3, **kwargs):
     clients = {}
     for i in range(number_of_clients):
+        dataset_index = node * number_of_clients + i
         clients[f"c{node}_{i+1}"] = Client(
             id=f"c{node}_{i+1}",
             host="127.0.0.1",
             port=5010 + i + node * 10,
-            train=train_sets[i],
-            test=test_sets[i],
+            train=train_sets[dataset_index],
+            test=test_sets[dataset_index],
             type_ss=type_ss,
             threshold=threshold,
             m=m,
@@ -83,7 +84,7 @@ if __name__ == "__main__":
     (data_root, name_dataset, model_choice, batch_size, choice_loss, choice_optimizer, choice_scheduler,
     learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results, output_path,
     numberOfNodes, coef_usefull, numberOfClientsPerNode, min_number_of_clients_in_cluster, n_epochs,
-    n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m) = initialize_parameters(settings, "BFL")
+    n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m) = initialize_parameters(settings,"BFL")
     
     # save results
     json_dict = {
@@ -92,7 +93,7 @@ if __name__ == "__main__":
     with open(save_results + "config.json", 'w', encoding='utf-8') as f:
         json.dump(json_dict, f, ensure_ascii=False, indent=4)
 
-    with open(save_results + output_path, "w") as f:
+    with open("output.txt", "w") as f:
         f.write("")
 
     length = 32 if name_dataset == 'alzheimer' else None
@@ -100,13 +101,12 @@ if __name__ == "__main__":
                                                                                      data_root, numberOfClientsPerNode,                                                                              numberOfNodes)
     n_classes = len(list_classes)
 
-    # Change the poisonning for cifar
-    for i in random.sample(range(numberOfClientsPerNode * numberOfNodes), poisonned_number):
-        print("Poisonning client ", i)
+    #for i in random.sample(range(numberOfClientsPerNode * numberOfNodes), poisonned_number):
+    for i in range(poisonned_number):
         n = len(client_train_sets[i][1])
         client_train_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
-        n = len(client_test_sets[i][1])
-        client_test_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
+        #n = len(client_test_sets[i][1])
+        #client_test_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
 
     # the nodes should not have a train dataset
     nodes = create_nodes(
