@@ -101,7 +101,7 @@ class Client:
 
         res, metrics = self.flower_client.fit(res, self.id, {})
         test_metrics = self.flower_client.evaluate(res, {'name': f'Client {self.id}'})
-        with open(output_path, "a") as f:
+        with open(save_results + 'output.txt', "a") as f:
             f.write(
                 f"client {self.id}: data:{metrics['len_train']} "
                 f"train: {metrics['len_train']} train: {metrics['train_loss']} {metrics['train_acc']} "
@@ -258,7 +258,7 @@ class Node:
                 aggregated_weights = aggregate([(weights[j], 10) for j in range(i, i + 3)])
                 cluster_weights.append(aggregated_weights)
                 metrics = self.flower_client.evaluate(aggregated_weights, {'name': f'Node {self.id}_Clusters {i}'})
-                with open(output_path, "a") as f:
+                with open(save_results + 'output.txt', "a") as f:
                     f.write(f"cluster {i // 3} node {self.id} {metrics} \n")
 
             aggregated_weights = aggregate(
@@ -281,7 +281,7 @@ class Node:
         with open(filename, "wb") as f:
             np.savez(f, **weights_dict)
 
-        with open(output_path, "a") as f:
+        with open(save_results + 'output.txt', "a") as f:
             f.write(f"flower aggregation {metrics} \n")
 
         print(f"flower aggregation {metrics}")
@@ -346,9 +346,9 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
     (data_root, name_dataset, model_choice, batch_size, choice_loss, choice_optimizer, choice_scheduler,
-    learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results, output_path,
+    learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results,
     numberOfNodes, coef_usefull, numberOfClientsPerNode, min_number_of_clients_in_cluster, n_epochs,
-    n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m) = initialize_parameters(settings, 'cfl')
+    n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m) = initialize_parameters(settings, 'CFL')
 
     length = 32 if name_dataset == 'alzheimer' else None
 
@@ -358,12 +358,20 @@ if __name__ == "__main__":
     with open(save_results + "config.json", 'w', encoding='utf-8') as f:
         json.dump(json_dict, f, ensure_ascii=False, indent=4)
 
-    with open('output.txt', "w") as f:
+    with open(save_results + 'output.txt', "w") as f:
         f.write("")
 
     client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, name_dataset,
                                                                                      data_root, numberOfClientsPerNode,
                                                                                      numberOfNodes)
+
+    n_classes = len(list_classes)
+    #for i in random.sample(range(numberOfClientsPerNode * numberOfNodes), poisonned_number):
+    for i in range(poisonned_number):
+        n = len(client_train_sets[i][1])
+        client_train_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
+        #n = len(client_test_sets[i][1])
+        #client_test_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
 
     # the nodes should not have a train dataset
     node = create_nodes(
@@ -419,7 +427,7 @@ if __name__ == "__main__":
 
         # No SMPC
         print(f"the len of the client weights: {len(client_weights)}")
-        node.create_global_model(client_weights, round_i, two_step=True)
+        node.create_global_model(client_weights, round_i+1, two_step=True)
 
         time.sleep(ts)
         client_weights = []

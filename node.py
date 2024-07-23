@@ -81,7 +81,7 @@ def start_server(host, port, handle_message, num_node):
 
 
 class Node:
-    def __init__(self, id, host, port, consensus_protocol, test, coef_usefull=1.01, ss_type="additif", m=3, **kwargs):
+    def __init__(self, id, host, port, consensus_protocol, test, save_results, coef_usefull=1.01, ss_type="additif", m=3, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -93,8 +93,8 @@ class Node:
         self.cluster_weights = []
 
         self.global_params_directory = ""
-        self.nb_updates = 0  # not used ?
 
+        self.save_results = save_results
         private_key_path = f"keys/{id}_private_key.pem"
         public_key_path = f"keys/{id}_public_key.pem"
         self.get_keys(private_key_path, public_key_path)
@@ -247,7 +247,7 @@ class Node:
         print(f"In evaluate Model (node: {self.id}) \tTest Loss: {test_metrics['test_loss']:.4f}, "
               f"\tAccuracy: {test_metrics['test_acc']:.2f}%")
         if write: 
-            with open('output.txt', 'a') as f:
+            with open(self.save_results + 'output.txt', 'a') as f:
                 f.write(f"node: {self.id} model: {model_directory} cluster: {participants} loss: {test_metrics['test_loss']} acc: {test_metrics['test_acc']} \n")
 
         return test_metrics['test_loss'], test_metrics['test_acc']
@@ -415,7 +415,7 @@ class Node:
 
         test_metrics = self.flower_client.evaluate(aggregated_weights, {'name': f'Node {self.id}_agg_cluster{pos}'})
         print(f"aggregation_cluster {pos} : Test Loss: {test_metrics['test_loss']:.4f}, \tAccuracy: {test_metrics['test_acc']:.2f}%")
-        with open('output.txt', 'a') as f: 
+        with open(self.save_results + 'output.txt', 'a') as f: 
             f.write(f"cluster {pos} node {self.id} block {self.blockchain.len_chain} loss: {test_metrics['test_loss']} acc: {test_metrics['test_acc']} \n")
 
         self.cluster_weights[pos] = []

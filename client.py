@@ -18,7 +18,7 @@ def save_nodes_chain(nodes):
 
 
 class Client:
-    def __init__(self, id, host, port, train, test, type_ss="additif", threshold=3, m=3, **kwargs):
+    def __init__(self, id, host, port, train, test, save_results, type_ss="additif", threshold=3, m=3, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -34,6 +34,7 @@ class Client:
         self.node = {}
         self.connections = {}
 
+        self.save_results = save_results
         private_key_path = f"keys/{id}_private_key.pem"
         public_key_path = f"keys/{id}_public_key.pem"
 
@@ -103,7 +104,7 @@ class Client:
         res, metrics = self.flower_client.fit(res, self.id, {})
         test_metrics = self.flower_client.evaluate(res, {'name': f'Client {self.id}'})
 
-        with open(f"output.txt", "a") as f:
+        with open(self.save_results + "output.txt", "a") as f:
             f.write(f"client {self.id}: data:{metrics['len_train']} train: {metrics['len_train']} train: {metrics['train_loss']} {metrics['train_acc']} val: {metrics['val_loss']} {metrics['val_acc']} test: {test_metrics['test_loss']} {test_metrics['test_acc']}\n")
         # Apply SMPC (warning : list_shapes is initialized only after the first training)
         encrypted_lists, self.list_shapes = apply_smpc(res, len(self.connections) + 1, self.type_ss, self.threshold)

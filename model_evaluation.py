@@ -17,7 +17,7 @@ if __name__ == '__main__':
     data_root = "data/"
     type_arch = "BFL"
     directory = f'models/'  # Update this path
-    save_results = f""
+    save_results = f"results/{type_arch}/"
     matrix_path = "matrix"
     roc_path = "roc"
     device = "mps"

@@ -25,7 +25,6 @@ def initialize_parameters(settings, type):
     roc_path = None  # "roc"
     matrix_path = None  # "matrix"
     save_results = "results/" + type + "/"
-    output_path = "results.txt"
 
     # nodes
     numberOfNodes = settings["numberOfNodes"]
@@ -53,7 +52,7 @@ def initialize_parameters(settings, type):
           "\tNumber of Clients per Cluster: ", min_number_of_clients_in_cluster, "\n")
 
     return (data_root, name_dataset, model_choice, batch_size, choice_loss, choice_optimizer, choice_scheduler,
-            learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results, output_path,
+            learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results,
             numberOfNodes, coef_usefull, numberOfClientsPerNode, min_number_of_clients_in_cluster, n_epochs,
             n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m)
 
