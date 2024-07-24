@@ -7,7 +7,6 @@ import time
 import socket
 import json
 
-from node import Node
 
 from flwr.server.strategy.aggregate import aggregate
 from sklearn.model_selection import train_test_split
@@ -21,14 +20,16 @@ from going_modular.security import sum_shares
 
 from going_modular.utils import initialize_parameters
 from going_modular.data_setup import load_dataset
+from going_modular.security import data_poisoning
 from config import settings
 
 import warnings
 warnings.filterwarnings("ignore")
 
 
+# %% Classes
 class Client:
-    def __init__(self, id, host, port, train, test, **kwargs):
+    def __init__(self, id, host, port, train, test, save_results, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -37,6 +38,8 @@ class Client:
 
         self.node = {}
         self.connections = {}
+
+        self.save_results = save_results
 
         private_key_path = f"keys/{id}_private_key.pem"
         public_key_path = f"keys/{id}_public_key.pem"
@@ -101,8 +104,8 @@ class Client:
 
         res, metrics = self.flower_client.fit(res, self.id, {})
         test_metrics = self.flower_client.evaluate(res, {'name': f'Client {self.id}'})
-        with open(save_results + 'output.txt', "a") as f:
-            f.write(
+        with open(self.save_results + "output.txt", "a") as fi:
+            fi.write(
                 f"client {self.id}: data:{metrics['len_train']} "
                 f"train: {metrics['len_train']} train: {metrics['train_loss']} {metrics['train_acc']} "
                 f"val: {metrics['val_loss']} {metrics['val_acc']} "
@@ -112,9 +115,9 @@ class Client:
 
     def update_node_connection(self, id, address):
         # same
-        with open(f"keys/{id}_public_key.pem", 'rb') as f:
+        with open(f"keys/{id}_public_key.pem", 'rb') as fi:
             public_key = serialization.load_pem_public_key(
-                f.read(),
+                fi.read(),
                 backend=default_backend()
             )
 
@@ -129,8 +132,9 @@ class Client:
         # same
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
 
+
 class Node:
-    def __init__(self, id, host, port, test, **kwargs):
+    def __init__(self, id, host, port, test, save_results, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -138,6 +142,8 @@ class Node:
         self.clients = {}
 
         self.global_params_directory = ""
+
+        self.save_results = save_results
 
         private_key_path = f"keys/{id}_private_key.pem"
         public_key_path = f"keys/{id}_public_key.pem"
@@ -193,7 +199,6 @@ class Node:
             if block.model_type == "update":
                 loaded_weights_dict = np.load(block.storage_reference)
                 loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
-                # print("in the get_weights", len(loaded_weights_dict), "before the append")
                 loaded_weights = (loaded_weights, loaded_weights_dict[f'len_dataset'])
                 params_list.append(loaded_weights)
 
@@ -215,7 +220,6 @@ class Node:
         # The loop is missing : for block in self.blockchain.blocks[::-1]:
         # The rest is identical.
         loaded_weights_dict = np.load(filename)
-        #print("in the broadcast_model_to_clients", list(loaded_weights_dict.keys()))
 
         loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
 
@@ -245,8 +249,8 @@ class Node:
         filename = f"models/m0.npz"
         self.global_params_directory = filename
         os.makedirs("models/", exist_ok=True)
-        with open(filename, "wb") as f:
-            np.savez(f, **weights_dict)
+        with open(filename, "wb") as fi:
+            np.savez(fi, **weights_dict)
 
         self.broadcast_model_to_clients(filename)
 
@@ -258,8 +262,8 @@ class Node:
                 aggregated_weights = aggregate([(weights[j], 10) for j in range(i, i + 3)])
                 cluster_weights.append(aggregated_weights)
                 metrics = self.flower_client.evaluate(aggregated_weights, {'name': f'Node {self.id}_Clusters {i}'})
-                with open(save_results + 'output.txt', "a") as f:
-                    f.write(f"cluster {i // 3} node {self.id} {metrics} \n")
+                with open(self.save_results + "output.txt", "a") as fi:
+                    fi.write(f"cluster {i // 3} node {self.id} {metrics} \n")
 
             aggregated_weights = aggregate(
                 [(weights_i, 10) for weights_i in cluster_weights]
@@ -278,11 +282,11 @@ class Node:
         filename = f"models/m{index}.npz"
         self.global_params_directory = filename
         os.makedirs("models/", exist_ok=True)
-        with open(filename, "wb") as f:
-            np.savez(f, **weights_dict)
+        with open(filename, "wb") as fi:
+            np.savez(fi, **weights_dict)
 
-        with open(save_results + 'output.txt', "a") as f:
-            f.write(f"flower aggregation {metrics} \n")
+        with open(self.save_results + "output.txt", "a") as fi:
+            fi.write(f"flower aggregation {metrics} \n")
 
         print(f"flower aggregation {metrics}")
         self.broadcast_model_to_clients(filename)
@@ -291,127 +295,135 @@ class Node:
         # same
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
 
-    def add_client(self, client_id, client_address):
-        with open(f"keys/{client_id}_public_key.pem", 'rb') as f:
+    def add_client(self, c_id, client_address):
+        with open(f"keys/{c_id}_public_key.pem", 'rb') as fi:
             public_key = serialization.load_pem_public_key(
-                f.read(),
+                fi.read(),
                 backend=default_backend()
             )
 
         self.clients[client_id] = {"address": client_address, "public_key": public_key}
 
+
 client_weights = []
 
-def train_client(client):
-    weights = client.train()  # Train the client
+
+# %% Functions
+def train_client(client_obj):
+    weights = client_obj.train()  # Train the client
     client_weights.append(weights)
     # client.send_frag_clients(frag_weights)  # Send the shares to other clients
     training_barrier.wait()  # Wait here until all clients have trained
 
-def create_nodes(test_sets, number_of_nodes,
-                 **kwargs):
+
+def create_nodes(test_sets, number_of_nodes, save_results, **kwargs):
     # The same as the create_nodes() function in main.py but without the smpc and blockchain parameters
-    nodes = []
+    list_nodes = []
     for i in range(number_of_nodes):
-        nodes.append(
+        list_nodes.append(
             Node(
                 id=f"n{i + 1}",
                 host="127.0.0.1",
                 port=6010 + i,
                 test=test_sets[i],
+                save_results=save_results,
                 **kwargs
             )
         )
 
-    return nodes
+    return list_nodes
 
-def create_clients(train_sets, test_sets, node, number_of_clients, **kwargs):
+
+def create_clients(train_sets, test_sets, node, number_of_clients, save_results, **kwargs):
     # Exactly the same as the create_clients() function
     # but it called Client class from manual_cfl.py and not from client.py
-    clients = {}
+    dict_clients = {}
     for i in range(number_of_clients):
-        clients[f"c{node}_{i + 1}"] = Client(
+        dict_clients[f"c{node}_{i + 1}"] = Client(
             id=f"c{node}_{i + 1}",
             host="127.0.0.1",
             port=5010 + i + node * 10,
             train=train_sets[i],
             test=test_sets[i],
+            save_results=save_results,
             **kwargs
         )
 
-    return clients
+    return dict_clients
 
+
+# %%
 if __name__ == "__main__":
-
+    # %%
     logging.basicConfig(level=logging.DEBUG)
+    # %%
+    training_barrier, length = initialize_parameters(settings, 'CFL')
 
-    (data_root, name_dataset, model_choice, batch_size, choice_loss, choice_optimizer, choice_scheduler,
-    learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results,
-    numberOfNodes, coef_usefull, numberOfClientsPerNode, min_number_of_clients_in_cluster, n_epochs,
-    n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m) = initialize_parameters(settings, 'CFL')
-
-    length = 32 if name_dataset == 'alzheimer' else None
-
+    # %%
     json_dict = {
         'settings': settings
     }
-    with open(save_results + "config.json", 'w', encoding='utf-8') as f:
+    with open(settings['save_results'] + "config.json", 'w', encoding='utf-8') as f:
         json.dump(json_dict, f, ensure_ascii=False, indent=4)
 
-    with open(save_results + 'output.txt', "w") as f:
+    with open(settings['save_results'] + "output.txt", "w") as f:
         f.write("")
 
-    client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, name_dataset,
-                                                                                     data_root, numberOfClientsPerNode,
-                                                                                     numberOfNodes)
+    # %%
+    client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, settings['name_dataset'],
+                                                                                     settings['data_root'],
+                                                                                     settings['n_clients'],
+                                                                                     1)
 
-    n_classes = len(list_classes)
-    #for i in random.sample(range(numberOfClientsPerNode * numberOfNodes), poisonned_number):
-    for i in range(poisonned_number):
-        n = len(client_train_sets[i][1])
-        client_train_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
-        #n = len(client_test_sets[i][1])
-        #client_test_sets[i][1] = np.random.randint(0, n_classes, size=n).tolist()
+    # # %% Data poisoning of the clients
+    data_poisoning(
+        client_train_sets,
+        poisoning_type="order",
+        n_classes = len(list_classes),
+        poisoned_number=settings['poisoned_number'],
+    )
 
+    # Create the server entity
     # the nodes should not have a train dataset
-    node = create_nodes(
-        node_test_sets, numberOfNodes, dp=diff_privacy,
-        model_choice=model_choice, batch_size=batch_size, classes=list_classes,
-        choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler,
-        save_results=None, matrix_path=matrix_path, roc_path=roc_path,
+    server = create_nodes(
+        node_test_sets, 1, save_results=settings['save_results'],
+        dp=settings['diff_privacy'], model_choice=settings['arch'],  batch_size=settings['batch_size'],
+        classes=list_classes, choice_loss=settings['choice_loss'],  choice_optimizer=settings['choice_optimizer'],
+        choice_scheduler=settings['choice_scheduler'], save_figure=None, matrix_path=settings['matrix_path'],
+        roc_path=settings['roc_path'], pretrained=settings['pretrained'],
     )[0]
 
-    ### client to node connections ###
+    # ## client to node (central serveur) connections ###
 
     node_clients = create_clients(
-        client_train_sets, client_test_sets, 0, numberOfClientsPerNode,
-        dp=diff_privacy, model_choice=model_choice,
-        batch_size=batch_size, epochs=n_epochs, classes=list_classes, learning_rate=learning_rate,
-        choice_loss=choice_loss, choice_optimizer=choice_optimizer, choice_scheduler=choice_scheduler,
-        step_size=step_size, gamma=gamma,
-        save_results=None, matrix_path=matrix_path, roc_path=roc_path,
-        patience=patience
+        client_train_sets, client_test_sets, 0, settings['n_clients'], save_results=settings['save_results'],
+        dp=settings['diff_privacy'], model_choice=settings['arch'], batch_size=settings['batch_size'],
+        epochs=settings['n_epochs'], classes=list_classes, learning_rate=settings['lr'],
+        choice_loss=settings['choice_loss'], choice_optimizer=settings['choice_optimizer'],
+        choice_scheduler=settings['choice_scheduler'], step_size=settings['step_size'], gamma=settings['gamma'],
+        save_figure=None, matrix_path=settings['matrix_path'], roc_path=settings['roc_path'],
+        patience=settings['patience'], pretrained=settings['pretrained']
     )
 
     for client_id, client in node_clients.items():
-        client.update_node_connection(node.id, node.port)
+        client.update_node_connection(server.id, server.port)
 
-    ### node to client ###
+    # ## node to client ###
     for client_j in node_clients.values():
-        node.add_client(client_id=client_j.id, client_address=("localhost", client_j.port))
+        server.add_client(c_id=client_j.id, client_address=("localhost", client_j.port))
 
     print("done with the connections")
 
-    ### run threads ###
-    threading.Thread(target=node.start_server).start()
+    # ## run threads ###
+    threading.Thread(target=server.start_server).start()
     for client in node_clients.values():
         threading.Thread(target=client.start_server).start()
 
-    node.create_first_global_model()
-    time.sleep(30)
+    server.create_first_global_model()
+    time.sleep(settings['ts'] * 3)
 
-    ### training and SMPC
-    for round_i in range(n_rounds):
+    # ## training and SMPC
+    for round_i in range(settings['n_rounds']):
         print(f"### ROUND {round_i + 1} ###")
 
         # ## training ###
@@ -426,8 +438,7 @@ if __name__ == "__main__":
             t.join()
 
         # No SMPC
-        print(f"the len of the client weights: {len(client_weights)}")
-        node.create_global_model(client_weights, round_i+1, two_step=True)
+        server.create_global_model(client_weights, round_i + 1, two_step=True)
 
-        time.sleep(ts)
+        time.sleep(settings['ts'])
         client_weights = []

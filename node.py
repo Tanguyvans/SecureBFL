@@ -81,7 +81,8 @@ def start_server(host, port, handle_message, num_node):
 
 
 class Node:
-    def __init__(self, id, host, port, consensus_protocol, test, save_results, coef_usefull=1.01, ss_type="additif", m=3, **kwargs):
+    def __init__(self, id, host, port, consensus_protocol, test, save_results, coef_usefull=1.01,
+                 ss_type="additif", m=3, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -248,7 +249,11 @@ class Node:
               f"\tAccuracy: {test_metrics['test_acc']:.2f}%")
         if write: 
             with open(self.save_results + 'output.txt', 'a') as f:
-                f.write(f"node: {self.id} model: {model_directory} cluster: {participants} loss: {test_metrics['test_loss']} acc: {test_metrics['test_acc']} \n")
+                f.write(f"node: {self.id} "
+                        f"model: {model_directory} "
+                        f"cluster: {participants} "
+                        f"loss: {test_metrics['test_loss']} "
+                        f"acc: {test_metrics['test_acc']} \n")
 
         return test_metrics['test_loss'], test_metrics['test_acc']
 
@@ -357,7 +362,7 @@ class Node:
         model_type = "global_model"
 
         filename = f"models/{self.id}m{self.blockchain.len_chain}.npz"
-        #self.global_params_directory = filename
+        # self.global_params_directory = filename
 
         with open(filename, "wb") as f:
             np.savez(f, **weights_dict)
@@ -414,9 +419,15 @@ class Node:
         self.flower_client.set_parameters(aggregated_weights)
 
         test_metrics = self.flower_client.evaluate(aggregated_weights, {'name': f'Node {self.id}_agg_cluster{pos}'})
-        print(f"aggregation_cluster {pos} : Test Loss: {test_metrics['test_loss']:.4f}, \tAccuracy: {test_metrics['test_acc']:.2f}%")
-        with open(self.save_results + 'output.txt', 'a') as f: 
-            f.write(f"cluster {pos} node {self.id} block {self.blockchain.len_chain} loss: {test_metrics['test_loss']} acc: {test_metrics['test_acc']} \n")
+        print(f"aggregation_cluster {pos} : "
+              f"Test Loss: {test_metrics['test_loss']:.4f}, "
+              f"\tAccuracy: {test_metrics['test_acc']:.2f}%")
+        with open(self.save_results + 'output.txt', 'a') as f:
+            f.write(f"cluster {pos} "
+                    f"node {self.id} "
+                    f"block {self.blockchain.len_chain} "
+                    f"loss: {test_metrics['test_loss']} "
+                    f"acc: {test_metrics['test_acc']} \n")
 
         self.cluster_weights[pos] = []
         for k, v in self.clusters[pos].items():

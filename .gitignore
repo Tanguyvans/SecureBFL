@@ -6,11 +6,10 @@
 /env
 /keys
 node*.txt
-output*.txt
-evaluatino*.txt
+results*
+evaluation*.txt
 *.pyc
 client_test.py
 *__pycache__
 Data/*
 test.py
-results/*

@@ -56,11 +56,11 @@ def compare_weights(dico1, dico2, tol=1e-6):
             print(f"Difference for the numpy arrays of {key}:")
             print("We restart the comparison with a lighter tolerance:")
 
-            compare_weights({key: dico1[key]}, {key: dico2[key]}, tol=tol*10)
+            compare_weights({key: dico1[key]}, {key: dico2[key]}, tol * 10)
 
 
 def round_i(n_clients, model, trainloaders, valloaders, testloaders, criterion,
-            choice_optimizer="Adam", choice_scheduler="StepLR", n_epochs=10,  lr_init=0.001, step_size=3, gamma=0.5,
+            choice_optimizer="Adam", choice_scheduler="StepLR", epochs=10,  lr_init=0.001, step_size=3, gamma=0.5,
             patience=2, device="gpu", tol=1e-6):
     # Try to train n_clients model and aggregate them to verify the influence on accuracy after aggregation
     # same weights for the init round for each client else replace by [Net(...) for _ in range(n_clients)]
@@ -74,9 +74,9 @@ def round_i(n_clients, model, trainloaders, valloaders, testloaders, criterion,
         optimizer = choice_optimizer_fct(list_models[i], choice_optim=choice_optimizer, lr=lr_local, weight_decay=1e-6)
         scheduler = choice_scheduler_fct(optimizer, choice_scheduler=choice_scheduler, step_size=step_size, gamma=gamma)
 
-        results = train(0, list_models[i], trainloaders[i], valloaders[i], epochs=n_epochs,
-                        loss_fn=criterion, optimizer=optimizer, scheduler=scheduler, device=device,
-                        dp=False, patience=patience)
+        _ = train(0, list_models[i], trainloaders[i], valloaders[i], epochs=epochs,
+                  loss_fn=criterion, optimizer=optimizer, scheduler=scheduler, device=device,
+                  dp=False, patience=patience, save_model=f"models/scratch/best_model_scratch.pth")
 
     # Evaluate each model
     for i in range(n_clients):
@@ -88,7 +88,7 @@ def round_i(n_clients, model, trainloaders, valloaders, testloaders, criterion,
     # Compute the average of the weights
     avg_state_dict = average_weights(list_models)
 
-    # create a aggregated model and load the average weights
+    # create an aggregated model and load the average weights
     model_aggregated = Net(num_classes=len(classes), arch=arch, pretrained=pretrained).to(device)
     model_aggregated.load_state_dict(avg_state_dict)
 
@@ -132,7 +132,6 @@ if __name__ == '__main__':
 
     name_dataset = 'cifar'  # "cifar"  # "alzheimer"
     data_root = "data/"
-    directory = 'models/'  # Update this path
 
     device = "mps"
     batch_size = 32
@@ -146,9 +145,9 @@ if __name__ == '__main__':
     step_size = 3
     gamma = 0.5
 
-    n_clients = 5
+    n_clients = 18
     n_rounds = 5  # 20
-    tol = 1e-6
+    tolerance = 1e-6
 
     # Set device
     device = choice_device(device)
@@ -165,14 +164,15 @@ if __name__ == '__main__':
     train_sets = splitting_dataset(dataset_train, n_clients)
     test_sets = splitting_dataset(dataset_test, n_clients)
     train_loaders, val_loaders, test_loaders = [], [], []
-    for i in range(n_clients):
-        print(f"Number of samples for client {i + 1}: {len(train_sets[i][1])}")
-        x_train, y_train = train_sets[i]
-        x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42, stratify=None)
+    for client_id in range(n_clients):
+        print(f"Number of samples for client {client_id + 1}: {len(train_sets[client_id][1])}")
+        x_train, y_train = train_sets[client_id]
+        x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42,
+                                                          stratify=None)
         train_data = TensorDataset(torch.stack(x_train), torch.tensor(y_train))
         val_data = TensorDataset(torch.stack(x_val), torch.tensor(y_val))
 
-        x_test, y_test = test_sets[i]
+        x_test, y_test = test_sets[client_id]
         test_data = TensorDataset(torch.stack(x_test), torch.tensor(y_test))
 
         train_loaders.append(DataLoader(dataset=train_data, batch_size=batch_size, shuffle=True, drop_last=True))
@@ -185,50 +185,58 @@ if __name__ == '__main__':
     test_loader = DataLoader(dataset=test_data, batch_size=batch_size, shuffle=True, drop_last=True)
 
     # %% start round
-    model_aggregated2 = Net(num_classes=len(classes), arch=arch, pretrained=pretrained).to(device)
-    for i in range(n_rounds):
-        print(f"\n\t /////////// Round {i + 1}\t ///////////")
-        model_aggregated, model_aggregated2, list_models = round_i(n_clients, model_aggregated2,
-                                                                   train_loaders, val_loaders, test_loaders,
-                                                                   criterion, choice_optimizer, choice_scheduler,
-                                                                   n_epochs, lr, step_size, gamma, patience, device, tol)
+    model_agg2 = Net(num_classes=len(classes), arch=arch, pretrained=pretrained).to(device)
+    models_list = []
+    model_agg = None
+    for id_round in range(n_rounds):
+        print(f"\n\t /////////// Round {id_round + 1}\t ///////////")
+        model_agg, model_agg2, models_list = round_i(n_clients, model_agg2,
+                                                     train_loaders, val_loaders, test_loaders,
+                                                     criterion, choice_optimizer, choice_scheduler,
+                                                     n_epochs, lr, step_size, gamma, patience, device,
+                                                     tolerance)
 
     # %% Evaluate the aggregated models with the test data of each client
-    for i in range(n_clients):
-        print(f"//////////\tEvaluating aggregated model with the test data of client {i + 1}\t//////////")
+    for id_client in range(n_clients):
+        print(f"//////////\tEvaluating aggregated model with the test data of client {id_client + 1}\t//////////")
 
         # Evaluate the aggregated model with arithmetic average
-        test_loss, test_acc, *_ = test(model_aggregated, test_loaders[i], criterion, device=device)
-        print(f"Arithmetic average | Test loss: {test_loss:.4f} | Test accuracy: {test_acc:.2f} %")
+        loss, acc, *_ = test(model_agg, test_loaders[id_client], criterion, device=device)
+        print(f"Arithmetic average | Test loss: {loss:.4f} | Test accuracy: {acc:.2f} %")
 
         # Evaluate the aggregated model with the weighted average by Flower
-        test_loss, test_acc, *_ = test(model_aggregated2, test_loaders[i], criterion, device=device)
-        print(f"weighted average | Test loss: {test_loss:.4f} | Test accuracy: {test_acc:.2f} %")
+        loss, acc, *_ = test(model_agg2, test_loaders[id_client], criterion, device=device)
+        print(f"weighted average | Test loss: {loss:.4f} | Test accuracy: {acc:.2f} %")
 
         print(f"Evaluating aggregated models with the whole test data")
-        # The test showsn a little difference (0.10% accuracy) even if the weights are same to the 1e-6 tolerance
+        # The test shows a little difference (0.37% accuracy) even if the weights are same to the 1e-6 tolerance
         # So apply SMPC can to do a little difference too (because weights are not exactly the same)
 
     # %% Evaluate the models that have been aggregated by arithmetic average
-    test_loss, test_acc, *_ = test(model_aggregated, test_loader, criterion, device=device)
-    print(f"Test loss: {test_loss:.4f} | Test accuracy: {test_acc:.2f} %")
+    loss, acc, *_ = test(model_agg, test_loader, criterion, device=device)
+    print(f"Test loss: {loss:.4f} | Test accuracy: {acc:.2f} %")
 
     # Evaluate the models that have been aggregated by weighted average (from Flower function)
-    test_loss, test_acc, *_ = test(model_aggregated2, test_loader, criterion, device=device)
-    print(f"Test loss: {test_loss:.4f} | Test accuracy: {test_acc:.2f} %\n")
+    loss, acc, *_ = test(model_agg2, test_loader, criterion, device=device)
+    print(f"Test loss: {loss:.4f} | Test accuracy: {acc:.2f} %\n")
 
-    # best results :
-
+    # best results (5 clients):
     # Test loss: 0.9943 | Test accuracy: 72.29 %    (without scheduler but with 72.13 % and loss=1.7364)
     # Test loss: 0.9949 | Test accuracy: 72.27 %    (without scheduler but with 72.13 % and loss=1.7349)
 
-    # %% Evaluate the local models with the whole test data
-    for i in range(n_clients):
-        print(f"\nEvaluating model {i + 1} with the whole test data")
-        test_loss, test_acc, *_ = test(list_models[i], test_loader, criterion, device=device)
-        print(f"Test loss: {test_loss:.4f} | Test accuracy: {test_acc:.2f} %")
+    # best results (18 clients):
+    # Test loss: 1.0842 | Test accuracy: 63.56 %
+    # Test loss: 1.0840 | Test accuracy: 63.54 %
 
-    # best results:
+    # if each client initializes with a different model, the accuracy of the aggregated model is at 54.7%.
+
+    # %% Evaluate the local models with the whole test data
+    for id_client in range(n_clients):
+        print(f"\nEvaluating model {id_client + 1} with the whole test data")
+        loss, acc, *_ = test(models_list[id_client], test_loader, criterion, device=device)
+        print(f"Test loss: {loss:.4f} | Test accuracy: {acc:.2f} %")
+
+    # best results (5 clients):
     # Model 1  Test loss: 2.1812 | Test accuracy: 69.44 %
     # Model 2  Test loss: 2.1977 | Test accuracy: 68.78 %
     # Model 3  Test loss: 2.7116 | Test accuracy: 69.53 %
@@ -238,4 +246,26 @@ if __name__ == '__main__':
     # For example, after 1 round, accuracy of the aggregated model is 10% while the accuracy of the local models is 35%
 
     # without scheduler, I obtained less good accuracy (66%)
-    # with a better loss (1.5) for each models BUT a better aggregate model (loss and acc)
+    # with a better loss (1.5) for each model BUT a better aggregate model (loss and acc)
+
+    # best results (18 clients):
+    # Model 1 Test loss: 1.3220 | Test accuracy: 57.49 %
+    # Model 2 Test loss: 1.3540 | Test accuracy: 58.67 %
+    # Model 3 Test loss: 1.5739 | Test accuracy: 58.50 %
+    # Model 4 Test loss: 1.3182 | Test accuracy: 58.49 %
+    # Model 5 Test loss: 1.3110 | Test accuracy: 58.22 %
+    # Model 6 Test loss: 1.4334 | Test accuracy: 57.62 %
+    # Model 7 Test loss: 1.3367 | Test accuracy: 58.96 %
+    # Model 8 Test loss: 1.3400 | Test accuracy: 58.50 %
+    # Model 9 Test loss: 1.2919 | Test accuracy: 58.69 %
+    # Model 10 Test loss: 1.3899 | Test accuracy: 58.15 %
+    # Model 11 Test loss: 1.3450 | Test accuracy: 58.53 %
+    # Model 12 Test loss: 1.5000 | Test accuracy: 57.65 %
+    # Model 13 Test loss: 1.4887 | Test accuracy: 56.84 %
+    # Model 14 Test loss: 1.4560 | Test accuracy: 57.00 %
+    # Model 15 Test loss: 1.3693 | Test accuracy: 58.50 %
+    # Model 16 Test loss: 1.3414 | Test accuracy: 58.37 %
+    # Model 17 Test loss: 1.3840 | Test accuracy: 57.70 %
+    # Model 18 Test loss: 1.3074 | Test accuracy: 58.38 %
+
+    # If each client initializes with a different model, the accuracy of the aggregated model is at 52.4% max.

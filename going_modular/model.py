@@ -275,17 +275,17 @@ class Net(nn.Module):
 
     return: the model
     """
-    def __init__(self, num_classes=10, input_channels=3, arch="simpleNet",  pretrained=True) -> None:
+    def __init__(self, num_classes=10, arch="simpleNet",  pretrained=True) -> None:
         super(Net, self).__init__()
         print("Number of classes : ", num_classes, " and the architecture is : ", arch)
         if "simplenet" in arch.lower():
             self.model = SimpleNet(num_classes=num_classes)
 
         elif "efficientnet" in arch.lower():
-            self.model = EfficientNet(num_classes=num_classes, arch=arch)
+            self.model = EfficientNet(num_classes=num_classes, arch=arch, pretrained=pretrained)
 
         elif "mobilenet" in arch.lower():
-            self.model = MobileNet(num_classes=num_classes)
+            self.model = MobileNet(num_classes=num_classes, pretrained=pretrained)
 
         elif "cifar" in arch.lower():
             self.model = CNNCifar()
@@ -293,7 +293,7 @@ class Net(nn.Module):
         elif "mnist" in arch.lower():
             self.model = CNNMnist()
         elif "squeeze" in arch.lower():
-            self.model = SqueezeNet(num_classes=num_classes)
+            self.model = SqueezeNet(num_classes=num_classes, pretrained=pretrained)
         elif "resnet" in arch.lower():
             self.model = ResNet(num_classes=num_classes, arch=arch, pretrained=pretrained)
 

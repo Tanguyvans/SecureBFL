@@ -5,19 +5,19 @@ from going_modular.utils import choice_device, fct_loss, np
 from flowerclient import FlowerClient
 
 
-def get_model_files(directory):
-    all_files = os.listdir(directory)
+def get_model_files(dir_model):
+    all_files = os.listdir(dir_model)
     model_files = [file for file in all_files if file.endswith('.npz')]
     return model_files
 
 
 if __name__ == '__main__':
-    arch = 'CNNCifar'  # "CNNCifar"
-    name_dataset = 'cifar'  # "cifar"
+    arch = 'simpleNet'  # "CNNCifar"
+    name_dataset = 'alzheimer'  # "cifar"
     data_root = "data/"
-    type_arch = "BFL"
-    directory = f'models/'  # Update this path
-    save_results = f"results/{type_arch}/"
+    training_approach = "BFL"
+    directory = f'models/{training_approach}/'  # f'models/'# Update this path
+    save_results = f"results/{training_approach}/"  # Update this path
     matrix_path = "matrix"
     roc_path = "roc"
     device = "mps"
@@ -52,7 +52,8 @@ if __name__ == '__main__':
         choice_scheduler=None,
         save_results=save_results,
         matrix_path=matrix_path,
-        roc_path=roc_path
+        roc_path=roc_path,
+        # pretrained=True
     )
 
     evaluation = []
@@ -70,8 +71,6 @@ if __name__ == '__main__':
         evaluation.append((model_file, metrics['test_loss'], metrics['test_acc']))
 
     evaluation.sort(key=lambda x: int(x[0][1:].split('.')[0]))
-    with open(save_results + "evaluation.txt", "w") as file:
+    with open(save_results + "evaluation.txt", "w") as f:
         for model_file, loss, acc in evaluation:
-            file.write(f"{model_file}: {loss}, {acc} \n")
-
-
+            f.write(f"{model_file}: {loss}, {acc} \n")

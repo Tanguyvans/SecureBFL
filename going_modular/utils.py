@@ -10,51 +10,37 @@ import seaborn as sn
 import threading
 
 
-def initialize_parameters(settings, type):
-    data_root = "Data"
-    name_dataset = settings["name_dataset"]
-    model_choice = settings["arch"]
-    batch_size = settings["batch_size"]
-    choice_loss = settings["choice_loss"]
-    choice_optimizer = settings["choice_optimizer"]
-    choice_scheduler = settings["choice_scheduler"]
-    learning_rate = settings["lr"]
-    step_size = settings["step_size"]
-    gamma = settings["gamma"]
-    patience = settings["patience"]
-    roc_path = None  # "roc"
-    matrix_path = None  # "matrix"
-    save_results = "results/" + type + "/"
-
-    # nodes
-    numberOfNodes = settings["numberOfNodes"]
-    coef_usefull = settings["coef_usefull"]
+def initialize_parameters(settings, training_approach):
+    settings["data_root"] = "Data"
+    settings["roc_path"] = None  # "roc"
+    settings["matrix_path"] = None  # "matrix"
+    settings["save_results"] = f"results/{training_approach}/"
 
     # clients
-    numberOfClientsPerNode = settings["numberOfClientsPerNode"]
-    min_number_of_clients_in_cluster = settings["min_number_of_clients_in_cluster"]
-    n_epochs = settings["n_epochs"]
-    n_rounds = settings["n_rounds"]
-    poisonned_number = settings["poisonned_number"]
-    ts = settings["ts"]
-    diff_privacy = settings["diff_privacy"]
+    training_barrier = threading.Barrier(settings['number_of_clients_per_node'])
 
-    training_barrier = threading.Barrier(numberOfClientsPerNode)
+    if training_approach.lower() == "cfl":
+        settings["n_clients"] = settings["number_of_clients_per_node"] * settings["number_of_nodes"]
+        del settings["number_of_clients_per_node"]
+        del settings["number_of_nodes"]
+        del settings["min_number_of_clients_in_cluster"]
+        del settings["coef_usefull"]
+        del settings["k"]
+        del settings["m"]
+        del settings["secret_sharing"]
 
-    type_ss = settings["secret_sharing"]
-    k = settings["k"]
-    m = settings["m"]
+    elif training_approach.lower() == "bfl":
+        if settings["m"] < settings["k"]:
+            raise ValueError(
+                "the number of parts used to reconstruct the secret must be greater than the threshold (k)")
+        print("Number of Nodes: ", settings["number_of_nodes"],
+              "\tNumber of Clients per Node: ", settings["number_of_clients_per_node"],
+              "\tNumber of Clients per Cluster: ", settings["min_number_of_clients_in_cluster"], "\n")
 
-    if m < k:
-        raise ValueError("the number of parts used to reconstruct the secret must be greater than the threshold (k)")
-    print("Number of Nodes: ", numberOfNodes,
-          "\tNumber of Clients per Node: ", numberOfClientsPerNode,
-          "\tNumber of Clients per Cluster: ", min_number_of_clients_in_cluster, "\n")
+    os.makedirs(settings["save_results"], exist_ok=True)
+    length = 32 if settings['name_dataset'] == 'alzheimer' else None
+    return training_barrier, length
 
-    return (data_root, name_dataset, model_choice, batch_size, choice_loss, choice_optimizer, choice_scheduler,
-            learning_rate, step_size, gamma, patience, roc_path, matrix_path, save_results,
-            numberOfNodes, coef_usefull, numberOfClientsPerNode, min_number_of_clients_in_cluster, n_epochs,
-            n_rounds, poisonned_number, ts, diff_privacy, training_barrier, type_ss, k, m)
 
 def sMAPE(outputs, targets):
     """
@@ -69,6 +55,7 @@ def sMAPE(outputs, targets):
     """
 
     return 100 / len(targets) * np.sum(np.abs(outputs - targets) / (np.abs(outputs + targets)) / 2)
+
 
 def fct_loss(choice_loss):
     """
@@ -90,7 +77,7 @@ def fct_loss(choice_loss):
         loss = torch.nn.BCEWithLogitsLoss()
 
     elif choice_loss == "smape":
-        loss = sMAPE()
+        loss = sMAPE
 
     elif choice_loss == "mse":
         loss = torch.nn.MSELoss(reduction='mean')
@@ -105,6 +92,7 @@ def fct_loss(choice_loss):
     print("loss : ", loss)
 
     return loss
+
 
 def choice_optimizer_fct(model, choice_optim="Adam", lr=0.001, momentum=0.9, weight_decay=1e-6):
     """
@@ -128,7 +116,6 @@ def choice_optimizer_fct(model, choice_optim="Adam", lr=0.001, momentum=0.9, wei
                                      amsgrad='adam' == 'amsgrad', )
 
     elif choice_optim == "rmsprop":
-        print("oui")
         optimizer = torch.optim.RMSprop(model.parameters(), lr=lr)
 
     else:
@@ -136,6 +123,7 @@ def choice_optimizer_fct(model, choice_optim="Adam", lr=0.001, momentum=0.9, wei
         return None
 
     return optimizer
+
 
 def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0.1, base_lr=0.0001, max_lr=0.1):
     """
@@ -145,6 +133,8 @@ def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0
     :param choice_scheduler: the choice of the scheduler
     :param step_size: the step size
     :param gamma: the gamma
+    :param base_lr: the base learning rate
+    :param max_lr: the maximum learning rate
     :return: the scheduler
     """
 
@@ -177,7 +167,7 @@ def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0
 
     else:
         print("Warning problem : unspecified scheduler")
-        # There are other schedulers like OneCycleLR, etc
+        # There are other schedulers like OneCycleLR, etc.
         # but generally, they are used per batch and not per epoch.
         # For example, OneCycleLR : total_steps = n_epochs * steps_per_epoch
         # https://www.kaggle.com/code/isbhargav/guide-to-pytorch-learning-rate-scheduling
@@ -185,6 +175,7 @@ def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0
 
     print("scheduler : ", scheduler)
     return scheduler
+
 
 def choice_device(device):
     """
@@ -200,7 +191,7 @@ def choice_device(device):
         """
         on Mac : 
         - torch.backends.mps.is_available() ensures that the current MacOS version is at least 12.3+
-        - torch.backends.mps.is_built() ensures that the current current PyTorch installation was built with MPS activated.
+        - torch.backends.mps.is_built() ensures that the current PyTorch installation was built with MPS activated.
         """
         device = "mps"
 
@@ -209,6 +200,7 @@ def choice_device(device):
 
     print("The device is : ", device)
     return device
+
 
 def save_matrix(y_true, y_pred, path, classes):
     """
@@ -241,6 +233,7 @@ def save_matrix(y_true, y_pred, path, classes):
     plt.savefig(path)
     plt.close()
 
+
 def save_roc(targets, y_proba, path, nbr_classes):
     """
     Save the roc curve in the path given in argument.
@@ -256,9 +249,9 @@ def save_roc(targets, y_proba, path, nbr_classes):
         y_true[i, targets[i]] = 1
 
     # Compute ROC curve and ROC area for each class
-    fpr = dict()
-    tpr = dict()
-    roc_auc = dict()
+    fpr = {}
+    tpr = {}
+    roc_auc = {}
     for i in range(nbr_classes):
         fpr[i], tpr[i], _ = roc_curve(y_true[:, i], y_proba[:, i])
         roc_auc[i] = auc(fpr[i], tpr[i])
@@ -323,6 +316,7 @@ def save_roc(targets, y_proba, path, nbr_classes):
     plt.savefig(path)
     plt.close()
 
+
 def save_graphs(path_save, local_epoch, results, end_file=""):
     """
     Save the graphs in the path given in argument.
@@ -333,7 +327,6 @@ def save_graphs(path_save, local_epoch, results, end_file=""):
     :param end_file: end of the name of the file
     """
     os.makedirs(path_save, exist_ok=True)  # to create folders results
-    print("save graph in ", path_save)
     # plot training curves (train and validation)
     plot_graph(
         [[*range(local_epoch)]] * 2,
@@ -350,14 +343,16 @@ def save_graphs(path_save, local_epoch, results, end_file=""):
         curve_labels=["Training loss", "Validation loss"],
         title="Loss curves",
         path=path_save + "Loss_curves" + end_file)
+    print("graphs saved in ", path_save)
+
 
 def plot_graph(list_xplot, list_yplot, x_label, y_label, curve_labels, title, path=None):
     """
     Plot the graph of the list of points (list_xplot, list_yplot)
     :param list_xplot: list of list of points to plot (one line per curve)
     :param list_yplot: list of list of points to plot (one line per curve)
-    :param x_label: label of the x axis
-    :param y_label: label of the y axis
+    :param x_label: label of the x-axis
+    :param y_label: label of the y-axis
     :param curve_labels: list of labels of the curves (curve names)
     :param title: title of the graph
     :param path: path to save the graph

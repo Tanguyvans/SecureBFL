@@ -49,7 +49,7 @@ def apply_additif(input_list, n_shares=3):
         # List for the given layer where each element is a share for a client.
         encrypted_layer = encrypt_tensor(weights_layer, n_shares)  # crypter un tenseur de poids
 
-        # For each layer, each client i has a part of each row of the given layer
+        # For each layer, each client has a part of each row of the given layer
         # because we add for client i, the encrypted_layer we prepared for this client
         for i in range(n_shares):
             encrypted_list[i].append(np.array(encrypted_layer[i]))
@@ -77,10 +77,10 @@ def apply_shamir(input_list, n_shares=2, k=3):
     Function to apply shamir's secret sharing algorithm
     :param input_list: secret to share (a list of tensors of values of type numpy.ndarray)
     :param n_shares: the number of parts to divide the secret (so the number of participants)
-    :param k: the minimum number of parts to reconstruct the secret, called threshold (so with a polynomial of order k-1)
+    :param k: the minimum number of parts to reconstruct the secret, called threshold (with a polynomial of order k-1)
     :return: the list of shares for each client
     """
-    list_clients = [[]for i in range(n_shares)]
+    list_clients = [[]for _ in range(n_shares)]
     for weights_layer in input_list:
         y_i = apply_poly(weights_layer.flatten(), n_shares, k)[1]
         for i in range(n_shares):
@@ -94,7 +94,7 @@ def apply_poly(S, N, K):
     Function to perform secret sharing algorithm and encode the given secret when the secret is a tensor of values
     :param S: The secret to share (a tensor of values of type numpy.ndarray)
     :param N: the number of parts to divide the secret (so the number of participants)
-    :param K: the minimum number of parts to reconstruct the secret, called threshold (so with a polynomial of order K-1)
+    :param K: the minimum number of parts to reconstruct the secret, called threshold (with a polynomial of order K-1)
 
     :return: the points generated from the polynomial we created for each part
     """
@@ -165,7 +165,7 @@ def sum_shares_shamir(encrypted_list):
     """
     Function to sum the parts received by an entity when the secret sharing algorithm used is Shamir.
     In this case, we sum points.
-    :param encrypted_list: list of shares to sum where each element is a tuple (x, y) with x a abscissa and y all of the y received for this x.
+    :param encrypted_list: list of shares to sum where each element is a tuple (x, y) with x an abscissa and all y received for this x.
     :return: the sum of the parts received so result_som[x] = sum([y_1, y_2, ..., y_n])
     """
     result_som = {}  # sum for a given client
@@ -184,7 +184,6 @@ def sum_shares(encrypted_list, type_ss="additif"):
     Function to sum the parts received by an entity
     :param encrypted_list: list of lists to decrypt
     :param type_ss: type of secret sharing algorithm used
-    :param m: number of parts used to reconstruct the secret (M <= K)
     :return: the sum of the parts received
     """
     if type_ss == "additif":
@@ -285,3 +284,39 @@ def aggregate_shamir(secret_list, secret_shape, m):
     """
     secret_dic_final = combine_shares_node(secret_list)
     return decrypt_shamir_node(secret_dic_final, secret_shape, m)
+
+
+# %% /////////////////////////////////////// Poisoning //////////////////////////////////////////////////////
+# todo:
+#  - Add a function to poison the weights of the model (replace the weights of the model with random values)
+#  - Add a function to poison the data : add noise in the data ?
+def data_poisoning(data, poisoning_type, n_classes, poisoned_number, number_of_nodes=1, clients_per_node=1):
+    """
+    Function to poison the data of the clients
+    :param data: list of data of the clients with shape : data[client_id] = [list_tensors, list_targets]
+    :param poisoning_type: type of poisoning to apply (order or other)
+    :param n_classes: number of classes
+    :param poisoned_number: number of clients to poison
+    :param number_of_nodes: number of nodes
+    :param clients_per_node: number of clients per node
+    :return:
+    """
+    if poisoning_type == "order":
+        # Order-based poisoning: Randomly replaces all labels in a specified number of poisoned clients
+        # for i in random.sample(range(number_of_clients_per_node * number_of_nodes), poisoned_number):
+        for i in range(poisoned_number):
+            data[i][1] = random_poisoning(n_classes, n=len(data[i][1]))
+
+    else:
+        # Node-based poisoning: Distributes the poisoning across multiple nodes
+        # randomly replacing labels for a specified number of data points per node.
+        # same that "order" if number_of_nodes = 1
+        poison_per_node = poisoned_number // number_of_nodes
+        for node in range(number_of_nodes):
+            for i in range(poison_per_node):
+                client_index = node * clients_per_node + i
+                data[client_index][1] = random_poisoning(n_classes, n=len(data[client_index][1]))
+
+
+def random_poisoning(n_classes, n):
+    return np.random.randint(0, n_classes, size=n).tolist()

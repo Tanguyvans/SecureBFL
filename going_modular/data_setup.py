@@ -10,6 +10,7 @@ NORMALIZE_DICT = {
     'alzheimer': dict(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     }
 
+
 def splitting_dataset(dataset, nb_clients):
     """
     Split the CIFAR dataset into nb_clients clients
@@ -33,6 +34,7 @@ def splitting_dataset(dataset, nb_clients):
 
     return clients_dataset
 
+
 def split_data_client(dataset, num_clients, seed):
     """
         This function is used to split the dataset into train and test for each client.
@@ -46,6 +48,7 @@ def split_data_client(dataset, num_clients, seed):
     lengths += [len(dataset) - sum(lengths)]
     ds = random_split(dataset, lengths, torch.Generator().manual_seed(seed))
     return ds
+
 
 def load_data_from_path(resize=None, name_dataset="cifar", data_root="./data/"):
     data_folder = f"{data_root}/{name_dataset}"
@@ -72,21 +75,23 @@ def load_data_from_path(resize=None, name_dataset="cifar", data_root="./data/"):
 
     return dataset_train, dataset_test
 
-def load_dataset(resize=None, name_dataset="cifar", data_root="./data/", numberOfClientsPerNode=3, numberOfNodes=3):
+
+def load_dataset(resize=None, name_dataset="cifar", data_root="./data/", number_of_clients_per_node=3, number_of_nodes=3):
     # Case for the classification problems
     dataset_train, dataset_test = load_data_from_path(resize, name_dataset, data_root)
 
-    client_train_sets = splitting_dataset(dataset_train, numberOfClientsPerNode * numberOfNodes)
-    client_test_sets = splitting_dataset(dataset_test, numberOfClientsPerNode * numberOfNodes)
-    # client_train_sets = split_data_client(dataset_train, numberOfClientsPerNode * numberOfNodes, seed=42)
-    # client_test_sets = split_data_client(dataset_test, numberOfClientsPerNode * numberOfNodes, seed=42)
+    client_train_sets = splitting_dataset(dataset_train, number_of_clients_per_node * number_of_nodes)
+    client_test_sets = splitting_dataset(dataset_test, number_of_clients_per_node * number_of_nodes)
+    # client_train_sets = split_data_client(dataset_train, number_of_clients_per_node * number_of_nodes, seed=42)
+    # client_test_sets = split_data_client(dataset_test, number_of_clients_per_node * number_of_nodes, seed=42)
 
-    node_test_sets = splitting_dataset(dataset_test, numberOfNodes)
-    # node_test_sets = split_data_client(dataset_test, numberOfNodes, seed=42)
+    node_test_sets = splitting_dataset(dataset_test, number_of_nodes)
+    # node_test_sets = split_data_client(dataset_test, number_of_nodes, seed=42)
 
     classes = dataset_train.classes
 
     return client_train_sets, client_test_sets, node_test_sets, classes
+
 
 def load_data(partition_id, num_clients, name_dataset="cifar", data_root="./data", resize=None, batch_size=256):
     dataset_train, dataset_test = load_data_from_path(resize, name_dataset, data_root)
@@ -107,6 +112,7 @@ def load_data(partition_id, num_clients, name_dataset="cifar", data_root="./data
     testloader = DataLoader(dataset=test_data, batch_size=batch_size)
 
     return trainloader, valloader, testloader, dataset_train.classes
+
 
 class Data(Dataset):
     def __init__(self, x_data, y_data):

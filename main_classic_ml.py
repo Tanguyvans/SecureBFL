@@ -8,7 +8,6 @@ from going_modular.model import Net
 from going_modular.engine import train, test
 
 import ssl
-import urllib.request
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -37,7 +36,6 @@ if __name__ == '__main__':
     lr = 0.001  # 1e-4  # 0.001
     step_size = 5
     gamma = 0.1
-
 
     # Set device
     device = choice_device(device)
@@ -68,7 +66,6 @@ if __name__ == '__main__':
     testloader = DataLoader(dataset=test_data, batch_size=batch_size)
 
     classes = dataset_train.classes
-
 
     # %% Define the model
     model = Net(num_classes=len(classes), arch=arch, pretrained=pretrained).to(device)
@@ -127,9 +124,3 @@ if __name__ == '__main__':
     }
     with open(save_results + "config.json", 'w', encoding='utf-8') as f:
         json.dump(json_dict, f, ensure_ascii=False, indent=4)
-
-    # %% lecture du fichier json
-    #with open(save_results + "config.json", 'r', encoding='utf-8') as f:
-        #data = json.load(f)
-    # print(data['settings'])
-

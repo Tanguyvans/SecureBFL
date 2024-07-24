@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from tqdm.auto import tqdm
-import os
 from going_modular.security import BatchMemoryManager
 
 

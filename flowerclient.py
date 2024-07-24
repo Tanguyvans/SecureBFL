@@ -1,5 +1,4 @@
 from collections import OrderedDict
-import numpy as np
 import torch
 import flwr as fl
 
@@ -19,7 +18,7 @@ class FlowerClient(fl.client.NumPyClient):
                  max_grad_norm=1.2, device="gpu", classes=(*range(10),),
                  learning_rate=0.001, choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None,
                  step_size=5, gamma=0.1,
-                 save_results=None, matrix_path=None, roc_path=None, patience=2):
+                 save_figure=None, matrix_path=None, roc_path=None, patience=2, pretrained=True):
 
         self.batch_size = batch_size
         self.epochs = epochs
@@ -38,7 +37,7 @@ class FlowerClient(fl.client.NumPyClient):
         self.patience = patience
 
         # Initialize model after data loaders are potentially set
-        model = Net(num_classes=len(self.classes), arch=self.model_choice)
+        model = Net(num_classes=len(self.classes), arch=self.model_choice, pretrained=pretrained)
         self.model = validate_dp_model(model.to(self.device)) if self.dp else model.to(self.device)
         self.criterion = fct_loss(choice_loss)
         self.choice_optimizer = choice_optimizer
@@ -47,7 +46,7 @@ class FlowerClient(fl.client.NumPyClient):
         self.gamma = gamma
         self.privacy_engine = PrivacyEngine(accountant="rdp", secure_mode=False)
 
-        self.save_results = save_results
+        self.save_figure = save_figure
         self.matrix_path = matrix_path
         self.roc_path = roc_path
 
@@ -71,7 +70,7 @@ class FlowerClient(fl.client.NumPyClient):
         obj.len_train = len(y_train)
         obj.train_loader = DataLoader(dataset=train_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)
         obj.val_loader = DataLoader(dataset=val_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)
-        obj.test_loader = DataLoader(dataset=test_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)  # Test loader might not need padding
+        obj.test_loader = DataLoader(dataset=test_data, batch_size=kwargs['batch_size'], shuffle=True, drop_last=True)
         return obj
 
     def get_parameters(self, config):
@@ -79,7 +78,6 @@ class FlowerClient(fl.client.NumPyClient):
         return [val.cpu().numpy() for name, val in self.model.state_dict().items() if 'bn' not in name]
 
     def get_dict_params(self, config):
-        # return {f'param_{i}': val.cpu().numpy() for i, (name, val) in enumerate(self.model.state_dict().items()) if 'bn' not in name}
         return {name: val.cpu().numpy() for name, val in self.model.state_dict().items() if 'bn' not in name}
 
     def set_parameters(self, parameters):
@@ -118,8 +116,8 @@ class FlowerClient(fl.client.NumPyClient):
         self.set_parameters(best_parameters)
         
         # Save results
-        if self.save_results:
-            save_graphs(self.save_results, self.epochs, results)
+        if self.save_figure:
+            save_graphs(self.save_figure, self.epochs, results)
 
         return self.get_parameters(config={}), {'len_train': self.len_train, **results}
 
@@ -127,15 +125,16 @@ class FlowerClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
 
         loss, accuracy, y_pred, y_true, y_proba = test(self.model, self.test_loader, self.criterion, device=self.device)
-        if self.save_results:
-            os.makedirs(self.save_results, exist_ok=True)
+        if self.save_figure:
+            os.makedirs(self.save_figure, exist_ok=True)
             if self.matrix_path:
                 save_matrix(y_true, y_pred,
-                            self.save_results + config['name'] + self.matrix_path,
+                            self.save_figure + config['name'] + self.matrix_path,
                             self.classes)
 
             if self.roc_path:
-                save_roc(y_true, y_proba, self.save_results + config['name'] + self.roc_path,  # + f"_client_{self.cid}.png",
+                save_roc(y_true, y_proba,
+                         self.save_figure + config['name'] + self.roc_path,  # + f"_client_{self.cid}.png",
                          len(self.classes))
 
         return {'test_loss': loss, 'test_acc': accuracy}

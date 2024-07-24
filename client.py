@@ -105,7 +105,12 @@ class Client:
         test_metrics = self.flower_client.evaluate(res, {'name': f'Client {self.id}'})
 
         with open(self.save_results + "output.txt", "a") as f:
-            f.write(f"client {self.id}: data:{metrics['len_train']} train: {metrics['len_train']} train: {metrics['train_loss']} {metrics['train_acc']} val: {metrics['val_loss']} {metrics['val_acc']} test: {test_metrics['test_loss']} {test_metrics['test_acc']}\n")
+            f.write(f"client {self.id}: "
+                    f"data:{metrics['len_train']} "
+                    f"train: {metrics['len_train']} "
+                    f"train: {metrics['train_loss']} {metrics['train_acc']} "
+                    f"val: {metrics['val_loss']} {metrics['val_acc']} "
+                    f"test: {test_metrics['test_loss']} {test_metrics['test_acc']}\n")
         # Apply SMPC (warning : list_shapes is initialized only after the first training)
         encrypted_lists, self.list_shapes = apply_smpc(res, len(self.connections) + 1, self.type_ss, self.threshold)
         # we keep the last share of the secret for this client and send the others to the other clients
@@ -184,5 +189,3 @@ class Client:
 
     def get_keys(self, private_key_path, public_key_path):
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
-
-
