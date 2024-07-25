@@ -87,7 +87,7 @@ class FlowerClient(fl.client.NumPyClient):
         self.model.load_state_dict(state_dict, strict=False)
 
     def fit(self, parameters, node_id, config):
-        save_model = f"models/{node_id}_best_model.pth"
+        save_model = f"models/BFL/{node_id}_best_model.pth"
         self.set_parameters(parameters)
         optimizer = choice_optimizer_fct(self.model, choice_optim=self.choice_optimizer, lr=self.learning_rate,
                                          weight_decay=1e-6)

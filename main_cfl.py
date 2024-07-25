@@ -246,9 +246,9 @@ class Node:
         weights_dict = self.flower_client.get_dict_params({})
         weights_dict['len_dataset'] = 0
 
-        filename = f"models/m0.npz"
+        filename = f"models/CFL/m0.npz"
         self.global_params_directory = filename
-        os.makedirs("models/", exist_ok=True)
+        os.makedirs("models/CFL/", exist_ok=True)
         with open(filename, "wb") as fi:
             np.savez(fi, **weights_dict)
 
@@ -279,9 +279,9 @@ class Node:
         weights_dict = self.flower_client.get_dict_params({})
         weights_dict['len_dataset'] = 0
 
-        filename = f"models/m{index}.npz"
+        filename = f"models/CFL/m{index}.npz"
         self.global_params_directory = filename
-        os.makedirs("models/", exist_ok=True)
+        os.makedirs("models/CFL/", exist_ok=True)
         with open(filename, "wb") as fi:
             np.savez(fi, **weights_dict)
 

@@ -50,7 +50,7 @@ if __name__ == '__main__':
         choice_loss="cross_entropy",
         choice_optimizer="SGD",
         choice_scheduler=None,
-        save_results=save_results,
+        save_figure=save_results,
         matrix_path=matrix_path,
         roc_path=roc_path,
         # pretrained=True

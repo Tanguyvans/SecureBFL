@@ -91,7 +91,7 @@ if __name__ == "__main__":
     # %% Parameters
     training_barrier, length = initialize_parameters(settings, "BFL")
 
-    poisoning_type = "order"  # order, distribution
+    poisoning_type = "distribution"  # order, distribution
 
     # %% save results
     json_dict = {
