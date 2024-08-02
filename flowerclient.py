@@ -7,7 +7,7 @@ from going_modular.model import Net
 from going_modular.security import PrivacyEngine, validate_dp_model
 from going_modular.data_setup import TensorDataset, DataLoader
 from going_modular.utils import (choice_device, fct_loss, choice_optimizer_fct, choice_scheduler_fct, save_graphs,
-                                 save_matrix, save_roc)
+                                 save_matrix, save_roc, get_parameters, set_parameters)
 from going_modular.engine import train, test
 
 import os
@@ -18,7 +18,7 @@ class FlowerClient(fl.client.NumPyClient):
                  max_grad_norm=1.2, device="gpu", classes=(*range(10),),
                  learning_rate=0.001, choice_loss="cross_entropy", choice_optimizer="Adam", choice_scheduler=None,
                  step_size=5, gamma=0.1,
-                 save_figure=None, matrix_path=None, roc_path=None, patience=2, pretrained=True):
+                 save_figure=None, matrix_path=None, roc_path=None, patience=2, pretrained=True, save_model=None):
 
         self.batch_size = batch_size
         self.epochs = epochs
@@ -49,6 +49,7 @@ class FlowerClient(fl.client.NumPyClient):
         self.save_figure = save_figure
         self.matrix_path = matrix_path
         self.roc_path = roc_path
+        self.save_model = save_model
 
     @classmethod
     def node(cls, x_test, y_test, **kwargs):
@@ -74,20 +75,15 @@ class FlowerClient(fl.client.NumPyClient):
         return obj
 
     def get_parameters(self, config):
-        # excluding parameters of BN layers when using FedBN
-        return [val.cpu().numpy() for name, val in self.model.state_dict().items() if 'bn' not in name]
+        return get_parameters(self.model)
 
     def get_dict_params(self, config):
         return {name: val.cpu().numpy() for name, val in self.model.state_dict().items() if 'bn' not in name}
 
     def set_parameters(self, parameters):
-        keys = [k for k in self.model.state_dict().keys() if "bn" not in k]
-        params_dict = zip(keys, parameters)
-        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        self.model.load_state_dict(state_dict, strict=False)
+        set_parameters(self.model, parameters)
 
     def fit(self, parameters, node_id, config):
-        save_model = f"models/BFL/{node_id}_best_model.pth"
         self.set_parameters(parameters)
         optimizer = choice_optimizer_fct(self.model, choice_optim=self.choice_optimizer, lr=self.learning_rate,
                                          weight_decay=1e-6)
@@ -109,9 +105,8 @@ class FlowerClient(fl.client.NumPyClient):
                         self.epochs, self.criterion, optimizer, scheduler, device=self.device,
                         dp=self.dp, delta=self.delta,
                         max_physical_batch_size=int(self.batch_size / 4), privacy_engine=self.privacy_engine,
-                        patience=self.patience, save_model=save_model)
-
-        self.model.load_state_dict(torch.load(save_model))
+                        patience=self.patience, save_model=self.save_model + f"{node_id}_best_model.pth")
+        self.model.load_state_dict(torch.load(self.save_model + f"{node_id}_best_model.pth"))
         best_parameters = [val.cpu().numpy() for name, val in self.model.state_dict().items() if 'bn' not in name]
         self.set_parameters(best_parameters)
         

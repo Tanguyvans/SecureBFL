@@ -8,6 +8,8 @@ import os
 import pandas as pd
 import seaborn as sn
 import threading
+from collections import OrderedDict
+from typing import List
 
 
 def initialize_parameters(settings, training_approach):
@@ -15,19 +17,20 @@ def initialize_parameters(settings, training_approach):
     settings["roc_path"] = None  # "roc"
     settings["matrix_path"] = None  # "matrix"
     settings["save_results"] = f"results/{training_approach}/"
+    settings["save_model"] = f"models/{training_approach}/"
 
     # clients
     training_barrier = threading.Barrier(settings['number_of_clients_per_node'])
 
     if training_approach.lower() == "cfl":
         settings["n_clients"] = settings["number_of_clients_per_node"] * settings["number_of_nodes"]
-        del settings["number_of_clients_per_node"]
-        del settings["number_of_nodes"]
-        del settings["min_number_of_clients_in_cluster"]
-        del settings["coef_usefull"]
-        del settings["k"]
-        del settings["m"]
-        del settings["secret_sharing"]
+        [settings.pop(key, None) for key in ["number_of_clients_per_node",
+                                             "number_of_nodes",
+                                             "min_number_of_clients_in_cluster",
+                                             "coef_usefull",
+                                             "k",
+                                             "m",
+                                             "secret_sharing"]]
 
     elif training_approach.lower() == "bfl":
         if settings["m"] < settings["k"]:
@@ -372,3 +375,20 @@ def plot_graph(list_xplot, list_yplot, x_label, y_label, curve_labels, title, pa
 
     if path:
         plt.savefig(path)
+
+
+def get_parameters(model):
+    # if we want to return only the optimized parameters
+    # return [val.detach().cpu().numpy() for name, val in model.named_parameters() if 'weight'  in name or 'bias' in name]
+
+    # excluding parameters of BN layers when using FedBN
+    return [val.cpu().numpy() for name, val in model.state_dict().items() if 'bn' not in name]
+
+
+# Apply the aggregated weights to the model
+def set_parameters(model, parameters: List[np.ndarray]) -> None:
+    # Set model parameters from a list of NumPy ndarrays
+    keys = [k for k in model.state_dict().keys() if 'bn' not in k]
+    params_dict = zip(keys, parameters)
+    state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+    model.load_state_dict(state_dict, strict=False)

@@ -1,16 +1,24 @@
 import copy
+import os
 import numpy as np
 from flwr.server.strategy.aggregate import aggregate
-
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 from going_modular.data_setup import (load_data_from_path, splitting_dataset, TensorDataset,
                                       train_test_split, DataLoader, torch)
-from going_modular.utils import (choice_device, fct_loss, choice_optimizer_fct, choice_scheduler_fct)
+from going_modular.utils import (choice_device, fct_loss, choice_optimizer_fct, choice_scheduler_fct,
+                                 get_parameters, set_parameters)
 from going_modular.model import Net
 from going_modular.engine import train, test
 
 
 # %%
-def average_weights(models):
+def average_parameters(models):
+    """
+    Compute the average of the parameters of the models
+    :param models:
+    :return:
+    """
     # Obtenez les state_dict des modèles
     state_dicts = [model.state_dict() for model in models]
 
@@ -19,21 +27,20 @@ def average_weights(models):
 
     # Pour chaque clé (paramètre) dans le state_dict, calculer la moyenne des poids
     for key in avg_state_dict:
-        avg_state_dict[key] = torch.stack([state_dict[key] for state_dict in state_dicts], dim=0).mean(dim=0)
+        #  Vérifiez si le paramètre est optimisable (poids ou biais)
+        # if 'weight'  in key or 'bias' in key
+        avg_state_dict[key] = torch.stack([state_dict[key] for state_dict in state_dicts], dim=0).float().mean(dim=0)
 
     return avg_state_dict
 
 
 # Extract the weights from the models and convert them to the format required for Flower
-def get_weights(model):
-    return [(param.data.clone().cpu().numpy()) for param in model.parameters()]
+def set_parameters2(model, parameters):
+    # Charger les paramètres optimisables (poids et biais) dans le modèle
+    param_dict = zip(model.parameters(), parameters)
 
-
-# Apply the aggregated weights to the model
-def set_weights(model, weights):
-    params_dict = zip(model.state_dict().keys(), weights)
-    state_dict = {k: torch.tensor(v) for k, v in params_dict}
-    model.load_state_dict(state_dict, strict=True)
+    for param, new_val in param_dict:
+        param.data = torch.tensor(new_val, dtype=param.data.dtype).to(param.device)
 
 
 def compare_weights(dico1, dico2, tol=1e-6):
@@ -46,22 +53,23 @@ def compare_weights(dico1, dico2, tol=1e-6):
     """
     # compare the numpy arrays with a tolerance
     for key, val in dico1.items():
-        if np.allclose(
-                val.cpu().numpy(),
-                dico2[key].cpu().numpy(),
-                atol=tol
-        ):
-            print(f"The values of the numpy arrays of {key} are equal with a tolerance of {tol}")
-        else:
-            print(f"Difference for the numpy arrays of {key}:")
-            print("We restart the comparison with a lighter tolerance:")
+        if "weight" in key or "bias" in key:
+            if np.allclose(
+                    val.cpu().numpy(),
+                    dico2[key].cpu().numpy(),
+                    atol=tol
+            ):
+                print(f"The values of the numpy arrays of {key} are equal with a tolerance of {tol}")
+            else:
+                print(f"Difference for the numpy arrays of {key}:")
+                print("We restart the comparison with a lighter tolerance:")
 
-            compare_weights({key: dico1[key]}, {key: dico2[key]}, tol * 10)
+                compare_weights({key: dico1[key]}, {key: dico2[key]}, tol * 10)
 
 
 def round_i(n_clients, model, trainloaders, valloaders, testloaders, criterion,
             choice_optimizer="Adam", choice_scheduler="StepLR", epochs=10,  lr_init=0.001, step_size=3, gamma=0.5,
-            patience=2, device="gpu", tol=1e-6):
+            patience=2, device="gpu"):
     # Try to train n_clients model and aggregate them to verify the influence on accuracy after aggregation
     # same weights for the init round for each client else replace by [Net(...) for _ in range(n_clients)]
     list_models = [copy.deepcopy(model) for _ in range(n_clients)]
@@ -74,9 +82,10 @@ def round_i(n_clients, model, trainloaders, valloaders, testloaders, criterion,
         optimizer = choice_optimizer_fct(list_models[i], choice_optim=choice_optimizer, lr=lr_local, weight_decay=1e-6)
         scheduler = choice_scheduler_fct(optimizer, choice_scheduler=choice_scheduler, step_size=step_size, gamma=gamma)
 
+        os.makedirs("models/scratch/", exist_ok=True)
         _ = train(0, list_models[i], trainloaders[i], valloaders[i], epochs=epochs,
                   loss_fn=criterion, optimizer=optimizer, scheduler=scheduler, device=device,
-                  dp=False, patience=patience, save_model=f"models/scratch/best_model_scratch.pth")
+                  dp=False, patience=patience, save_model=f"models/scratch/best_model_scratch_{i}.pth")
 
     # Evaluate each model
     for i in range(n_clients):
@@ -85,58 +94,49 @@ def round_i(n_clients, model, trainloaders, valloaders, testloaders, criterion,
         print(f"Test loss: {test_loss:.4f} | Test accuracy: {test_acc:.2f} %")
 
     # Aggregate the models
-    # Compute the average of the weights
-    avg_state_dict = average_weights(list_models)
+    # Compute the average of the parameters (weights, bias, ...)
+    avg_state_dict = average_parameters(list_models)
 
-    # create an aggregated model and load the average weights
+    # create an aggregated model and load the average parameters
     model_aggregated = Net(num_classes=len(classes), arch=arch, pretrained=pretrained).to(device)
-    model_aggregated.load_state_dict(avg_state_dict)
+    model_aggregated.load_state_dict(avg_state_dict, strict=False)
+    keyy = list(avg_state_dict.keys())[-2]
 
     # check if the updated model is the same as the aggregated model
-    print(torch.equal(avg_state_dict['model.fc3.weight'], model_aggregated.state_dict()['model.fc3.weight']))
+    print(torch.equal(avg_state_dict[keyy], model_aggregated.state_dict()[keyy]))
 
     # redo the aggregation using the aggregate function from Flower
-    weights = [get_weights(model) for model in list_models]
+    list_parameters = [get_parameters(model) for model in list_models]
 
     # Add an arbitrary update weight for each model (here 10)
-    weights_with_updates = [(weights[i], 10) for i in range(n_clients)]
+    weights_with_updates = [(list_parameters[i], 10) for i in range(n_clients)]
 
-    # Use the aggregate function from Flower to calculate the average weights
+    # Use the aggregate function from Flower to calculate the average parameters
     parameters_aggregated = aggregate(weights_with_updates)
 
     # Create a new model for the aggregated weights
     model_aggregated2 = Net(num_classes=len(classes), arch=arch, pretrained=pretrained).to(device)
-    set_weights(model_aggregated2, parameters_aggregated)
-
-    # Check that the aggregated weights are the same as the previous ones
-    """
-    There is a difference between the aggregated weights depending on the number of examples.
-    Even if the same number of examples is used by each client,
-    and therefore the weighted average becomes an arithmetic average,
-    there is a difference in the rounded values (see below)
-    """
-
-    compare_weights(model_aggregated.state_dict(), model_aggregated2.state_dict(), tol=tol)
+    set_parameters(model_aggregated2, parameters_aggregated)
 
     return model_aggregated, model_aggregated2, list_models
 
 
 # todo:
-#  tester en initialisant avec des modèles différents pour voir si cela influence la convergence
 #  tester avec smpc
 #%%
 if __name__ == '__main__':
     # %% Parameters
-    arch = 'CNNCifar'  # "simpleNet"
+    arch = 'mobilenet'  # "simpleNet"
     pretrained = True
 
     name_dataset = 'cifar'  # "cifar"  # "alzheimer"
     data_root = "data/"
 
     device = "mps"
+    length = 32
     batch_size = 32
-    n_epochs = 10  # 15
-    patience = 3  # 5
+    n_epochs = 5  # 15
+    patience = 2  # 5
 
     choice_loss = "cross_entropy"
     choice_optimizer = "Adam"
@@ -146,7 +146,7 @@ if __name__ == '__main__':
     gamma = 0.5
 
     n_clients = 18
-    n_rounds = 5  # 20
+    n_rounds = 20  # 20
     tolerance = 1e-6
 
     # Set device
@@ -157,7 +157,7 @@ if __name__ == '__main__':
     # %% read data with a private dataset
     # Case for the classification problems
 
-    dataset_train, dataset_test = load_data_from_path(resize=32 if name_dataset == 'alzheimer' else None,
+    dataset_train, dataset_test = load_data_from_path(resize=length,  # resize=32 if name_dataset == 'alzheimer' else None,
                                                       name_dataset=name_dataset, data_root="./data")
     classes = dataset_train.classes
 
@@ -193,8 +193,17 @@ if __name__ == '__main__':
         model_agg, model_agg2, models_list = round_i(n_clients, model_agg2,
                                                      train_loaders, val_loaders, test_loaders,
                                                      criterion, choice_optimizer, choice_scheduler,
-                                                     n_epochs, lr, step_size, gamma, patience, device,
-                                                     tolerance)
+                                                     n_epochs, lr, step_size, gamma, patience, device)
+
+    # %% Check that the aggregated weights are the same as the previous ones
+    """
+    There is a difference between the aggregated weights depending on the number of examples.
+    Even if the same number of examples is used by each client,
+    and therefore the weighted average becomes an arithmetic average,
+    there is a difference in the rounded values (see below)
+    """
+
+    compare_weights(model_agg.state_dict(), model_agg2.state_dict(), tol=tolerance)
 
     # %% Evaluate the aggregated models with the test data of each client
     for id_client in range(n_clients):
@@ -229,6 +238,19 @@ if __name__ == '__main__':
     # Test loss: 1.0840 | Test accuracy: 63.54 %
 
     # if each client initializes with a different model, the accuracy of the aggregated model is at 54.7%.
+
+    # news:
+    # test avec mobilenet corrigé et l'agrégation d'uniquement les paramètres optimisables:
+    # Test loss: 0.8828 | Test accuracy: 72.81 %
+    # Test loss: 30.1978 | Test accuracy: 14.10 %   # Pourquoi l'agrégation de flower détruit les résultats ?
+
+    # Test avec mobileNet corrigé et l'agrégation pour 5 clients:
+    # Test loss: 1.4750 | Test accuracy: 61.71 %  # uniquement les paramètres optimisables
+    # Test loss: 1.6717 | Test accuracy: 72.73 %  # agrégation de tous les paramètres
+
+    # Test avec mobileNet corrigé et l'agrégation de tous les paramètres pour 5 clients:
+    # Test loss: 1.6689 | Test accuracy: 70.80 %
+    # Test loss: 1.6694 | Test accuracy: 70.78 %
 
     # %% Evaluate the local models with the whole test data
     for id_client in range(n_clients):
@@ -269,3 +291,79 @@ if __name__ == '__main__':
     # Model 18 Test loss: 1.3074 | Test accuracy: 58.38 %
 
     # If each client initializes with a different model, the accuracy of the aggregated model is at 52.4% max.
+    # %%
+    compare_weights(model_agg.state_dict(), model_agg2.state_dict(), tol=1e-8)
+    # %%
+    from torch import nn
+    import torch.nn.functional as F
+
+    dataset_train, dataset_test = load_data_from_path(resize=length,
+                                                      name_dataset=name_dataset, data_root="./data")
+
+    train_sets = splitting_dataset(dataset_train, 1)
+    test_sets = splitting_dataset(dataset_test, 1)
+
+    x_train, y_train = train_sets[0]
+    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=42, stratify=None)
+    train_data = TensorDataset(torch.stack(x_train), torch.tensor(y_train))
+    val_data = TensorDataset(torch.stack(x_val), torch.tensor(y_val))
+
+    x_test, y_test = test_sets[0]
+    test_data = TensorDataset(torch.stack(x_test), torch.tensor(y_test))
+
+    trainloader = DataLoader(dataset=train_data, batch_size=batch_size, shuffle=True)
+    valloader = DataLoader(dataset=val_data, batch_size=batch_size)
+    testloader = DataLoader(dataset=test_data, batch_size=batch_size)
+
+
+    class SimpleNet(nn.Module):
+        """
+        A simple CNN model with configurable input size
+        """
+
+        def __init__(self, input_size=(32, 32), num_classes=10) -> None:
+            super(SimpleNet, self).__init__()
+            self.input_size = input_size
+            self.conv1 = nn.Conv2d(3, 6, 5)
+            self.pool = nn.MaxPool2d(2, 2)
+            self.conv2 = nn.Conv2d(6, 16, 5)
+
+            # Define the fully connected layers
+            self.fc1 = nn.Linear(self._get_fc_input_size(), 120)
+            self.fc2 = nn.Linear(120, 84)
+            self.fc3 = nn.Linear(84, num_classes)
+
+        def _get_fc_input_size(self):
+            """
+            Determine the size of the input to the fully connected layers.
+            """
+            dummy_input = torch.zeros(1, 3, *self.input_size)
+            x = self.pool(F.relu(self.conv1(dummy_input)))
+            x = self.pool(F.relu(self.conv2(x)))
+            return x.numel()  # Flattened size
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            """
+            Forward pass of the neural network
+            """
+            x = self.pool(F.relu(self.conv1(x)))
+            x = self.pool(F.relu(self.conv2(x)))
+            x = x.view(-1, self.input_size)
+            x = F.relu(self.fc1(x))
+            x = F.relu(self.fc2(x))
+            x = self.fc3(x)
+            return x
+
+
+    # %% Example usage
+    net = SimpleNet(input_size=(length, length), num_classes=10).to(device)
+    print(net)
+
+    # %%
+    # net = Net(10, "mobilenet").to(device)
+    for x_batch, y_batch in trainloader:
+        x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+
+        # 1. Forward pass
+        y_pred = net(x_batch).to(device)
+        break

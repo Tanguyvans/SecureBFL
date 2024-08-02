@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import torch
 from torch.hub import load_state_dict_from_url
 import torchvision.models as models
+import math
 
 
 class CNNCifar(nn.Module):
@@ -24,7 +25,9 @@ class CNNCifar(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
 
-        return F.log_softmax(x, dim=1)
+        # return F.log_softmax(x, dim=1)
+        # Note: the softmax function is not used here because it is included in the loss function
+        return x
 
 
 class CNNMnist(nn.Module):
@@ -37,7 +40,9 @@ class CNNMnist(nn.Module):
         x = x.view(-1, 28*28)  # Aplatir les images en un vecteur de 28*28
         x = torch.relu(self.fc1(x))
         x = self.fc2(x)
-        return torch.log_softmax(x, dim=1)
+        # return F.log_softmax(x, dim=1)
+        # Note: the softmax function is not used here because it is included in the loss function
+        return x
 
 
 class SimpleNetMnist(nn.Module):
@@ -76,8 +81,9 @@ class SimpleNet(nn.Module):
     """
     A simple CNN model
     """
-    def __init__(self, num_classes=10) -> None:
+    def __init__(self, num_classes=10, input_size=(32, 32)) -> None:
         super(SimpleNet, self).__init__()
+        self.input_size = input_size
         # 3 input image channel, 6 output channels, 5x5 square convolution
         self.conv1 = nn.Conv2d(3, 6, 5)
 
@@ -93,7 +99,7 @@ class SimpleNet(nn.Module):
         # self.bn2 = nn.BatchNorm2d(16)
 
         # an affine operation: y = Wx + b
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc1 = nn.Linear(self._get_fc_input_size(), 120)  # 16 * 5 * 5 for an input of 32x32
 
         # with Batch Normalization layers
         # self.bn3 = nn.BatchNorm1d(120)
@@ -103,22 +109,33 @@ class SimpleNet(nn.Module):
         # with Batch Normalization layers
         # self.bn4 = nn.BatchNorm1d(84)
 
-        self.fc3 = nn.Linear(84, num_classes)  # 1 if num_classes <= 2 else num_classes)
+        self.fc3 = nn.Linear(84, num_classes)
+
+    def _get_fc_input_size(self):
+        """
+        Determine the size of the input to the fully connected layers.
+        """
+        dummy_input = torch.zeros(1, 3, *self.input_size)
+        x = self.pool(F.relu(self.conv1(dummy_input)))
+        x = self.pool(F.relu(self.conv2(x)))
+        # Calculate the size of the flattened features
+        return math.prod(x.size()[1:])  # Exclude the batch dimension
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the neural network
         """
-        x = self.pool(F.relu(self.conv1(x)))  # self.pool(F.relu(self.bn1(self.conv1(x))))
-        x = self.pool(F.relu(self.conv2(x)))  # self.pool(F.relu(self.bn2(self.conv2(x))))
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
 
-        # Flatten the tensor into a vector
-        x = x.view(-1, 16 * 5 * 5)
-        x = F.relu(self.fc1(x))  # F.relu(self.bn3(self.fc1(x)))
-        x = F.relu(self.fc2(x))  # F.relu(self.bn4(self.fc2(x)))
+        # Flatten all dimensions except batch
+        x = torch.flatten(x, 1)
 
-        # output layer
-        x = self.fc3(x)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)  # output layer
+
+        # Note: the softmax function is not used here because it is included in the loss function
         return x
 
 
@@ -155,8 +172,10 @@ class EfficientNet(nn.Module):
                 self.model.classifier[0],
                 nn.Linear(num_ftrs, int(num_ftrs / 4)),
                 nn.Linear(int(num_ftrs / 4), num_classes),  # 1 if num_classes <= 2 else num_classes),
-                nn.Softmax(dim=1)
+                # nn.Softmax(dim=1)
+
             )
+            # Note: the softmax function is not used here because it is included in the loss function
         else:
             self.model = archi(weights=None, num_classes=num_classes)
 
@@ -185,19 +204,19 @@ class MobileNet(nn.Module):
                 self.model.classifier[0],
                 nn.Linear(num_ftrs, int(num_ftrs / 4)),
                 nn.Linear(int(num_ftrs / 4), num_classes),  # 1 if num_classes <= 2 else num_classes),
-                nn.Softmax(dim=1)
+                # nn.Softmax(dim=1)
             )
+            # Note: the softmax function is not used here because it is included in the loss function
+
         else:
             self.model = models.mobilenet_v2(weights=None, num_classes=num_classes)
 
-    def forward(self, x, return_features=False):
-        out = self.model.features(x)
-
-        features = out.view(out.size(0), -1)
-
-        out = self.model.classifier(features)
-
-        return (out, features) if return_features else out
+    def forward(self, x):  # , return_features=False):
+        # out = self.model.features(x)
+        # features = out.view(out.size(0), -1)
+        # out = self.model.classifier(features)
+        # return (out, features) if return_features else out
+        return self.model(x)
 
 
 class SqueezeNet(nn.Module):
@@ -215,6 +234,8 @@ class SqueezeNet(nn.Module):
                 self.model.classifier[3],  # nn.AdaptiveAvgPool2d((1, 1))
                 # nn.Softmax(dim=1)
             )
+            # Note: the softmax function is not used here because it is included in the loss function
+
         else:
             self.model = models.squeezenet1_0(weights=None, num_classes=num_classes)
 
@@ -256,6 +277,7 @@ class ResNet(nn.Module):
                 # nn.Linear(num_ftrs // 8, num_classes, bias=True),
                 # nn.Softmax(dim=1)
             )
+            # Note: the softmax function is not used here because it is included in the loss function
 
         else:
             self.model = archi(weights=None, num_classes=num_classes)

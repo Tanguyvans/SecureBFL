@@ -379,7 +379,7 @@ if __name__ == "__main__":
     data_poisoning(
         client_train_sets,
         poisoning_type="order",
-        n_classes = len(list_classes),
+        n_classes=len(list_classes),
         poisoned_number=settings['poisoned_number'],
     )
 
@@ -391,6 +391,7 @@ if __name__ == "__main__":
         classes=list_classes, choice_loss=settings['choice_loss'],  choice_optimizer=settings['choice_optimizer'],
         choice_scheduler=settings['choice_scheduler'], save_figure=None, matrix_path=settings['matrix_path'],
         roc_path=settings['roc_path'], pretrained=settings['pretrained'],
+        save_model=settings['save_model']
     )[0]
 
     # ## client to node (central serveur) connections ###
@@ -402,7 +403,8 @@ if __name__ == "__main__":
         choice_loss=settings['choice_loss'], choice_optimizer=settings['choice_optimizer'],
         choice_scheduler=settings['choice_scheduler'], step_size=settings['step_size'], gamma=settings['gamma'],
         save_figure=None, matrix_path=settings['matrix_path'], roc_path=settings['roc_path'],
-        patience=settings['patience'], pretrained=settings['pretrained']
+        patience=settings['patience'], pretrained=settings['pretrained'],
+        save_model=settings['save_model']
     )
 
     for client_id, client in node_clients.items():
@@ -438,7 +440,7 @@ if __name__ == "__main__":
             t.join()
 
         # No SMPC
-        server.create_global_model(client_weights, round_i + 1, two_step=True)
+        server.create_global_model(client_weights, round_i + 1, two_step=False)
 
         time.sleep(settings['ts'])
         client_weights = []

@@ -128,6 +128,7 @@ if __name__ == "__main__":
         classes=list_classes, choice_loss=settings['choice_loss'], choice_optimizer=settings['choice_optimizer'],
         choice_scheduler=settings['choice_scheduler'],  save_figure=None, matrix_path=settings['matrix_path'],
         roc_path=settings['roc_path'], pretrained=settings['pretrained'],
+        save_model=settings['save_model']
     )
 
     # %% ## client to node connections ###
@@ -143,6 +144,7 @@ if __name__ == "__main__":
             step_size=settings['step_size'], gamma=settings['gamma'], save_figure=None,
             matrix_path=settings['matrix_path'], roc_path=settings['roc_path'], patience=settings['patience'],
             pretrained=settings['pretrained'],
+            save_model=settings['save_model']
         )
         clients.append(node_clients)
         for client_id, client in node_clients.items(): 
