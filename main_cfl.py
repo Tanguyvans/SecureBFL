@@ -255,7 +255,6 @@ class Node:
         self.broadcast_model_to_clients(filename)
 
     def create_global_model(self, weights, index, two_step=False):
-
         if two_step:
             cluster_weights = []
             for i in range(0, len(weights), 3):
@@ -361,7 +360,7 @@ if __name__ == "__main__":
 
     # %%
     json_dict = {
-        'settings': settings
+        'settings': {**settings, "length": length}
     }
     with open(settings['save_results'] + "config.json", 'w', encoding='utf-8') as f:
         json.dump(json_dict, f, ensure_ascii=False, indent=4)

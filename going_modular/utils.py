@@ -41,7 +41,7 @@ def initialize_parameters(settings, training_approach):
               "\tNumber of Clients per Cluster: ", settings["min_number_of_clients_in_cluster"], "\n")
 
     os.makedirs(settings["save_results"], exist_ok=True)
-    length = 32 if settings['name_dataset'] == 'alzheimer' else None
+    length = 32   # if settings['name_dataset'] == 'alzheimer' else None
     return training_barrier, length
 
 

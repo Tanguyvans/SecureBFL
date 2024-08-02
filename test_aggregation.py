@@ -1,6 +1,7 @@
 import copy
 import os
 import numpy as np
+import json
 from flwr.server.strategy.aggregate import aggregate
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -149,6 +150,30 @@ if __name__ == '__main__':
     n_rounds = 5  # 20
     tolerance = 1e-6
 
+    json_dict = {
+        'settings': {
+            'arch': arch,
+            'pretrained': pretrained,
+            'name_dataset': name_dataset,
+            'device': device,
+            'patience': patience,
+            'batch_size': batch_size,
+            'n_epochs': n_epochs,
+            'choice_loss': choice_loss,
+            'choice_optimizer': choice_optimizer,
+            'lr': lr,
+            'choice_scheduler': choice_scheduler,
+            'step_size': step_size,
+            'gamma': gamma,
+            "n_clients": n_clients,
+            "n_rounds": n_rounds,
+            "length": length,
+            "tolerance": tolerance,
+        }
+    }
+    with open("results/scratch/" + "config.json", 'w', encoding='utf-8') as f:
+        json.dump(json_dict, f, ensure_ascii=False, indent=4)
+
     # Set device
     device = choice_device(device)
 
@@ -194,15 +219,10 @@ if __name__ == '__main__':
                                                      train_loaders, val_loaders, test_loaders,
                                                      criterion, choice_optimizer, choice_scheduler,
                                                      n_epochs, lr, step_size, gamma, patience, device)
-        
 
-        loss, acc, *_ = test(model_agg, test_loader, criterion, device=device)
-        print(f"Test loss: {loss:.4f} | Test accuracy: {acc:.2f} %")
-
-        # Evaluate the models that have been aggregated by weighted average (from Flower function)
+        # Test the aggregated models with the whole test data
         loss, acc, *_ = test(model_agg2, test_loader, criterion, device=device)
-        print(f"Test loss: {loss:.4f} | Test accuracy: {acc:.2f} %\n")
-
+        print(f"After Round {id_round + 1 }| Test loss: {loss:.4f} | Test accuracy: {acc:.2f} %")
 
     # %% Check that the aggregated weights are the same as the previous ones
     """

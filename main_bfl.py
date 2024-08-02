@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
     # %% save results
     json_dict = {
-        'settings': settings
+        'settings': {**settings, "length": length, "poisoning_type": poisoning_type}
     }
     with open(settings['save_results'] + "config.json", 'w', encoding='utf-8') as f:
         json.dump(json_dict, f, ensure_ascii=False, indent=4)

@@ -36,7 +36,7 @@ if __name__ == '__main__':
     lr = 0.001  # 1e-4  # 0.001
     step_size = 5
     gamma = 0.1
-
+    length = 32  #  if name_dataset == 'alzheimer' else None
     # Set device
     device = choice_device(device)
 
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     # %% read data with a private dataset
     # Case for the classification problems
 
-    dataset_train, dataset_test = load_data_from_path(resize=32 if name_dataset == 'alzheimer' else None,
+    dataset_train, dataset_test = load_data_from_path(resize=length,
                                                       name_dataset=name_dataset, data_root="./data")
 
     train_sets = splitting_dataset(dataset_train, 1)
@@ -119,7 +119,8 @@ if __name__ == '__main__':
             'lr': lr,
             'choice_scheduler': choice_scheduler,
             'step_size': step_size,
-            'gamma': gamma
+            'gamma': gamma,
+            'length': length
         }
     }
     with open(save_results + "config.json", 'w', encoding='utf-8') as f:
