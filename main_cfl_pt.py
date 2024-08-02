@@ -6,7 +6,7 @@ import pickle
 import time
 import socket
 import json
-
+import torch
 
 from flwr.server.strategy.aggregate import aggregate
 from sklearn.model_selection import train_test_split
@@ -26,8 +26,6 @@ from config import settings
 import warnings
 warnings.filterwarnings("ignore")
 
-
-# %% Classes
 class Client:
     def __init__(self, id, host, port, train, test, save_results, **kwargs):
         self.id = id
@@ -93,6 +91,7 @@ class Client:
 
         # No if message_type == "frag_weights" because no SMPC.
         if message_type == "global_model":
+            print("received_value")
             weights = pickle.loads(message.get("value"))
             self.flower_client.set_parameters(weights)
 
@@ -217,13 +216,12 @@ class Node:
         return weights_dict
 
     def broadcast_model_to_clients(self, filename):
-        # The loop is missing : for block in self.blockchain.blocks[::-1]:
-        # The rest is identical.
-        loaded_weights_dict = np.load(filename)
+        # Load the model parameters from the .pt file
+        loaded_weights = torch.load(filename)
 
-        loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
-
+        print("len(self.clients)", len(self.clients))
         for k, v in self.clients.items():
+            print("sending to client", k)
             address = v.get('address')
 
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -242,15 +240,11 @@ class Node:
             client_socket.close()
 
     def create_first_global_model(self):
-        # Different of create_first_global_model_request()
-        weights_dict = self.flower_client.get_dict_params({})
-        weights_dict['len_dataset'] = 0
 
-        filename = f"models/CFL/m0.npz"
+        global_model = self.flower_client.get_parameters({})
+        filename = f"models/CFL/m0.pt"
         self.global_params_directory = filename
-        os.makedirs("models/CFL/", exist_ok=True)
-        with open(filename, "wb") as fi:
-            np.savez(fi, **weights_dict)
+        torch.save(global_model, filename)
 
         self.broadcast_model_to_clients(filename)
 
@@ -276,14 +270,11 @@ class Node:
         metrics = self.flower_client.evaluate(aggregated_weights, {})
 
         self.flower_client.set_parameters(aggregated_weights)
-        weights_dict = self.flower_client.get_dict_params({})
-        weights_dict['len_dataset'] = 0
 
-        filename = f"models/CFL/m{index}.npz"
+        global_model = self.flower_client.get_parameters({})
+        filename = f"models/CFL/m{index}.pt"
         self.global_params_directory = filename
-        os.makedirs("models/CFL/", exist_ok=True)
-        with open(filename, "wb") as fi:
-            np.savez(fi, **weights_dict)
+        torch.save(global_model, filename)
 
         with open(self.save_results + "output.txt", "a") as fi:
             fi.write(f"flower aggregation {metrics} \n")
@@ -303,18 +294,15 @@ class Node:
             )
 
         self.clients[c_id] = {"address": client_address, "public_key": public_key}
+        print(self.clients)
 
 
 client_weights = []
 
-
-# %% Functions
 def train_client(client_obj):
     weights = client_obj.train()  # Train the client
     client_weights.append(weights)
-    # client.send_frag_clients(frag_weights)  # Send the shares to other clients
     training_barrier.wait()  # Wait here until all clients have trained
-
 
 def create_nodes(test_sets, number_of_nodes, save_results, **kwargs):
     # The same as the create_nodes() function in main.py but without the smpc and blockchain parameters
@@ -333,7 +321,6 @@ def create_nodes(test_sets, number_of_nodes, save_results, **kwargs):
 
     return list_nodes
 
-
 def create_clients(train_sets, test_sets, node, number_of_clients, save_results, **kwargs):
     # Exactly the same as the create_clients() function
     # but it called Client class from manual_cfl.py and not from client.py
@@ -351,15 +338,9 @@ def create_clients(train_sets, test_sets, node, number_of_clients, save_results,
 
     return dict_clients
 
-
-# %%
 if __name__ == "__main__":
-    # %%
     logging.basicConfig(level=logging.DEBUG)
-    # %%
     training_barrier, length = initialize_parameters(settings, 'CFL')
-
-    # %%
     json_dict = {
         'settings': settings
     }
@@ -369,13 +350,11 @@ if __name__ == "__main__":
     with open(settings['save_results'] + "output.txt", "w") as f:
         f.write("")
 
-    # %%
     client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, settings['name_dataset'],
                                                                                      settings['data_root'],
                                                                                      settings['n_clients'],
                                                                                      1)
 
-    # # %% Data poisoning of the clients
     data_poisoning(
         client_train_sets,
         poisoning_type="order",
@@ -422,7 +401,7 @@ if __name__ == "__main__":
         threading.Thread(target=client.start_server).start()
 
     server.create_first_global_model()
-    time.sleep(settings['ts'] * 3)
+    time.sleep(10)
 
     # ## training and SMPC
     for round_i in range(settings['n_rounds']):
@@ -441,6 +420,7 @@ if __name__ == "__main__":
 
         # No SMPC
         server.create_global_model(client_weights, round_i + 1, two_step=False)
+
 
         time.sleep(settings['ts'])
         client_weights = []

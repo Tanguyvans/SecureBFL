@@ -17,10 +17,10 @@ def get_model_files(dir_model, training_approach="CFL"):
 # %%
 if __name__ == '__main__':
     # %%
-    arch = 'mobilenet'  # "CNNCifar"
+    arch = 'Resnet18'  # "CNNCifar"
     name_dataset = 'cifar'  # "cifar"
     data_root = "data/"
-    training_approach = "scratch"  # "CFL" # "BFL"  # scratch
+    training_approach = "CFL"  # "CFL" # "BFL"  # scratch
     directory = f'models/{training_approach}/'  # f'models/'# Update this path
     save_results = f"results/{training_approach}/"  # Update this path
     matrix_path = "matrix"

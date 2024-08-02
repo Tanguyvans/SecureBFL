@@ -145,8 +145,8 @@ if __name__ == '__main__':
     step_size = 3
     gamma = 0.5
 
-    n_clients = 18
-    n_rounds = 20  # 20
+    n_clients = 6
+    n_rounds = 5  # 20
     tolerance = 1e-6
 
     # Set device
@@ -194,6 +194,15 @@ if __name__ == '__main__':
                                                      train_loaders, val_loaders, test_loaders,
                                                      criterion, choice_optimizer, choice_scheduler,
                                                      n_epochs, lr, step_size, gamma, patience, device)
+        
+
+        loss, acc, *_ = test(model_agg, test_loader, criterion, device=device)
+        print(f"Test loss: {loss:.4f} | Test accuracy: {acc:.2f} %")
+
+        # Evaluate the models that have been aggregated by weighted average (from Flower function)
+        loss, acc, *_ = test(model_agg2, test_loader, criterion, device=device)
+        print(f"Test loss: {loss:.4f} | Test accuracy: {acc:.2f} %\n")
+
 
     # %% Check that the aggregated weights are the same as the previous ones
     """
