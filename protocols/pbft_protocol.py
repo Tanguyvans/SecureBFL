@@ -162,12 +162,14 @@ class PBFTProtocol(ConsensusProtocol):
         previous_block = self.blockchain.blocks[-1] if self.blockchain.blocks else None
         if previous_block and block_data["previous_hash"] != previous_block.current_hash:
             return False
+        
+        return True
 
-        if block_data["model_type"] == "update": 
-            if block_data["storage_reference"] not in self.model_usefullness: 
-                self.model_usefullness[block_data["storage_reference"]] = self.node.is_update_usefull(block_data["storage_reference"], block_data["participants"])
+        # if block_data["model_type"] == "update": 
+        #     if block_data["storage_reference"] not in self.model_usefullness: 
+        #         self.model_usefullness[block_data["storage_reference"]] = self.node.is_update_usefull(block_data["storage_reference"], block_data["participants"])
 
-            return self.model_usefullness[block_data["storage_reference"]]
+        #     return self.model_usefullness[block_data["storage_reference"]]
 
         if block_data["model_type"] == "global_model":
             # return self.node.is_global_valid(block_data["calculated_hash"])
