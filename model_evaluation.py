@@ -4,7 +4,7 @@ import torch
 import json
 
 from going_modular.data_setup import load_dataset
-from going_modular.utils import choice_device, fct_loss, np
+from going_modular.utils import choice_device, np
 from flowerclient import FlowerClient
 
 
@@ -18,12 +18,8 @@ def get_model_files(dir_model, training_approach="CFL"):
 # %%
 if __name__ == '__main__':
     # %%
-    arch = 'CNNCifar'  # "CNNCifar", mobilenet
-    name_dataset = 'cifar'  # "cifar"
-    data_root = "data/"
+    # récupérer la config du fichier json: results/CFL/config.json
     training_approach = "BFL"  # "CFL" # "BFL"  # scratch
-    directory = f'models/{training_approach}/'  # f'models/'# Update this path
-    save_results = f"results/{training_approach}/"  # Update this path
     matrix_path = "matrix"
     roc_path = "roc"
     device = "mps"

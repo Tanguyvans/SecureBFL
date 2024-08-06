@@ -91,7 +91,7 @@ if __name__ == "__main__":
     # %% Parameters
     training_barrier, length = initialize_parameters(settings, "BFL")
 
-    poisoning_type = "order"  # order, distribution
+    poisoning_type = "distribution"  # order, distribution
 
     # %% save results
     json_dict = {
@@ -215,3 +215,5 @@ if __name__ == "__main__":
 
     for i in range(settings['number_of_nodes']):
         nodes[i].blockchain.save_chain_in_file(settings['save_results'] + f"node{i + 1}.txt")
+
+    print("This is the end")

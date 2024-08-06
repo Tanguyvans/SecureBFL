@@ -167,14 +167,15 @@ class EfficientNet(nn.Module):
 
         if pretrained:
             self.model = archi(weights="DEFAULT")  # DEFAULT means the best available weights from ImageNet.
-            num_ftrs = self.model.classifier[-1].in_features
-            self.model.classifier = nn.Sequential(
-                self.model.classifier[0],
-                nn.Linear(num_ftrs, int(num_ftrs / 4)),
-                nn.Linear(int(num_ftrs / 4), num_classes),  # 1 if num_classes <= 2 else num_classes),
+            # num_ftrs = self.model.classifier[-1].in_features
+            #self.model.classifier = nn.Sequential(
+                # self.model.classifier[0],
+                #nn.Linear(num_ftrs, int(num_ftrs / 4)),
+                # nn.Linear(int(num_ftrs / 4), num_classes),  # 1 if num_classes <= 2 else num_classes),
                 # nn.Softmax(dim=1)
 
-            )
+            #)
+            self.model.classifier[-1].in_features = num_classes
             # Note: the softmax function is not used here because it is included in the loss function
         else:
             self.model = archi(weights=None, num_classes=num_classes)
@@ -199,14 +200,15 @@ class MobileNet(nn.Module):
         if pretrained:
             # DEFAULT means the best available weights from ImageNet.
             self.model = models.mobilenet_v2(weights='DEFAULT')
-            num_ftrs = self.model.classifier[-1].in_features
-            self.model.classifier = nn.Sequential(
-                self.model.classifier[0],
-                nn.Linear(num_ftrs, int(num_ftrs / 4)),
-                nn.Linear(int(num_ftrs / 4), num_classes),  # 1 if num_classes <= 2 else num_classes),
+            # num_ftrs = self.model.classifier[-1].in_features
+            #self.model.classifier = nn.Sequential(
+                #self.model.classifier[0],
+                #nn.Linear(num_ftrs, int(num_ftrs / 4)),
+                #nn.Linear(int(num_ftrs / 4), num_classes),  # 1 if num_classes <= 2 else num_classes),
                 # nn.Softmax(dim=1)
-            )
+            #)
             # Note: the softmax function is not used here because it is included in the loss function
+            self.model.classifier[-1].in_features = num_classes
 
         else:
             self.model = models.mobilenet_v2(weights=None, num_classes=num_classes)
@@ -225,15 +227,16 @@ class SqueezeNet(nn.Module):
         if pretrained:
             # DEFAULT means the best available weights from ImageNet.
             self.model = models.squeezenet1_0(weights='DEFAULT')
-            num_ftrs = self.model.classifier[1].in_channels
+            # num_ftrs = self.model.classifier[1].in_channels
 
-            self.model.classifier = nn.Sequential(
-                self.model.classifier[0],  # nn.Dropout(p=0.5),
-                nn.Conv2d(num_ftrs, num_classes, kernel_size=(1, 1), stride=(1, 1)),  # nn.Conv2d(num_ftrs, num_classes, kernel_size=1),
-                self.model.classifier[2],  # nn.ReLU(inplace=True),
-                self.model.classifier[3],  # nn.AdaptiveAvgPool2d((1, 1))
+            #self.model.classifier = nn.Sequential(
+            #    self.model.classifier[0],  # nn.Dropout(p=0.5),
+            #    nn.Conv2d(num_ftrs, num_classes, kernel_size=(1, 1), stride=(1, 1)),  # nn.Conv2d(num_ftrs, num_classes, kernel_size=1),
+            #    self.model.classifier[2],  # nn.ReLU(inplace=True),
+            #    self.model.classifier[3],  # nn.AdaptiveAvgPool2d((1, 1))
                 # nn.Softmax(dim=1)
-            )
+            #)
+            self.model.classifier[1].in_channels = num_classes
             # Note: the softmax function is not used here because it is included in the loss function
 
         else:
@@ -270,14 +273,15 @@ class ResNet(nn.Module):
         if pretrained:
             # DEFAULT means the best available weights from ImageNet.
             self.model = archi(weights="DEFAULT")
-            num_ftrs = self.model.fc.in_features
-            self.model.fc = nn.Sequential(
-                nn.Linear(num_ftrs, num_classes, bias=True),
+            # num_ftrs = self.model.fc.in_features
+            #self.model.fc = nn.Sequential(
+            #    nn.Linear(num_ftrs, num_classes, bias=True),
                 # nn.Linear(num_ftrs//4, num_ftrs//8, bias=True),
                 # nn.Linear(num_ftrs // 8, num_classes, bias=True),
                 # nn.Softmax(dim=1)
-            )
+            #)
             # Note: the softmax function is not used here because it is included in the loss function
+            self.model.fc.in_features = num_classes
 
         else:
             self.model = archi(weights=None, num_classes=num_classes)
