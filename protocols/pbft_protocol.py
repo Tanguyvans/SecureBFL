@@ -11,6 +11,7 @@ class PBFTProtocol(ConsensusProtocol):
 
         self.prepare_counts = {}
         self.commit_counts = {}
+        self.model_usefullness = {}
 
         self.blockchain = blockchain
 
@@ -74,7 +75,10 @@ class PBFTProtocol(ConsensusProtocol):
 
         if self.is_prepared(block_hash): 
             if message["model_type"] == "update": 
-                message["usefull"] = self.node.is_update_usefull(message["storage_reference"], message["participants"])
+                if message["storage_reference"] not in self.model_usefullness: 
+                    self.model_usefullness[message["storage_reference"]] = self.node.is_update_usefull(message["storage_reference"], message["participants"])
+
+                message["usefull"] = self.model_usefullness[message["storage_reference"]]
 
                 if block_hash not in self.commit_counts: 
                     self.commit_counts[block_hash] = {"count": 0, "senders": []}
@@ -160,8 +164,11 @@ class PBFTProtocol(ConsensusProtocol):
             return False
 
         if block_data["model_type"] == "update": 
-            return self.node.is_update_usefull(block_data["storage_reference"], block_data["participants"])
-        
+            if block_data["storage_reference"] not in self.model_usefullness: 
+                self.model_usefullness[block_data["storage_reference"]] = self.node.is_update_usefull(block_data["storage_reference"], block_data["participants"])
+
+            return self.model_usefullness[block_data["storage_reference"]]
+
         if block_data["model_type"] == "global_model":
             # return self.node.is_global_valid(block_data["calculated_hash"])
             return True

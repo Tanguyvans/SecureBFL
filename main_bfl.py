@@ -91,7 +91,7 @@ if __name__ == "__main__":
     # %% Parameters
     training_barrier, length = initialize_parameters(settings, "BFL")
 
-    poisoning_type = "distribution"  # order, distribution
+    poisoning_type = "order"  # order, distribution
 
     # %% save results
     json_dict = {
@@ -103,13 +103,13 @@ if __name__ == "__main__":
     with open(settings['save_results'] + 'output.txt', "w") as f:
         f.write("")
 
-    # %% Load dataset
+    # Load dataset
     (client_train_sets, client_test_sets, node_test_sets, list_classes) = load_dataset(length, settings['name_dataset'],
                                                                                        settings['data_root'],
                                                                                        settings['number_of_clients_per_node'],
                                                                                        settings['number_of_nodes'])
 
-    # %% Data poisoning of the clients
+    # Data poisoning of the clients
     data_poisoning(
         data=client_train_sets,
         poisoning_type=poisoning_type,
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         clients_per_node=settings['number_of_clients_per_node'],
     )
 
-    # %% Create nodes
+    # Create nodes
     # the nodes should not have a train dataset
     nodes = create_nodes(
         node_test_sets, settings['number_of_nodes'], save_results=settings['save_results'],
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         save_model=settings['save_model']
     )
 
-    # %% ## client to node connections ###
+    # ## client to node connections ###
     clients = []
     for i in range(settings['number_of_nodes']):
         node_clients = create_clients(
@@ -150,7 +150,7 @@ if __name__ == "__main__":
         for client_id, client in node_clients.items(): 
             client.update_node_connection(nodes[i].id, nodes[i].port)
 
-    # %% All nodes connections ###
+    # All nodes connections ###
     for i in range(settings['number_of_nodes']):
         node_i = nodes[i]
         # ## node to node ###
@@ -163,7 +163,7 @@ if __name__ == "__main__":
         for client_j in clients[i].values():
             node_i.add_client(client_id=client_j.id, client_address=("localhost", client_j.port))
 
-    # %% run threads ###
+    # run threads ###
     for i in range(settings['number_of_nodes']):
         threading.Thread(target=nodes[i].start_server).start()
         for client in clients[i].values(): 
@@ -171,7 +171,7 @@ if __name__ == "__main__":
 
     nodes[0].create_first_global_model_request()
 
-    time.sleep(settings['ts']*3)
+    time.sleep(settings['ts']*2)
 
     # training and SMPC
     for round_i in range(settings['n_rounds']):
@@ -193,11 +193,17 @@ if __name__ == "__main__":
 
             print(f"Node {i + 1} : SMPC\n")
             
-            for client in clients[i].values():
-                client.send_frag_node()
-                time.sleep(settings['ts'])
+            for cluster in nodes[i].clusters:
+                for client_id in cluster.keys():
+                    if client_id in ['tot', 'count']:
+                        continue
+                    client = clients[i][client_id]
+                    client.send_frag_node()
+                    time.sleep(5)
 
-            time.sleep(settings['ts'] * 3)
+                time.sleep(30)
+
+            time.sleep(60)
 
         # ## global model creation
 
@@ -207,6 +213,5 @@ if __name__ == "__main__":
 
     nodes[0].blockchain.print_blockchain()
 
-    # %%
     for i in range(settings['number_of_nodes']):
         nodes[i].blockchain.save_chain_in_file(settings['save_results'] + f"node{i + 1}.txt")

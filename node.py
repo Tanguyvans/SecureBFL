@@ -6,6 +6,7 @@ import base64
 from math import floor, ceil
 import random
 import time
+import uuid
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
@@ -331,8 +332,8 @@ class Node:
         weights_dict['len_dataset'] = 0
         model_type = "first_global_model"
         
-        filename = f"models/BFL/m0.npz"
-        self.global_params_directory = filename
+        unique_id = f"{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        filename = f"models/BFL/m0_{unique_id}.npz"
         os.makedirs("models/BFL/", exist_ok=True)
         with open(filename, "wb") as f:
             np.savez(f, **weights_dict)
@@ -361,7 +362,8 @@ class Node:
 
         model_type = "global_model"
 
-        filename = f"models/BFL/{self.id}m{self.blockchain.len_chain}.npz"
+        unique_id = f"{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        filename = f"models/BFL/m{self.blockchain.len_chain}_{unique_id}.npz"
         # self.global_params_directory = filename
 
         with open(filename, "wb") as f:
@@ -388,7 +390,9 @@ class Node:
         weights_dict['len_dataset'] = 10
         model_type = "update"
 
-        filename = f"models/BFL/m{self.blockchain.len_chain}.npz"
+        unique_id = f"{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        filename = f"models/BFL/m{self.blockchain.len_chain}_{unique_id}.npz"
+
 
         with open(filename, "wb") as f:
             np.savez(f, **weights_dict)

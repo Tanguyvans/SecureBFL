@@ -18,8 +18,12 @@ def get_model_files(dir_model, training_approach="CFL"):
 # %%
 if __name__ == '__main__':
     # %%
-    # récupérer la config du fichier json: results/CFL/config.json
-    training_approach = "CFL"  # "CFL" # "BFL"  # scratch
+    arch = 'CNNCifar'  # "CNNCifar", mobilenet
+    name_dataset = 'cifar'  # "cifar"
+    data_root = "data/"
+    training_approach = "BFL"  # "CFL" # "BFL"  # scratch
+    directory = f'models/{training_approach}/'  # f'models/'# Update this path
+    save_results = f"results/{training_approach}/"  # Update this path
     matrix_path = "matrix"
     roc_path = "roc"
     device = "mps"
