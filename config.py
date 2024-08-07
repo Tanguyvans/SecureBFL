@@ -10,7 +10,7 @@ settings = {
     "min_number_of_clients_in_cluster": 3,
     "coef_usefull": 1.05,   # 1.05
     "poisoned_number": 1,
-    "n_rounds": 30,
+    "n_rounds": 25,
     "choice_loss": "cross_entropy",
     "choice_optimizer": "Adam",
     "lr": 0.001,
