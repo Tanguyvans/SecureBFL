@@ -84,7 +84,7 @@ if __name__ == '__main__':
     if training_approach == "scratch":
         evaluation.sort(key=lambda x: int(x[0].split('.')[0].split("_")[-1]))
     elif training_approach == "BFL": 
-        evaluation.sort(key=lambda x: int(x[0][:1].split("_")[0]))
+        evaluation.sort(key=lambda x: int(x[0][1:].split("_")[0]))
     else:
         evaluation.sort(key=lambda x: int(x[0][1:].split('.')[0]))
 
