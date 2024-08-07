@@ -192,8 +192,14 @@ class MobileNet(nn.Module):
         if pretrained:
             # DEFAULT means the best available weights from ImageNet.
             self.model = models.mobilenet_v2(weights='DEFAULT')
+            num_ftrs = self.model.classifier[-1].in_features
+            self.model.classifier = nn.Sequential(
+                self.model.classifier[0],
+                nn.Linear(num_ftrs, num_classes),  # 1 if num_classes <= 2 else num_classes),
+                # nn.Softmax(dim=1)
+
+            )
             # Note: the softmax function is not used here because it is included in the loss function
-            self.model.classifier[-1].out_features = num_classes
 
         else:
             self.model = models.mobilenet_v2(weights=None, num_classes=num_classes)

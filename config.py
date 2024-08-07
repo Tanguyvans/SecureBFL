@@ -9,7 +9,7 @@ settings = {
     "number_of_clients_per_node": 6,
     "min_number_of_clients_in_cluster": 3,
     "coef_usefull": 1.05,   # 1.05
-    "poisoned_number": 1,
+    "poisoned_number": 0,
     "n_rounds": 25,
     "choice_loss": "cross_entropy",
     "choice_optimizer": "Adam",
