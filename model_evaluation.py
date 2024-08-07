@@ -20,8 +20,8 @@ if __name__ == '__main__':
     # %%
     # récupérer la config du fichier json: results/CFL/config.json
     training_approach = "BFL"  # "CFL" # "BFL"  # scratch
-    matrix_path = "matrix"
-    roc_path = "roc"
+    matrix_path = ""
+    roc_path = ""
     device = "mps"
     with open(f"results/{training_approach}/config.json", "r") as f:
         config = json.load(f)['settings']
@@ -83,7 +83,8 @@ if __name__ == '__main__':
     os.makedirs(config['save_results'], exist_ok=True)
     if training_approach == "scratch":
         evaluation.sort(key=lambda x: int(x[0].split('.')[0].split("_")[-1]))
-
+    elif training_approach == "BFL": 
+        evaluation.sort(key=lambda x: int(x[0][1:].split("_")[0]))
     else:
         evaluation.sort(key=lambda x: int(x[0][1:].split('.')[0]))
 
