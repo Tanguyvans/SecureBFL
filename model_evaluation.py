@@ -20,8 +20,8 @@ if __name__ == '__main__':
     # %%
     # récupérer la config du fichier json: results/CFL/config.json
     training_approach = "BFL"  # "CFL" # "BFL"  # scratch
-    matrix_path = ""
-    roc_path = ""
+    matrix_path = "matrix"
+    roc_path = "roc"
     device = "mps"
     with open(f"results/{training_approach}/config.json", "r") as f:
         config = json.load(f)['settings']

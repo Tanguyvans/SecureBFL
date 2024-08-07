@@ -70,7 +70,7 @@ def train_step(model, dataloader, loss_fn, optimizer, device, scheduler=None):
     correct = 0
 
     for x_batch, y_batch in dataloader:
-        x_batch, y_batch = x_batch.float().to(device), y_batch.float().to(device)
+        x_batch, y_batch = x_batch.to(device), y_batch.to(device)
 
         # 1. Forward pass
         y_pred = model(x_batch)
