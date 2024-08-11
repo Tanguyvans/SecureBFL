@@ -82,12 +82,13 @@ def start_server(host, port, handle_message, num_node):
 
 
 class Node:
-    def __init__(self, id, host, port, consensus_protocol, test, save_results, coef_usefull=1.01,
+    def __init__(self, id, host, port, consensus_protocol, test, save_results, coef_usefull=1.01, tolerance_ceil=0.1,
                  ss_type="additif", m=3, **kwargs):
         self.id = id
         self.host = host
         self.port = port
         self.coef_usefull = coef_usefull
+        self.tolerance_ceil = tolerance_ceil
 
         self.peers = {}
         self.clients = {}
@@ -198,7 +199,9 @@ class Node:
         gm_eval = self.evaluate_model(self.global_params_directory, participants, write=False)
 
         print(f"node: {self.id} update_eval: {update_eval} gm_eval: {gm_eval}")
-        if update_eval[0] <= gm_eval[0] * self.coef_usefull:
+
+        allowed_unimprovement = min(self.tolerance_ceil, gm_eval[0] * (self.coef_usefull - 1))
+        if update_eval[0] <= gm_eval[0] + allowed_unimprovement:
             return True
         else: 
             return False

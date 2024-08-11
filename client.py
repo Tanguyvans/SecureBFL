@@ -28,6 +28,8 @@ class Client:
         self.m = m
         self.list_shapes = None
 
+        self.global_model_weights = None
+
         self.frag_weights = []
         self.sum_dataset_number = 0
 
@@ -88,20 +90,18 @@ class Client:
 
         elif message_type == "global_model":
             weights = pickle.loads(message.get("value"))
-            self.flower_client.set_parameters(weights)
+            self.global_model_weights = weights
 
         elif message_type == "first_global_model":
             weights = pickle.loads(message.get("value"))
-            self.flower_client.set_parameters(weights)
+            self.global_model_weights = weights
+            
             print(f"client {self.id} received the global model")
 
         client_socket.close()
 
-    def train(self):
-        old_params = self.flower_client.get_parameters({})
-        res = old_params[:]
-        
-        res, metrics = self.flower_client.fit(res, self.id, {})
+    def train(self):        
+        res, metrics = self.flower_client.fit(self.global_model_weights, self.id, {})
         test_metrics = self.flower_client.evaluate(res, {'name': f'Client {self.id}'})
 
         with open(self.save_results + "output.txt", "a") as f:

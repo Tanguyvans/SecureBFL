@@ -23,7 +23,7 @@ def train_client(client_obj):
     training_barrier.wait()  # Wait here until all clients have trained
 
 
-def create_nodes(test_sets, number_of_nodes, save_results, coef_usefull=1.2, ss_type="additif", m=3, **kwargs):
+def create_nodes(test_sets, number_of_nodes, save_results, coef_usefull=1.2, tolerance_ceil=0.1, ss_type="additif", m=3, **kwargs):
     list_nodes = []
     for num_node in range(number_of_nodes):
         list_nodes.append(
@@ -34,6 +34,7 @@ def create_nodes(test_sets, number_of_nodes, save_results, coef_usefull=1.2, ss_
                 consensus_protocol="pbft",
                 test=test_sets[num_node],
                 coef_usefull=coef_usefull,
+                tolerance_ceil=tolerance_ceil,
                 ss_type=ss_type,
                 m=m,
                 save_results=save_results,
@@ -123,7 +124,8 @@ if __name__ == "__main__":
     # the nodes should not have a train dataset
     nodes = create_nodes(
         node_test_sets, settings['number_of_nodes'], save_results=settings['save_results'],
-        coef_usefull=settings['coef_usefull'], ss_type=settings['secret_sharing'], m=settings['m'],
+        coef_usefull=settings['coef_usefull'], tolerance_ceil=settings['tolerance_ceil'], 
+        ss_type=settings['secret_sharing'], m=settings['m'],
         dp=settings['diff_privacy'], model_choice=settings['arch'], batch_size=settings['batch_size'],
         classes=list_classes, choice_loss=settings['choice_loss'], choice_optimizer=settings['choice_optimizer'],
         choice_scheduler=settings['choice_scheduler'],  save_figure=None, matrix_path=settings['matrix_path'],
