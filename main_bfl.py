@@ -211,7 +211,7 @@ if __name__ == "__main__":
 
         nodes[0].create_global_model()
 
-        time.sleep(20)
+        time.sleep(40)
 
     nodes[0].blockchain.print_blockchain()
 

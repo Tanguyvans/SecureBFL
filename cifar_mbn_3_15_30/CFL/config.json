@@ -1,0 +1,28 @@
+{
+    "settings": {
+        "name_dataset": "cifar",
+        "arch": "mobilenet",
+        "pretrained": true,
+        "patience": 3,
+        "batch_size": 32,
+        "n_epochs": 15,
+        "tolerance_ceil": 0.08,
+        "poisoned_number": 3,
+        "n_rounds": 30,
+        "choice_loss": "cross_entropy",
+        "choice_optimizer": "Adam",
+        "lr": 0.001,
+        "choice_scheduler": "StepLR",
+        "step_size": 3,
+        "gamma": 0.5,
+        "diff_privacy": false,
+        "ts": 10,
+        "data_root": "Data",
+        "roc_path": null,
+        "matrix_path": null,
+        "save_results": "results/CFL/",
+        "save_model": "models/CFL/",
+        "n_clients": 18,
+        "length": 32
+    }
+}

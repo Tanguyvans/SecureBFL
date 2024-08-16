@@ -1,17 +1,17 @@
 settings = {
-    "name_dataset": "cifar",  # "cifar" or "mnist" or "alzheimer"
+    "name_dataset": "alzheimer",  # "cifar" or "mnist" or "alzheimer"
     "arch": "mobilenet",  # "simpleNet" or "CNNCifar" or "mobilenet"
     "pretrained": True,
     "patience": 3,
     "batch_size": 32,
     "n_epochs": 15,
-    "number_of_nodes": 1,
-    "number_of_clients_per_node": 18,
+    "number_of_nodes": 3,
+    "number_of_clients_per_node": 6,
     "min_number_of_clients_in_cluster": 3,
     "coef_usefull": 1.05,   # 1.05
     "tolerance_ceil": 0.08,
-    "poisoned_number": 6,
-    "n_rounds": 50,
+    "poisoned_number": 0,
+    "n_rounds": 25,
     "choice_loss": "cross_entropy",
     "choice_optimizer": "Adam",
     "lr": 0.001,
