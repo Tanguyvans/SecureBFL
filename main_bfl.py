@@ -203,15 +203,15 @@ if __name__ == "__main__":
                     client.send_frag_node()
                     time.sleep(5)
 
-                time.sleep(10)
+                time.sleep(20)
 
-            time.sleep(20)
+            time.sleep(30)
 
         # ## global model creation
 
         nodes[0].create_global_model()
 
-        time.sleep(40)
+        time.sleep(60)
 
     nodes[0].blockchain.print_blockchain()
 

@@ -5,9 +5,7 @@
 /models
 /env
 /keys
-node*.txt
 results*
-evaluation*.txt
 *.pyc
 client_test.py
 *__pycache__
