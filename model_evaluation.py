@@ -113,9 +113,10 @@ if __name__ == '__main__':
             f.write(f"{model_file}: {loss}, {acc} \n")
 
     # %%
-    model_file = get_global_model_storage_reference(path_nodetxt)  # model_file = "m80_1723036980_bd6437ad.npz"
+    if training_approach == "BFL":
+        model_file = get_global_model_storage_reference(path_nodetxt)
 
-    loaded_weights_dict = np.load(model_file, allow_pickle=True)
-    loaded_weights = [val for key, val in loaded_weights_dict.items() if 'len_dataset' not in key]
-    metrics = flower_client.evaluate(loaded_weights, {'name': 'global_test_model_file_best_'})
-    print(metrics)
+        loaded_weights_dict = np.load(model_file, allow_pickle=True)
+        loaded_weights = [val for key, val in loaded_weights_dict.items() if 'len_dataset' not in key]
+        metrics = flower_client.evaluate(loaded_weights, {'name': 'global_test_model_file_best_'})
+        print(metrics)
