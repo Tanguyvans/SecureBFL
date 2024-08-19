@@ -134,6 +134,9 @@ class PBFTProtocol(ConsensusProtocol):
 
         is_global_model = message["model_type"] in ["first_global_model", "global_model"]
 
+        with open("results/BFL/output.txt", "a") as file:
+            file.write(f"node: {self.node_id} model: {message['storage_reference']} commit_counts: {self.commit_counts[block_hash]} \n")
+
         if is_global_model or self.can_commit(block_hash):
             logging.info("Node %s committing block %s", self.node_id, block_hash)
 
