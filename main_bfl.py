@@ -203,15 +203,16 @@ if __name__ == "__main__":
                     client.send_frag_node()
                     time.sleep(5)
 
-                time.sleep(20)
+                time.sleep(10)
 
-            time.sleep(30)
+            time.sleep(15)
 
-        # ## global model creation
+        with open("results/BFL/output.txt", "a") as f:
+            f.write(f"Node {i + 1} : Global model creation\n")
 
         nodes[0].create_global_model()
 
-        time.sleep(60)
+        time.sleep(20)
 
     nodes[0].blockchain.print_blockchain()
 

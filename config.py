@@ -11,7 +11,7 @@ settings = {
     "coef_usefull": 1.05,   # 1.05
     "tolerance_ceil": 0.08,
     "poisoned_number": 6,
-    "n_rounds": 50,
+    "n_rounds": 20,
     "choice_loss": "cross_entropy",
     "choice_optimizer": "Adam",
     "lr": 0.001,

@@ -117,8 +117,9 @@ class PBFTProtocol(ConsensusProtocol):
             message["previous_hash"]
         )
 
+        is_global_model = message["model_type"] in ["first_global_model", "global_model"]
 
-        if self.can_commit(block_hash):
+        if is_global_model or self.can_commit(block_hash):
             logging.info("Node %s committing block %s", self.node_id, block_hash)
 
             if self.validate_block(message):
