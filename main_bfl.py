@@ -206,9 +206,9 @@ if __name__ == "__main__":
                     client.send_frag_node()
                     time.sleep(5)
 
-                time.sleep(10)
+                time.sleep(15)
 
-            time.sleep(20)
+            time.sleep(15)
 
         nodes[0].create_global_model()
 
