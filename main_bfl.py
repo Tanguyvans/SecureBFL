@@ -205,7 +205,7 @@ if __name__ == "__main__":
 
                 time.sleep(10)
 
-            time.sleep(15)
+            time.sleep(20)
 
         with open("results/BFL/output.txt", "a") as f:
             f.write(f"Node {i + 1} : Global model creation\n")

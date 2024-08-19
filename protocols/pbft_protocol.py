@@ -74,8 +74,27 @@ class PBFTProtocol(ConsensusProtocol):
         self.prepare_counts[block_hash] += 1
 
         if self.is_prepared(block_hash): 
+            if message["model_type"] == "update": 
+                if message["storage_reference"] not in self.model_usefullness: 
+                    self.model_usefullness[message["storage_reference"]] = self.node.is_update_usefull(message["storage_reference"], message["participants"])
 
-            self.check_and_count_votes(block_hash, message)
+                message["usefull"] = self.model_usefullness[message["storage_reference"]]
+
+                if block_hash not in self.commit_counts: 
+                    self.commit_counts[block_hash] = {"count": 0, "senders": []}
+
+                if message["usefull"] == True and self.node_id not in self.commit_counts[block_hash]["senders"]:
+                    self.commit_counts[block_hash]["count"] += 1
+                    self.commit_counts[block_hash]["senders"].append(self.node_id)
+            else:
+                message["usefull"] = True
+
+                if block_hash not in self.commit_counts: 
+                    self.commit_counts[block_hash] = {"count": 0, "senders": []}
+
+                if message["usefull"] == True and self.node_id not in self.commit_counts[block_hash]["senders"]:
+                    self.commit_counts[block_hash]["count"] += 1
+                    self.commit_counts[block_hash]["senders"].append(self.node_id)
 
             commit_message = {"type": "commit", "content": message}
             self.node.broadcast_message(commit_message)
@@ -89,7 +108,20 @@ class PBFTProtocol(ConsensusProtocol):
         logging.info("Node %s received commit for block %s", self.node_id, message)
         block_hash = message["current_hash"]
 
-        self.check_and_count_votes(block_hash, message)
+        if message["model_type"] == "update": 
+            if block_hash not in self.commit_counts: 
+                self.commit_counts[block_hash] = {"count": 0, "senders": []}
+
+            if sender not in self.commit_counts[block_hash]["senders"] and message["usefull"] == True: 
+                self.commit_counts[block_hash]["count"] += 1
+                self.commit_counts[block_hash]["senders"].append(sender)
+        else: 
+            if block_hash not in self.commit_counts: 
+                self.commit_counts[block_hash] = {"count": 0, "senders": []}
+
+            if sender not in self.commit_counts[block_hash]["senders"]: 
+                self.commit_counts[block_hash]["count"] += 1
+                self.commit_counts[block_hash]["senders"].append(sender)
 
         block = Block(
             message["index"], 
@@ -100,7 +132,9 @@ class PBFTProtocol(ConsensusProtocol):
             message["previous_hash"]
         )
 
-        if self.can_commit(block_hash):
+        is_global_model = message["model_type"] in ["first_global_model", "global_model"]
+
+        if is_global_model or self.can_commit(block_hash):
             logging.info("Node %s committing block %s", self.node_id, block_hash)
 
             if self.validate_block(message):
@@ -177,29 +211,6 @@ class PBFTProtocol(ConsensusProtocol):
 
         return new_block
     
-    def check_and_count_votes(self, block_hash, message):
-        if message["model_type"] == "update": 
-            if message["storage_reference"] not in self.model_usefullness: 
-                self.model_usefullness[message["storage_reference"]] = self.node.is_update_usefull(message["storage_reference"], message["participants"])
-
-            message["usefull"] = self.model_usefullness[message["storage_reference"]]
-
-            if block_hash not in self.commit_counts: 
-                self.commit_counts[block_hash] = {"count": 0, "senders": []}
-
-            if message["usefull"] == True and self.node_id not in self.commit_counts[block_hash]["senders"]:
-                self.commit_counts[block_hash]["count"] += 1
-                self.commit_counts[block_hash]["senders"].append(self.node_id)
-        else:
-            message["usefull"] = True
-
-            if block_hash not in self.commit_counts: 
-                self.commit_counts[block_hash] = {"count": 0, "senders": []}
-
-            if message["usefull"] == True and self.node_id not in self.commit_counts[block_hash]["senders"]:
-                self.commit_counts[block_hash]["count"] += 1
-                self.commit_counts[block_hash]["senders"].append(self.node_id)
-
     def is_prepared(self, id):
         return self.prepare_counts[id] >= 1
 
