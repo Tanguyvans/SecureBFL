@@ -181,6 +181,9 @@ if __name__ == "__main__":
         # ## Creation of the clusters + client to client connections ###
         cluster_generation(nodes, clients, settings['min_number_of_clients_in_cluster'], settings['number_of_nodes'])
 
+        with open("results/BFL/output.txt", "a") as f:
+            f.write(f"### ROUND {round_i + 1} ###\n")
+
         # ## training ###
         for i in range(settings['number_of_nodes']):
             print(f"Node {i + 1} : Training\n")
@@ -206,9 +209,6 @@ if __name__ == "__main__":
                 time.sleep(10)
 
             time.sleep(20)
-
-        with open("results/BFL/output.txt", "a") as f:
-            f.write(f"Node {i + 1} : Global model creation\n")
 
         nodes[0].create_global_model()
 
