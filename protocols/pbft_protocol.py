@@ -51,6 +51,10 @@ class PBFTProtocol(ConsensusProtocol):
         message = {"type": "pre-prepare", "content": block.to_dict()}
         self.node.broadcast_message(message)
 
+        if block.model_type == "update": 
+            if block.storage_reference not in self.model_usefullness: 
+                self.model_usefullness[block.storage_reference] = self.node.is_update_usefull(block.storage_reference, block.participants)
+
         return "requested"
 
     def pre_prepare(self, message):
@@ -96,6 +100,9 @@ class PBFTProtocol(ConsensusProtocol):
                     self.commit_counts[block_hash]["count"] += 1
                     self.commit_counts[block_hash]["senders"].append(self.node_id)
 
+            with open("results/BFL/output.txt", "a") as file:
+                file.write(f"node: {self.node_id} model: {message['storage_reference']} message['usefull']: {message['usefull']} commit_counts: {self.commit_counts[block_hash]} \n")
+
             commit_message = {"type": "commit", "content": message}
             self.node.broadcast_message(commit_message)
             logging.info("Node %s prepared block to %s", self.node_id, self.node.peers)
@@ -135,7 +142,7 @@ class PBFTProtocol(ConsensusProtocol):
         is_global_model = message["model_type"] in ["first_global_model", "global_model"]
 
         with open("results/BFL/output.txt", "a") as file:
-            file.write(f"node: {self.node_id} model: {message['storage_reference']} commit_counts: {self.commit_counts[block_hash]} \n")
+            file.write(f"node: {self.node_id} model: {message['storage_reference']} sender: {sender} message['usefull']: {message['usefull']} commit_counts: {self.commit_counts[block_hash]} \n")
 
         if is_global_model or self.can_commit(block_hash):
             logging.info("Node %s committing block %s", self.node_id, block_hash)
@@ -183,21 +190,6 @@ class PBFTProtocol(ConsensusProtocol):
             return False
         
         return True
-
-        # if block_data["model_type"] == "update": 
-        #     if block_data["storage_reference"] not in self.model_usefullness: 
-        #         self.model_usefullness[block_data["storage_reference"]] = self.node.is_update_usefull(block_data["storage_reference"], block_data["participants"])
-
-        #     return self.model_usefullness[block_data["storage_reference"]]
-
-        if block_data["model_type"] == "global_model":
-            # return self.node.is_global_valid(block_data["calculated_hash"])
-            return True
-
-        if block_data["model_type"] == "first_global_model":
-            return True
-        
-        return False
 
     def create_block_from_request(self, content):
         previous_blocks = self.blockchain.blocks

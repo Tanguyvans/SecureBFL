@@ -173,7 +173,7 @@ if __name__ == "__main__":
 
     nodes[0].create_first_global_model_request()
 
-    time.sleep(settings['ts']*2)
+    time.sleep(10)
 
     # training and SMPC
     for round_i in range(settings['n_rounds']):
@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
         nodes[0].create_global_model()
 
-        time.sleep(20)
+        time.sleep(15)
 
     nodes[0].blockchain.print_blockchain()
 
