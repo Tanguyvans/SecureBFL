@@ -9,8 +9,8 @@ settings = {
     "number_of_clients_per_node": 6,
     "min_number_of_clients_in_cluster": 3,
     "coef_usefull": 1.05,   # 1.05
-    "tolerance_ceil": 0.08,
-    "poisoned_number": 0,
+    "tolerance_ceil": 0.06,
+    "poisoned_number": 1,
     "n_rounds": 25,
     "choice_loss": "cross_entropy",
     "choice_optimizer": "Adam",
@@ -22,5 +22,5 @@ settings = {
     "secret_sharing": "additif",  # "additif" or "shamir"
     "k": 3,
     "m": 3,
-    "ts": 10
+    "ts": 20
 }

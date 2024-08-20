@@ -1,4 +1,5 @@
 import logging
+import time
 
 from block import Block
 from protocols.consensus_protocol import ConsensusProtocol
@@ -51,10 +52,6 @@ class PBFTProtocol(ConsensusProtocol):
         message = {"type": "pre-prepare", "content": block.to_dict()}
         self.node.broadcast_message(message)
 
-        if block.model_type == "update": 
-            if block.storage_reference not in self.model_usefullness: 
-                self.model_usefullness[block.storage_reference] = self.node.is_update_usefull(block.storage_reference, block.participants)
-
         return "requested"
 
     def pre_prepare(self, message):
@@ -102,6 +99,8 @@ class PBFTProtocol(ConsensusProtocol):
 
             with open("results/BFL/output.txt", "a") as file:
                 file.write(f"node: {self.node_id} model: {message['storage_reference']} message['usefull']: {message['usefull']} commit_counts: {self.commit_counts[block_hash]} \n")
+
+            time.sleep(10)
 
             commit_message = {"type": "commit", "content": message}
             self.node.broadcast_message(commit_message)

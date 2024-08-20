@@ -173,7 +173,7 @@ if __name__ == "__main__":
 
     nodes[0].create_first_global_model_request()
 
-    time.sleep(10)
+    time.sleep(settings['ts'])
 
     # training and SMPC
     for round_i in range(settings['n_rounds']):
@@ -206,13 +206,13 @@ if __name__ == "__main__":
                     client.send_frag_node()
                     time.sleep(5)
 
-                time.sleep(15)
+                time.sleep(settings['ts'])
 
-            time.sleep(15)
+            time.sleep(settings['ts'])
 
         nodes[0].create_global_model()
 
-        time.sleep(15)
+        time.sleep(settings['ts'])
 
     nodes[0].blockchain.print_blockchain()
 
