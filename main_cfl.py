@@ -443,3 +443,5 @@ if __name__ == "__main__":
 
         time.sleep(settings['ts'])
         client_weights = []
+
+    print("This is the end")
