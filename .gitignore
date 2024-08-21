@@ -5,9 +5,10 @@
 /models
 /env
 /keys
-results*
+results/*
 *.pyc
 client_test.py
 *__pycache__
 Data/*
 test.py
+*.png
