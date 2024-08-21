@@ -1,0 +1,28 @@
+{
+    "settings": {
+        "name_dataset": "alzheimer",
+        "arch": "mobilenet",
+        "pretrained": true,
+        "patience": 3,
+        "batch_size": 32,
+        "n_epochs": 15,
+        "tolerance_ceil": 0.08,
+        "poisoned_number": 6,
+        "n_rounds": 25,
+        "choice_loss": "cross_entropy",
+        "choice_optimizer": "Adam",
+        "lr": 0.001,
+        "choice_scheduler": "StepLR",
+        "step_size": 3,
+        "gamma": 0.5,
+        "diff_privacy": false,
+        "ts": 10,
+        "data_root": "Data",
+        "roc_path": null,
+        "matrix_path": null,
+        "save_results": "/Users/lco/Downloads/results2/mobilenet/6_poison/results/CFL/",
+        "save_model": "/Users/lco/Downloads/results2/mobilenet/6_poison/models/CFL/",
+        "n_clients": 18,
+        "length": 32
+    }
+}
