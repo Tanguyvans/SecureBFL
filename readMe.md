@@ -1,6 +1,14 @@
 # DFL Architecture with PBFT Protocol
 
-Welcome to the Decentralized Federated Learning (DFL) project! This endeavor focuses on redefining machine learning through a decentralized approach. By creating a network of multiple nodes, we enable collaborative model training with a strong emphasis on security and reliability, thanks to the integration of the Practical Byzantine Fault Tolerance (PBFT) protocol.
+SecureBFL is a decentralized federated learning framework that leverages the Practical Byzantine Fault Tolerance (PBFT) protocol to ensure secure and reliable model training in a decentralized manner. To ensure the privacy of the model, we use Multi-party Computation (SMPC) technique.
+
+## How it works
+
+The architecture of SecureBFL is illustrated in the following image:
+
+![SecureBFL Architecture](img/global.png)
+
+## Structure
 
 ## Protocol
 
