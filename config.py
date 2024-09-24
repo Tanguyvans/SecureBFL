@@ -1,5 +1,5 @@
 settings = {
-    "name_dataset": "alzheimer",  # "cifar" or "mnist" or "alzheimer"
+    "name_dataset": "cifar",  # "cifar" or "mnist"
     "arch": "mobilenet",  # "simpleNet" or "CNNCifar" or "mobilenet"
     "pretrained": True,
     "patience": 3,

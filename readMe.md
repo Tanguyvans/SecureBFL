@@ -6,7 +6,7 @@ SecureBFL is a decentralized federated learning framework that leverages the Pra
 
 The architecture of SecureBFL is illustrated in the following image:
 
-![SecureBFL Architecture](img/global.png)
+<img src="img/global.png" alt="SecureBFL Architecture" width="500" height="auto">
 
 ## Structure
 
@@ -24,17 +24,37 @@ Run the following command to install the required dependencies from the requirem
 
 pip install -r requirements.txt
 
-### TODO
+### Set up the configuration:
 
-- [ ] Applify the evaluation metrics (only loss is implemented)
-- [ ] Find and use another dataset
-- [ ] Apply other smpc techniques
+### Set up the configuration:
 
-### Run the Main Script:
+You can set up the configuration in the `config.py` file. Here's an overview of some key settings:
+
+- `name_dataset`: Choose between "cifar" or "mnist" datasets.
+- `arch`: Select the model architecture ("simpleNet", "CNNCifar", or "mobilenet").
+- `pretrained`: Whether to use pretrained weights (True/False).
+- `batch_size`: Number of samples per batch during training.
+- `n_epochs`: Number of training epochs.
+- `number_of_nodes`: Number of nodes in the network.
+- `number_of_clients_per_node`: Number of clients connected to each node.
+- `min_number_of_clients_in_cluster`: Minimum number of clients required in a cluster.
+- `n_rounds`: Number of federated learning rounds.
+- `choice_loss`: Loss function to use (e.g., "cross_entropy").
+- `choice_optimizer`: Optimization algorithm (e.g., "Adam").
+- `lr`: Learning rate for the optimizer.
+- `choice_scheduler`: Learning rate scheduler (e.g., "StepLR" or None).
+- `diff_privacy`: Whether to use differential privacy (True/False).
+- `secret_sharing`: Type of secret sharing scheme ("additif" or "shamir").
+- `k` and `m`: Parameters for secret sharing (k-out-of-m scheme).
+- `ts`: Time step parameter.
+
+Adjust these settings according to your specific requirements and experimental setup.
+
+### Run the SecureBFL:
 
 Execute the main script main.py to initiate the DFL architecture and start the federated learning process:
 
-python main.py
+python main_bfl.py
 
 ### View Outputs:
 
