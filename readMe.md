@@ -8,8 +8,6 @@ The architecture of SecureBFL is illustrated in the following image:
 
 <img src="img/global.png" alt="SecureBFL Architecture" width="500" height="auto">
 
-## Structure
-
 ## Protocol
 
 The Practical Byzantine Fault Tolerance (PBFT) protocol is a consensus algorithm designed for distributed systems. It ensures agreement among nodes even in the presence of faulty or malicious actors. PBFT allows nodes to reach consensus through a series of message exchanges, and it guarantees system integrity as long as fewer than one-third of the nodes are faulty. This makes PBFT a robust choice for applications like decentralized federated learning, providing a reliable method for achieving agreement and consistency in distributed environments.
@@ -22,9 +20,9 @@ To get started with the DFL architecture using the PBFT protocol, follow these s
 
 Run the following command to install the required dependencies from the requirements.txt file:
 
+```
 pip install -r requirements.txt
-
-### Set up the configuration:
+```
 
 ### Set up the configuration:
 
@@ -54,7 +52,9 @@ Adjust these settings according to your specific requirements and experimental s
 
 Execute the main script main.py to initiate the DFL architecture and start the federated learning process:
 
+```
 python main_bfl.py
+```
 
 ### View Outputs:
 
