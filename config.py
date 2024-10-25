@@ -1,17 +1,17 @@
 settings = {
-    "name_dataset": "cifar",  # "cifar" or "mnist"
+    "name_dataset": "caltech256",  # "cifar10" or "cifar100" or "caltech256" or "mnist" 
     "arch": "mobilenet",  # "simpleNet" or "CNNCifar" or "mobilenet"
     "pretrained": True,
     "patience": 3,
     "batch_size": 32,
-    "n_epochs": 15,
+    "n_epochs": 5,
     "number_of_nodes": 3,
-    "number_of_clients_per_node": 6,
+    "number_of_clients_per_node": 3,
     "min_number_of_clients_in_cluster": 3,
-    "coef_usefull": 1.05,   # 1.05
+    "coef_useful": 1.05,   # 1.05
     "tolerance_ceil": 0.06,
     "poisoned_number": 1,
-    "n_rounds": 25,
+    "n_rounds": 10,
     "choice_loss": "cross_entropy",
     "choice_optimizer": "Adam",
     "lr": 0.001,

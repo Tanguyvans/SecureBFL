@@ -133,16 +133,15 @@ class Client:
 
 
 class Node:
-    def __init__(self, id, host, port, test, save_results, **kwargs):
+    def __init__(self, id, host, port, test, save_results, coef_useful=1.05, tolerance_ceil=0.06, **kwargs):
         self.id = id
         self.host = host
         self.port = port
-
         self.clients = {}
-
         self.global_params_directory = ""
-
         self.save_results = save_results
+        self.coef_useful = coef_useful
+        self.tolerance_ceil = tolerance_ceil
 
         private_key_path = f"keys/{id}_private_key.pem"
         public_key_path = f"keys/{id}_public_key.pem"
@@ -151,7 +150,7 @@ class Node:
         x_test, y_test = test
 
         self.flower_client = FlowerClient.node(
-            x_test=x_test,
+            x_test=x_test, 
             y_test=y_test,
             **kwargs
         )
@@ -249,23 +248,28 @@ class Node:
         self.broadcast_model_to_clients(filename)
 
     def create_global_model(self, weights, index, two_step=False):
+        useful_weights = []
+        
+        for i, client_weights in enumerate(weights):
+            # Évaluer le modèle du client
+            client_metrics = self.flower_client.evaluate(client_weights, {'name': f'Client model {i}'})
+            
+            # Comparer avec le modèle global actuel
+            current_global_metrics = self.flower_client.evaluate(self.flower_client.get_parameters({}), {'name': 'Current global model'})
+            
+            # Vérifier si le modèle du client est utile
+            if self.is_update_useful(client_metrics, current_global_metrics):
+                useful_weights.append((client_weights, 10))  # Le 10 est un poids arbitraire, vous pouvez l'ajuster
+                print(f"Client model {i} is useful and will be included in aggregation")
+            else:
+                print(f"Client model {i} is not useful and will be excluded from aggregation")
 
-        if two_step:
-            cluster_weights = []
-            for i in range(0, len(weights), 3):
-                aggregated_weights = aggregate([(weights[j], 10) for j in range(i, i + 3)])
-                cluster_weights.append(aggregated_weights)
-                metrics = self.flower_client.evaluate(aggregated_weights, {'name': f'Node {self.id}_Clusters {i}'})
-                with open(self.save_results + "output.txt", "a") as fi:
-                    fi.write(f"cluster {i // 3} node {self.id} {metrics} \n")
+        if not useful_weights:
+            print("No useful client models found. Keeping the current global model.")
+            return
 
-            aggregated_weights = aggregate(
-                [(weights_i, 10) for weights_i in cluster_weights]
-            )
-        else:
-            aggregated_weights = aggregate(
-                [(weights_i, 10) for weights_i in weights]
-            )
+        # Agréger uniquement les modèles utiles
+        aggregated_weights = aggregate(useful_weights)
 
         metrics = self.flower_client.evaluate(aggregated_weights, {})
 
@@ -277,10 +281,14 @@ class Node:
         torch.save(global_model, filename)
 
         with open(self.save_results + "output.txt", "a") as fi:
-            fi.write(f"flower aggregation {metrics} \n")
+            fi.write(f"Round {index}, Global aggregation: {metrics}\n")
 
-        print(f"flower aggregation {metrics}")
+        print(f"Round {index}, Global aggregation: {metrics}")
         self.broadcast_model_to_clients(filename)
+
+    def is_update_useful(self, update_metrics, global_metrics):
+        allowed_unimprovement = min(self.tolerance_ceil, global_metrics['test_loss'] * (self.coef_useful - 1))
+        return update_metrics['test_loss'] <= global_metrics['test_loss'] + allowed_unimprovement
 
     def get_keys(self, private_key_path, public_key_path):
         # same
@@ -296,16 +304,12 @@ class Node:
         self.clients[c_id] = {"address": client_address, "public_key": public_key}
         print(self.clients)
 
-
-client_weights = []
-
 def train_client(client_obj):
     weights = client_obj.train()  # Train the client
     client_weights.append(weights)
     training_barrier.wait()  # Wait here until all clients have trained
 
-def create_nodes(test_sets, number_of_nodes, save_results, **kwargs):
-    # The same as the create_nodes() function in main.py but without the smpc and blockchain parameters
+def create_nodes(test_sets, number_of_nodes, save_results, coef_useful, tolerance_ceil, **kwargs):
     list_nodes = []
     for i in range(number_of_nodes):
         list_nodes.append(
@@ -315,6 +319,8 @@ def create_nodes(test_sets, number_of_nodes, save_results, **kwargs):
                 port=6010 + i,
                 test=test_sets[i],
                 save_results=save_results,
+                coef_useful=coef_useful,
+                tolerance_ceil=tolerance_ceil,
                 **kwargs
             )
         )
@@ -366,8 +372,10 @@ if __name__ == "__main__":
     # the nodes should not have a train dataset
     server = create_nodes(
         node_test_sets, 1, save_results=settings['save_results'],
-        dp=settings['diff_privacy'], model_choice=settings['arch'],  batch_size=settings['batch_size'],
-        classes=list_classes, choice_loss=settings['choice_loss'],  choice_optimizer=settings['choice_optimizer'],
+        coef_useful=settings['coef_useful'],
+        tolerance_ceil=settings['tolerance_ceil'],
+        dp=settings['diff_privacy'], model_choice=settings['arch'], batch_size=settings['batch_size'],
+        classes=list_classes, choice_loss=settings['choice_loss'], choice_optimizer=settings['choice_optimizer'],
         choice_scheduler=settings['choice_scheduler'], save_figure=None, matrix_path=settings['matrix_path'],
         roc_path=settings['roc_path'], pretrained=settings['pretrained'],
         save_model=settings['save_model']
@@ -403,12 +411,13 @@ if __name__ == "__main__":
     server.create_first_global_model()
     time.sleep(10)
 
+    client_weights = []
+
     # ## training and SMPC
     for round_i in range(settings['n_rounds']):
         print(f"### ROUND {round_i + 1} ###")
 
-        # ## training ###
-        # For 1 node
+        # Training
         threads = []
         for client in node_clients.values():
             t = threading.Thread(target=train_client, args=(client,))
@@ -418,9 +427,8 @@ if __name__ == "__main__":
         for t in threads:
             t.join()
 
-        # No SMPC
+        # Agrégation avec vérification d'utilité
         server.create_global_model(client_weights, round_i + 1, two_step=False)
-
 
         time.sleep(settings['ts'])
         client_weights = []

@@ -12,6 +12,8 @@ from going_modular.security import data_poisoning
 import warnings
 
 from config import settings
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 warnings.filterwarnings("ignore")
 
