@@ -5,78 +5,6 @@ from torch.hub import load_state_dict_from_url
 import torchvision.models as models
 import math
 
-
-class CNNCifar(nn.Module):
-    def __init__(self, num_classes=10):
-        super(CNNCifar, self).__init__()
-
-        self.conv1 = nn.Conv2d(3, 64, 5)
-        self.pool = nn.MaxPool2d(3, 2)
-        self.conv2 = nn.Conv2d(64, 64, 5)
-        self.fc1 = nn.Linear(64 * 4 * 4, 384)
-        self.fc2 = nn.Linear(384, 192)
-        self.fc3 = nn.Linear(192, num_classes)
-
-    def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 64 * 4 * 4)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-
-        # return F.log_softmax(x, dim=1)
-        # Note: the softmax function is not used here because it is included in the loss function
-        return x
-
-
-class CNNMnist(nn.Module):
-    def __init__(self):
-        super(CNNMnist, self).__init__()
-        self.fc1 = nn.Linear(28*28, 500)
-        self.fc2 = nn.Linear(500, 10)
-
-    def forward(self, x):
-        x = x.view(-1, 28*28)  # Aplatir les images en un vecteur de 28*28
-        x = torch.relu(self.fc1(x))
-        x = self.fc2(x)
-        # return F.log_softmax(x, dim=1)
-        # Note: the softmax function is not used here because it is included in the loss function
-        return x
-
-
-class SimpleNetMnist(nn.Module):
-    """
-    A simple CNN model for MNIST
-    """
-    def __init__(self, num_classes=10, input_channels=3) -> None:
-        super(SimpleNetMnist, self).__init__()
-        # 3 input image channel, 6 output channels, 5x5 square convolution
-        self.conv1 = nn.Conv2d(input_channels, 6, 5)
-        # Max pooling over a (2, 2) window
-        self.pool = nn.MaxPool2d(2, 2)
-        # 6 input image channel, 16 output channels, 5x5 square convolution
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        # an affine operation: y = Wx + b
-        self.fc1 = nn.Linear(16 * 4 * 4, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, num_classes)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the neural network
-        """
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        # Flatten the tensor into a vector
-        x = x.view(x.size(0), -1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        # output layer
-        x = self.fc3(x)
-        return x
-
-
 class SimpleNet(nn.Module):
     """
     A simple CNN model
@@ -138,7 +66,6 @@ class SimpleNet(nn.Module):
         # Note: the softmax function is not used here because it is included in the loss function
         return x
 
-
 class EfficientNet(nn.Module):
     """
     A CNN model based on EfficientNet (B0 or B4)
@@ -184,7 +111,6 @@ class EfficientNet(nn.Module):
 
         return (out, features) if return_features else out
 
-
 class MobileNet(nn.Module):
     """
     A CNN model based on MobileNet (V2)
@@ -203,7 +129,6 @@ class MobileNet(nn.Module):
 
     def forward(self, x):
         return self.model(x)
-
 
 class SqueezeNet(nn.Module):
     def __init__(self, num_classes=10, pretrained=True):
@@ -229,7 +154,6 @@ class SqueezeNet(nn.Module):
             return out, features
 
         return out
-
 
 class ResNet(nn.Module):
     def __init__(self, num_classes=10, arch="resnet18", pretrained=True):
@@ -262,8 +186,6 @@ class ResNet(nn.Module):
 
         return out
 
-
-# generic class to choose the architecture of the model
 class Net(nn.Module):
     """
     This is a generic class to choose the architecture of the model.
@@ -277,19 +199,11 @@ class Net(nn.Module):
         print("Number of classes : ", num_classes, " and the architecture is : ", arch)
         if "simplenet" in arch.lower():
             self.model = SimpleNet(num_classes=num_classes)
-
         elif "efficientnet" in arch.lower():
             self.model = EfficientNet(num_classes=num_classes, arch=arch, pretrained=pretrained)
-
         elif "mobilenet" in arch.lower():
             self.model = MobileNet(num_classes=num_classes, pretrained=pretrained)
-
-        elif "cifar" in arch.lower():
-            self.model = CNNCifar()
-
-        elif "mnist" in arch.lower():
-            self.model = CNNMnist()
-        elif "squeeze" in arch.lower():
+        elif "squeezenet" in arch.lower():
             self.model = SqueezeNet(num_classes=num_classes, pretrained=pretrained)
         elif "resnet" in arch.lower():
             self.model = ResNet(num_classes=num_classes, arch=arch, pretrained=pretrained)

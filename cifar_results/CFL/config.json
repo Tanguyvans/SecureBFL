@@ -1,15 +1,13 @@
 {
     "settings": {
-        "name_dataset": "alzheimer",
+        "name_dataset": "cifar10",
         "arch": "mobilenet",
         "pretrained": true,
         "patience": 3,
         "batch_size": 32,
         "n_epochs": 15,
-        "number_of_nodes": 3,
-        "number_of_clients_per_node": 6,
-        "min_number_of_clients_in_cluster": 3,
-        "coef_usefull": 1.05,
+        "check_usefulness": false,
+        "coef_useful": 1.05,
         "tolerance_ceil": 0.06,
         "poisoned_number": 0,
         "n_rounds": 25,
@@ -20,16 +18,12 @@
         "step_size": 3,
         "gamma": 0.5,
         "diff_privacy": false,
-        "secret_sharing": "additif",
-        "k": 3,
-        "m": 3,
-        "ts": 10,
+        "ts": 20,
         "data_root": "Data",
         "roc_path": null,
         "matrix_path": null,
-        "save_results": "results/BFL/",
-        "save_model": "models/BFL/",
-        "length": 32,
-        "poisoning_type": "distribution"
+        "save_results": "results/CFL/",
+        "save_model": "models/CFL/",
+        "n_clients": 18
     }
 }

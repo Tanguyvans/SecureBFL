@@ -27,7 +27,7 @@ def initialize_parameters(settings, training_approach):
         [settings.pop(key, None) for key in ["number_of_clients_per_node",
                                              "number_of_nodes",
                                              "min_number_of_clients_in_cluster",
-                                             "coef_usefull",
+                                             "coef_useful",
                                              "k",
                                              "m",
                                              "secret_sharing"]]
@@ -41,8 +41,7 @@ def initialize_parameters(settings, training_approach):
               "\tNumber of Clients per Cluster: ", settings["min_number_of_clients_in_cluster"], "\n")
 
     os.makedirs(settings["save_results"], exist_ok=True)
-    length = 32   # if settings['name_dataset'] == 'alzheimer' else None
-    return training_barrier, length
+    return training_barrier, None
 
 
 def sMAPE(outputs, targets):

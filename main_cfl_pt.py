@@ -131,15 +131,15 @@ class Client:
         # same
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
 
-
 class Node:
-    def __init__(self, id, host, port, test, save_results, coef_useful=1.05, tolerance_ceil=0.06, **kwargs):
+    def __init__(self, id, host, port, test, save_results, check_usefulness, coef_useful=1.05, tolerance_ceil=0.06, **kwargs):
         self.id = id
         self.host = host
         self.port = port
         self.clients = {}
         self.global_params_directory = ""
         self.save_results = save_results
+        self.check_usefulness = check_usefulness
         self.coef_useful = coef_useful
         self.tolerance_ceil = tolerance_ceil
 
@@ -156,7 +156,6 @@ class Node:
         )
 
     def start_server(self):
-        # same
         start_server(self.host, self.port, self.handle_message, self.id)
 
     def handle_message(self, client_socket):
@@ -251,18 +250,18 @@ class Node:
         useful_weights = []
         
         for i, client_weights in enumerate(weights):
-            # Évaluer le modèle du client
-            client_metrics = self.flower_client.evaluate(client_weights, {'name': f'Client model {i}'})
+            if self.check_usefulness:
+                client_metrics = self.flower_client.evaluate(client_weights, {'name': f'Client model {i}'})
+                current_global_metrics = self.flower_client.evaluate(self.flower_client.get_parameters({}), {'name': 'Current global model'})
             
-            # Comparer avec le modèle global actuel
-            current_global_metrics = self.flower_client.evaluate(self.flower_client.get_parameters({}), {'name': 'Current global model'})
-            
-            # Vérifier si le modèle du client est utile
-            if self.is_update_useful(client_metrics, current_global_metrics):
-                useful_weights.append((client_weights, 10))  # Le 10 est un poids arbitraire, vous pouvez l'ajuster
-                print(f"Client model {i} is useful and will be included in aggregation")
+                if self.is_update_useful(client_metrics, current_global_metrics):
+                    useful_weights.append((client_weights, 10))  # Le 10 est un poids arbitraire, vous pouvez l'ajuster
+                    print(f"Client model {i} is useful and will be included in aggregation")
+                else:
+                    print(f"Client model {i} is not useful and will be excluded from aggregation")
+
             else:
-                print(f"Client model {i} is not useful and will be excluded from aggregation")
+                useful_weights.append((client_weights, 10))
 
         if not useful_weights:
             print("No useful client models found. Keeping the current global model.")
@@ -371,12 +370,20 @@ if __name__ == "__main__":
     # Create the server entity
     # the nodes should not have a train dataset
     server = create_nodes(
-        node_test_sets, 1, save_results=settings['save_results'],
+        node_test_sets, 1, 
+        save_results=settings['save_results'],
+        check_usefulness=settings['check_usefulness'],
         coef_useful=settings['coef_useful'],
         tolerance_ceil=settings['tolerance_ceil'],
-        dp=settings['diff_privacy'], model_choice=settings['arch'], batch_size=settings['batch_size'],
-        classes=list_classes, choice_loss=settings['choice_loss'], choice_optimizer=settings['choice_optimizer'],
-        choice_scheduler=settings['choice_scheduler'], save_figure=None, matrix_path=settings['matrix_path'],
+        dp=settings['diff_privacy'], 
+        model_choice=settings['arch'], 
+        batch_size=settings['batch_size'],
+        classes=list_classes, 
+        choice_loss=settings['choice_loss'], 
+        choice_optimizer=settings['choice_optimizer'],
+        choice_scheduler=settings['choice_scheduler'], 
+        save_figure=None, 
+        matrix_path=settings['matrix_path'],
         roc_path=settings['roc_path'], pretrained=settings['pretrained'],
         save_model=settings['save_model']
     )[0]

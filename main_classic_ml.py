@@ -12,7 +12,6 @@ import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
 
-#%%
 if __name__ == '__main__':
     # %% Parameters
     arch = 'simpleNet'  # "simpleNet" # "CNNCifar" # "mobilenet" # "SqueezeNet" # 'efficientnetB0'  # ''Resnet50'

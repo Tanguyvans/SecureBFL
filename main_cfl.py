@@ -26,8 +26,6 @@ from config import settings
 import warnings
 warnings.filterwarnings("ignore")
 
-
-# %% Classes
 class Client:
     def __init__(self, id, host, port, train, test, save_results, **kwargs):
         self.id = id
@@ -134,7 +132,7 @@ class Client:
 
 
 class Node:
-    def __init__(self, id, host, port, test, save_results, **kwargs):
+    def __init__(self, id, host, port, test, save_results, check_usefulness, coef_useful=1.05, tolerance_ceil=0.06, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -144,6 +142,10 @@ class Node:
         self.global_params_directory = ""
 
         self.save_results = save_results
+
+        self.check_usefulness = check_usefulness
+        self.coef_useful = coef_useful
+        self.tolerance_ceil = tolerance_ceil
 
         private_key_path = f"keys/{id}_private_key.pem"
         public_key_path = f"keys/{id}_public_key.pem"
@@ -158,7 +160,6 @@ class Node:
         )
 
     def start_server(self):
-        # same
         start_server(self.host, self.port, self.handle_message, self.id)
 
     def handle_message(self, client_socket):
@@ -303,17 +304,13 @@ class Node:
 
         self.clients[c_id] = {"address": client_address, "public_key": public_key}
 
-
 client_weights = []
 
-
-# %% Functions
 def train_client(client_obj):
     weights = client_obj.train()  # Train the client
     client_weights.append(weights)
     # client.send_frag_clients(frag_weights)  # Send the shares to other clients
     training_barrier.wait()  # Wait here until all clients have trained
-
 
 def create_nodes(test_sets, number_of_nodes, save_results, **kwargs):
     # The same as the create_nodes() function in main.py but without the smpc and blockchain parameters
@@ -350,15 +347,10 @@ def create_clients(train_sets, test_sets, node, number_of_clients, save_results,
 
     return dict_clients
 
-
-# %%
 if __name__ == "__main__":
-    # %%
-    logging.basicConfig(level=logging.DEBUG)
-    # %%
-    training_barrier, length = initialize_parameters(settings, 'CFL')
 
-    # %%
+    logging.basicConfig(level=logging.DEBUG)
+    training_barrier, length = initialize_parameters(settings, 'CFL')
     json_dict = {
         'settings': {**settings, "length": length}
     }
@@ -368,7 +360,6 @@ if __name__ == "__main__":
     with open(settings['save_results'] + "output.txt", "w") as f:
         f.write("")
 
-    # %%
     client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, settings['name_dataset'],
                                                                                      settings['data_root'],
                                                                                      settings['n_clients'],
