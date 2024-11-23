@@ -17,13 +17,10 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 warnings.filterwarnings("ignore")
 
-
-# %%
 def train_client(client_obj):
     frag_weights = client_obj.train()  # Train the client
     client_obj.send_frag_clients(frag_weights)  # Send the shares to other clients
     training_barrier.wait()  # Wait here until all clients have trained
-
 
 def create_nodes(test_sets, number_of_nodes, save_results, coef_useful=1.2, tolerance_ceil=0.1, ss_type="additif", m=3, **kwargs):
     list_nodes = []
@@ -46,7 +43,6 @@ def create_nodes(test_sets, number_of_nodes, save_results, coef_useful=1.2, tole
         
     return list_nodes
 
-
 def create_clients(train_sets, test_sets, node, number_of_clients, save_results, type_ss="additif", threshold=3, m=3,
                    **kwargs):
     dict_clients = {}
@@ -67,7 +63,6 @@ def create_clients(train_sets, test_sets, node, number_of_clients, save_results,
 
     return dict_clients
 
-
 def cluster_generation(list_nodes, list_clients, min_number_of_clients_in_cluster, number_of_nodes):
     for num_node in range(number_of_nodes):
         list_nodes[num_node].generate_clusters(min_number_of_clients_in_cluster)
@@ -82,21 +77,12 @@ def cluster_generation(list_nodes, list_clients, min_number_of_clients_in_cluste
                     if client_id_1 != client_id_2: 
                         list_clients[num_node][client_id_1].add_connections(client_id_2, list_clients[num_node][client_id_2].port)
 
-
-# todo:
-#  Gérer l'attente : attendre de recevoir les parts de k clients pour un cluster pour commencer shamir (pour le moment on attend les min_number_of_clients_in_cluster shares)
-#  Ajouter le checksum pour verifier la non altération des shares du smpc.
-#  Ajouter les courbes d'entrainement et de validation coté clients et Nodes car pour le moment problèmes de threads.
-#  Utiliser la moyenne pondérée par la taille des datasets pour la reconstruction du modèle global (pour le moment on fait la moyenne arithmétique car même pondération pour tous les clients). Cela permettra de donner plus de poids aux modèles réalisées par des clients plus importants.
-# %%
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    # %% Parameters
     training_barrier, length = initialize_parameters(settings, "BFL")
 
-    poisoning_type = "distribution"  # order, distribution
+    poisoning_type = "rand"  # rand, targeted
 
-    # %% save results
     json_dict = {
         'settings': {**settings, "length": length, "poisoning_type": poisoning_type}
     }

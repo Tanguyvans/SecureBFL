@@ -5,8 +5,6 @@ from opacus import PrivacyEngine  # use in the flowerclient.py file
 from opacus.validators import ModuleValidator  # to validate our model with differential privacy
 from opacus.utils.batch_memory_manager import BatchMemoryManager  # use in the engine.py file
 
-
-# %% /////////////////////////////////////// Differential Privacy //////////////////////////////////////////////////////
 def validate_dp_model(model_dp):
     """Check if the model is compatible with Opacus because it does not support all types of Pytorch layers"""
     if not ModuleValidator.validate(model_dp, strict=False):
@@ -16,10 +14,6 @@ def validate_dp_model(model_dp):
     else:
         print("Model to be modified : ")
         return validate_dp_model(ModuleValidator.fix(model_dp))
-
-
-# %% ////////////////////////////////////////////// SMPC ///////////////////////////////////////////////////////////////
-# Functions for additif secret sharing
 
 def encrypt_tensor(secret, n_shares=3):
     """
@@ -34,7 +28,6 @@ def encrypt_tensor(secret, n_shares=3):
     shares.append(secret - sum(shares))
 
     return shares
-
 
 def apply_additif(input_list, n_shares=3):
     """
@@ -56,8 +49,6 @@ def apply_additif(input_list, n_shares=3):
 
     return encrypted_list
 
-
-# Functions for shamir secret sharing
 def calculate_y(x, poly):
     """
     Function to calculate the value of y from a polynomial and a value of x:
@@ -70,7 +61,6 @@ def calculate_y(x, poly):
     """
     y = sum([poly[i] * x ** i for i in range(len(poly))])
     return y
-
 
 def apply_shamir(input_list, n_shares=2, k=3):
     """
@@ -87,7 +77,6 @@ def apply_shamir(input_list, n_shares=2, k=3):
             list_clients[i].append(y_i[i])
 
     return list_clients
-
 
 def apply_poly(S, N, K):
     """
@@ -114,7 +103,6 @@ def apply_poly(S, N, K):
     ]).T
     return points
 
-
 def apply_smpc(input_list, n_shares=2, type_ss="additif", threshold=3):
     """
     Function to apply secret sharing algorithm and encode the given secret
@@ -140,8 +128,6 @@ def apply_smpc(input_list, n_shares=2, type_ss="additif", threshold=3):
     else:
         raise ValueError("Type of secret sharing not recognized")
 
-
-# %% Functions to sum the parts (SMPC)
 def sum_shares_additif(encrypted_list):
     """
     Function to sum the parts received by an entity when the secret sharing algorithm used is additif.
@@ -159,7 +145,6 @@ def sum_shares_additif(encrypted_list):
         decrypted_list.append(sum_array)
 
     return decrypted_list
-
 
 def sum_shares_shamir(encrypted_list):
     """
@@ -195,8 +180,6 @@ def sum_shares(encrypted_list, type_ss="additif"):
     else:
         raise ValueError("Type of secret sharing not recognized")
 
-
-#%% Functions to reconstruct the shared secret on the node side with Shamir secret sharing
 def generate_secret_shamir(x, y, m):
     """
     Function to generate the secret from the given points
@@ -223,7 +206,6 @@ def generate_secret_shamir(x, y, m):
     # return the secret
     return ans
 
-
 def combine_shares_node(secret_list):
     """
     Function to combine the shares of the secret and get a dictionary with the good format for the decryption
@@ -239,7 +221,6 @@ def combine_shares_node(secret_list):
             else:
                 secret_dic_final[x] = list_weights
     return secret_dic_final
-
 
 def decrypt_shamir_node(secret_dic_final, secret_shape, m):
     """
@@ -272,7 +253,6 @@ def decrypt_shamir_node(secret_dic_final, secret_shape, m):
 
     return decrypted_result
 
-
 def aggregate_shamir(secret_list, secret_shape, m):
     """
 
@@ -285,38 +265,35 @@ def aggregate_shamir(secret_list, secret_shape, m):
     secret_dic_final = combine_shares_node(secret_list)
     return decrypt_shamir_node(secret_dic_final, secret_shape, m)
 
+def data_poisoning(data, poisoning_type, n_classes, poisoned_number, number_of_nodes=1, clients_per_node=1, target_class=None):
 
-# %% /////////////////////////////////////// Poisoning //////////////////////////////////////////////////////
-# todo:
-#  - Add a function to poison the weights of the model (replace the weights of the model with random values)
-#  - Add a function to poison the data : add noise in the data ?
-def data_poisoning(data, poisoning_type, n_classes, poisoned_number, number_of_nodes=1, clients_per_node=1):
-    """
-    Function to poison the data of the clients
-    :param data: list of data of the clients with shape : data[client_id] = [list_tensors, list_targets]
-    :param poisoning_type: type of poisoning to apply (order or other)
-    :param n_classes: number of classes
-    :param poisoned_number: number of clients to poison
-    :param number_of_nodes: number of nodes
-    :param clients_per_node: number of clients per node
-    :return:
-    """
-    if poisoning_type == "order":
-        # Order-based poisoning: Randomly replaces all labels in a specified number of poisoned clients
-        # for i in random.sample(range(number_of_clients_per_node * number_of_nodes), poisoned_number):
-        for i in range(poisoned_number):
-            data[i][1] = random_poisoning(n_classes, n=len(data[i][1]))
-
-    else:
-        # Node-based poisoning: Distributes the poisoning across multiple nodes
-        # randomly replacing labels for a specified number of data points per node.
-        # same that "order" if number_of_nodes = 1
+    if poisoning_type == "rand":
         poison_per_node = poisoned_number // number_of_nodes
         for node in range(number_of_nodes):
             for i in range(poison_per_node):
                 client_index = node * clients_per_node + i
                 data[client_index][1] = random_poisoning(n_classes, n=len(data[client_index][1]))
-
+    
+    elif poisoning_type == "targeted":
+        # Targeted poisoning: poison only the first class
+        for i in range(poisoned_number):
+            data[i][1] = targeted_poisoning(data[i][1], n_classes)
+    
+    else:
+        raise ValueError(f"Unknown poisoning type: {poisoning_type}. Choose from: 'rand' or 'targeted'")
+    
 
 def random_poisoning(n_classes, n):
     return np.random.randint(0, n_classes, size=n).tolist()
+
+def targeted_poisoning(labels, n_classes, target_class=0):
+    poisoned_labels = []
+    for label in labels:
+        if label == target_class:
+            # Generate a random wrong label for the target class
+            wrong_labels = list(range(n_classes))
+            wrong_labels.remove(target_class)  # Remove the correct label
+            poisoned_labels.append(np.random.choice(wrong_labels))
+        else:
+            poisoned_labels.append(label)
+    return poisoned_labels

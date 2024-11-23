@@ -238,6 +238,7 @@ class Node:
             client_socket.close()
 
     def create_first_global_model(self):
+        os.makedirs("models/CFL", exist_ok=True)
 
         global_model = self.flower_client.get_parameters({})
         filename = f"models/CFL/m0.pt"
@@ -345,16 +346,11 @@ def create_clients(train_sets, test_sets, node, number_of_clients, save_results,
     return dict_clients
 
 if __name__ == "__main__":
-
-    print(settings)
-
     logging.basicConfig(level=logging.DEBUG)
     training_barrier, length = initialize_parameters(settings, 'CFL')
     json_dict = {
         'settings': settings
     }
-
-    print(settings)
 
     with open(settings['save_results'] + "config.json", 'w', encoding='utf-8') as f:
         json.dump(json_dict, f, ensure_ascii=False, indent=4)

@@ -42,7 +42,6 @@ def initialize_parameters(settings, training_approach):
     os.makedirs(settings["save_results"], exist_ok=True)
     return training_barrier, None
 
-
 def sMAPE(outputs, targets):
     """
     Symmetric Mean Absolute Percentage Error (sMAPE) for evaluating the model.
@@ -56,7 +55,6 @@ def sMAPE(outputs, targets):
     """
 
     return 100 / len(targets) * np.sum(np.abs(outputs - targets) / (np.abs(outputs + targets)) / 2)
-
 
 def fct_loss(choice_loss):
     """
@@ -94,7 +92,6 @@ def fct_loss(choice_loss):
 
     return loss
 
-
 def choice_optimizer_fct(model, choice_optim="Adam", lr=0.001, momentum=0.9, weight_decay=1e-6):
     """
     A function to choose the optimizer
@@ -124,7 +121,6 @@ def choice_optimizer_fct(model, choice_optim="Adam", lr=0.001, momentum=0.9, wei
         return None
 
     return optimizer
-
 
 def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0.1, base_lr=0.0001, max_lr=0.1):
     """
@@ -177,7 +173,6 @@ def choice_scheduler_fct(optimizer, choice_scheduler=None, step_size=30, gamma=0
     print("scheduler : ", scheduler)
     return scheduler
 
-
 def choice_device(device):
     """
         A function to choose the device
@@ -201,7 +196,6 @@ def choice_device(device):
 
     print("The device is : ", device)
     return device
-
 
 def save_matrix(y_true, y_pred, path, classes):
     """
@@ -233,7 +227,6 @@ def save_matrix(y_true, y_pred, path, classes):
 
     plt.savefig(path)
     plt.close()
-
 
 def save_roc(targets, y_proba, path, nbr_classes):
     """
@@ -317,7 +310,6 @@ def save_roc(targets, y_proba, path, nbr_classes):
     plt.savefig(path)
     plt.close()
 
-
 def save_graphs(path_save, local_epoch, results, end_file=""):
     """
     Save the graphs in the path given in argument.
@@ -346,7 +338,6 @@ def save_graphs(path_save, local_epoch, results, end_file=""):
         path=path_save + "Loss_curves" + end_file)
     print("graphs saved in ", path_save)
 
-
 def plot_graph(list_xplot, list_yplot, x_label, y_label, curve_labels, title, path=None):
     """
     Plot the graph of the list of points (list_xplot, list_yplot)
@@ -374,7 +365,6 @@ def plot_graph(list_xplot, list_yplot, x_label, y_label, curve_labels, title, pa
     if path:
         plt.savefig(path)
 
-
 def get_parameters(model):
     # if we want to return only the optimized parameters
     # return [val.detach().cpu().numpy() for name, val in model.named_parameters() if 'weight'  in name or 'bias' in name]
@@ -382,8 +372,6 @@ def get_parameters(model):
     # excluding parameters of BN layers when using FedBN
     return [val.cpu().numpy() for name, val in model.state_dict().items() if 'bn' not in name]
 
-
-# Apply the aggregated weights to the model
 def set_parameters(model, parameters: List[np.ndarray]) -> None:
     # Set model parameters from a list of NumPy ndarrays
     keys = [k for k in model.state_dict().keys() if 'bn' not in k]

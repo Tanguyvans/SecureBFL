@@ -26,7 +26,7 @@ def get_global_model_storage_reference(file_path):
     return matches[-1] if matches else None
 
 if __name__ == '__main__':
-    training_approach = "BFL"
+    training_approach = "CFL"
     matrix_path = "matrix"
     roc_path = "roc"
     path_nodetxt = "results/BFL/node1.txt"
