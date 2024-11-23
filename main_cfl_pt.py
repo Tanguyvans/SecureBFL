@@ -365,7 +365,7 @@ if __name__ == "__main__":
 
     data_poisoning(
         client_train_sets,
-        poisoning_type="order",
+        poisoning_type="rand",
         n_classes=len(list_classes),
         poisoned_number=settings['poisoned_number'],
     )

@@ -81,7 +81,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     training_barrier, length = initialize_parameters(settings, "BFL")
 
-    poisoning_type = "rand"  # rand, targeted
+    poisoning_type = "targeted"  # rand, targeted
 
     json_dict = {
         'settings': {**settings, "length": length, "poisoning_type": poisoning_type}
