@@ -308,7 +308,7 @@ def train_client(client_obj):
     client_weights.append(weights)
     training_barrier.wait()  # Wait here until all clients have trained
 
-def create_nodes(test_sets, number_of_nodes, save_results, coef_useful, tolerance_ceil, **kwargs):
+def create_nodes(test_sets, number_of_nodes, save_results, check_usefulness, coef_useful, tolerance_ceil, **kwargs):
     list_nodes = []
     for i in range(number_of_nodes):
         list_nodes.append(
@@ -318,6 +318,7 @@ def create_nodes(test_sets, number_of_nodes, save_results, coef_useful, toleranc
                 port=6010 + i,
                 test=test_sets[i],
                 save_results=save_results,
+                check_usefulness=check_usefulness,
                 coef_useful=coef_useful,
                 tolerance_ceil=tolerance_ceil,
                 **kwargs
@@ -344,11 +345,17 @@ def create_clients(train_sets, test_sets, node, number_of_clients, save_results,
     return dict_clients
 
 if __name__ == "__main__":
+
+    print(settings)
+
     logging.basicConfig(level=logging.DEBUG)
     training_barrier, length = initialize_parameters(settings, 'CFL')
     json_dict = {
         'settings': settings
     }
+
+    print(settings)
+
     with open(settings['save_results'] + "config.json", 'w', encoding='utf-8') as f:
         json.dump(json_dict, f, ensure_ascii=False, indent=4)
 

@@ -27,7 +27,6 @@ def initialize_parameters(settings, training_approach):
         [settings.pop(key, None) for key in ["number_of_clients_per_node",
                                              "number_of_nodes",
                                              "min_number_of_clients_in_cluster",
-                                             "coef_useful",
                                              "k",
                                              "m",
                                              "secret_sharing"]]
