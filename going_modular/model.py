@@ -186,6 +186,49 @@ class ResNet(nn.Module):
 
         return out
 
+class ShuffleNet(nn.Module):
+    """
+    A CNN model based on ShuffleNet (V2)
+    """
+    def __init__(self, num_classes=10, size='1.0x', pretrained=True):
+        super(ShuffleNet, self).__init__()
+        
+        # Select architecture based on size parameter
+        if size == '0.5x':
+            archi = models.shufflenet_v2_x0_5
+        elif size == '1.0x':
+            archi = models.shufflenet_v2_x1_0
+        elif size == '1.5x':
+            archi = models.shufflenet_v2_x1_5
+        elif size == '2.0x':
+            archi = models.shufflenet_v2_x2_0
+        else:
+            raise NotImplementedError(f"ShuffleNet size {size} not implemented. Choose from: '0.5x', '1.0x', '1.5x', '2.0x'")
+
+        if pretrained:
+            # Load pretrained model
+            self.model = archi(weights='DEFAULT')
+            # Modify the classifier for our number of classes
+            num_ftrs = self.model.fc.in_features
+            self.model.fc = nn.Linear(num_ftrs, num_classes)
+        else:
+            self.model = archi(weights=None, num_classes=num_classes)
+
+    def forward(self, x, return_features=False):
+        if return_features:
+            # Get features before the final classifier
+            features = self.model.conv1(x)
+            features = self.model.maxpool(features)
+            features = self.model.stage2(features)
+            features = self.model.stage3(features)
+            features = self.model.stage4(features)
+            features = self.model.conv5(features)
+            features = features.mean([2, 3])  # Global average pooling
+            out = self.model.fc(features)
+            return out, features
+        else:
+            return self.model(x)
+
 class Net(nn.Module):
     """
     This is a generic class to choose the architecture of the model.
@@ -207,6 +250,11 @@ class Net(nn.Module):
             self.model = SqueezeNet(num_classes=num_classes, pretrained=pretrained)
         elif "resnet" in arch.lower():
             self.model = ResNet(num_classes=num_classes, arch=arch, pretrained=pretrained)
+        elif "shufflenet" in arch.lower():
+            size = '1.0x'
+            if '_' in arch:
+                size = arch.split('_')[1]
+            self.model = ShuffleNet(num_classes=num_classes, size=size, pretrained=pretrained)
 
         else:
             raise NotImplementedError("The architecture is not implemented")
