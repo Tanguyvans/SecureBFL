@@ -249,17 +249,26 @@ class Node:
 
     def create_global_model(self, weights, index, two_step=False):
         useful_weights = []
+
+        # get the global model from the params directory
+
+        print("self.global_params_directory", self.global_params_directory)
+        global_model = torch.load(self.global_params_directory)
+        global_metrics = self.flower_client.evaluate(global_model, {'name': 'Current global model'})
         
         for i, client_weights in enumerate(weights):
             if self.check_usefulness:
                 client_metrics = self.flower_client.evaluate(client_weights, {'name': f'Client model {i}'})
-                current_global_metrics = self.flower_client.evaluate(self.flower_client.get_parameters({}), {'name': 'Current global model'})
-            
-                if self.is_update_useful(client_metrics, current_global_metrics):
+                
+                if self.is_update_useful(client_metrics, global_metrics):
                     useful_weights.append((client_weights, 10))  # Le 10 est un poids arbitraire, vous pouvez l'ajuster
                     print(f"Client model {i} is useful and will be included in aggregation")
+                    with open(self.save_results + "output.txt", "a") as fi:
+                        fi.write(f"Round {index}, Client model {i} is useful and will be included in aggregation\n")
                 else:
                     print(f"Client model {i} is not useful and will be excluded from aggregation")
+                    with open(self.save_results + "output.txt", "a") as fi:
+                        fi.write(f"Round {index}, Client model {i} is not useful and will be excluded from aggregation\n")
 
             else:
                 useful_weights.append((client_weights, 10))
@@ -287,6 +296,8 @@ class Node:
         self.broadcast_model_to_clients(filename)
 
     def is_update_useful(self, update_metrics, global_metrics):
+        # print the comparison between the update and the global model
+        print("update_metrics", update_metrics, "global_metrics", global_metrics)
         allowed_unimprovement = min(self.tolerance_ceil, global_metrics['test_loss'] * (self.coef_useful - 1))
         return update_metrics['test_loss'] <= global_metrics['test_loss'] + allowed_unimprovement
 
@@ -365,7 +376,7 @@ if __name__ == "__main__":
 
     data_poisoning(
         client_train_sets,
-        poisoning_type="tar",
+        poisoning_type="rand",
         n_classes=len(list_classes),
         poisoned_number=settings['poisoned_number'],
     )

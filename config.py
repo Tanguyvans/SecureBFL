@@ -1,6 +1,6 @@
 settings = {
     "name_dataset": "cifar10",  # "cifar10" or "cifar100" or "caltech256"
-    "arch": "mobilenet",  # "mobilenet" or "resnet18"
+    "arch": "shufflenet",  # "mobilenet" or "resnet18"
     "pretrained": True,
     "patience": 3,
     "batch_size": 32,
@@ -9,7 +9,7 @@ settings = {
     "number_of_clients_per_node": 6,
     "min_number_of_clients_in_cluster": 3,
 
-    "check_usefulness": False,
+    "check_usefulness": True,
     "coef_useful": 1.05,   # 1.05
     "tolerance_ceil": 0.08,
 
