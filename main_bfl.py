@@ -51,7 +51,7 @@ def create_clients(train_sets, test_sets, node, number_of_clients, save_results,
         dict_clients[f"c{node}_{num_client + 1}"] = Client(
             id=f"c{node}_{num_client + 1}",
             host="127.0.0.1",
-            port=5010 + num_client + node * 10,
+            port=5010 + num_client + node * 100,
             train=train_sets[dataset_index],
             test=test_sets[dataset_index],
             type_ss=type_ss,
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     training_barrier, length = initialize_parameters(settings, "BFL")
 
-    poisoning_type = "targeted"  # rand, targeted
+    poisoning_type = "rand"  # rand, targeted
 
     json_dict = {
         'settings': {**settings, "length": length, "poisoning_type": poisoning_type}

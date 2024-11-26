@@ -273,27 +273,32 @@ class Node:
             else:
                 useful_weights.append((client_weights, 10))
 
-        if not useful_weights:
-            print("No useful client models found. Keeping the current global model.")
-            return
-
-        # Agréger uniquement les modèles utiles
-        aggregated_weights = aggregate(useful_weights)
-
-        metrics = self.flower_client.evaluate(aggregated_weights, {})
-
-        self.flower_client.set_parameters(aggregated_weights)
-
-        global_model = self.flower_client.get_parameters({})
-        filename = f"models/CFL/m{index}.pt"
-        self.global_params_directory = filename
-        torch.save(global_model, filename)
-
-        with open(self.save_results + "output.txt", "a") as fi:
-            fi.write(f"Round {index}, Global aggregation: {metrics}\n")
-
-        print(f"Round {index}, Global aggregation: {metrics}")
-        self.broadcast_model_to_clients(filename)
+        if len(useful_weights) > 0:  # Si on a des modèles utiles
+            # Ajouter le modèle global avec un poids plus important
+            useful_weights.append((global_model, 2))
+            
+            # Agréger les modèles
+            aggregated_weights = aggregate(useful_weights)
+            metrics = self.flower_client.evaluate(aggregated_weights, {})
+            
+            # Sauvegarder le nouveau modèle global
+            filename = f"models/CFL/m{index}.pt"
+            self.global_params_directory = filename
+            torch.save(aggregated_weights, filename)
+            
+            print(f"\nNew global model created for round {index}")
+            with open(self.save_results + "output.txt", "a") as fi:
+                fi.write(f"Round {index}, Global aggregation: {metrics}\n")
+        else:
+            print("\nNo useful models found. Using current global model for next round.")
+            # Copier le modèle global actuel pour le prochain round
+            filename = f"models/CFL/m{index}.pt"
+            torch.save(global_model, filename)
+            self.global_params_directory = filename
+        
+        # Dans tous les cas, diffuser le modèle (nouveau ou copié) aux clients
+        print("\nBroadcasting model to clients for next round...")
+        self.broadcast_model_to_clients(self.global_params_directory)
 
     def is_update_useful(self, update_metrics, global_metrics):
         # print the comparison between the update and the global model
