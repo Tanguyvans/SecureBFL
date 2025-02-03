@@ -10,6 +10,7 @@ from cryptography.hazmat.primitives import serialization
 from flowerclient import FlowerClient
 from node import get_keys, start_server
 from going_modular.security import apply_smpc, sum_shares
+from metrics import MetricsTracker
 
 
 def save_nodes_chain(nodes):
@@ -18,7 +19,7 @@ def save_nodes_chain(nodes):
 
 
 class Client:
-    def __init__(self, id, host, port, train, test, save_results, type_ss="additif", threshold=3, m=3, **kwargs):
+    def __init__(self, id, host, port, train, test, save_results, metrics_tracker, type_ss="additif", threshold=3, m=3, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -57,6 +58,8 @@ class Client:
             y_test=y_test,
             **kwargs
             )
+
+        self.metrics_tracker = metrics_tracker
 
     def start_server(self):
         start_server(self.host, self.port, self.handle_message, self.id)
@@ -118,48 +121,49 @@ class Client:
         return encrypted_lists
 
     def send_frag_clients(self, frag_weights):
-        """
-        function to send the shares of the secret to the other clients
-        :param frag_weights: list of shares of the secret (one share for each other client)
-        """
         for i, (k, v) in enumerate(self.connections.items()):
-            address = v.get('address')
+            # Track protocol communication (SMPC)
+            serialized_message = pickle.dumps({
+                "type": "frag_weights",
+                "value": pickle.dumps(frag_weights[i])
+            })
+            message_size = len(serialized_message) / (1024 * 1024)
+            self.metrics_tracker.record_protocol_communication(
+                0,  # round number could be passed as parameter if needed
+                message_size,
+                "client-client"
+            )
 
+            # Original send code
+            address = v.get('address')
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect(('127.0.0.1', address))
-
-            serialized_data = pickle.dumps(frag_weights[i])
-
-            message = {"type": "frag_weights", "value": serialized_data}
-
-            # print("message", message)
-            serialized_message = pickle.dumps(message)
-
-            # Send the length of the message first
             client_socket.send(len(serialized_message).to_bytes(4, byteorder='big'))
             client_socket.send(serialized_message)
-
-            # close the socket after sending
             client_socket.close()
 
     def send_frag_node(self):
-        address = self.node.get('address')
+        # Track protocol communication (send to node)
+        serialized_message = pickle.dumps({
+            "type": "frag_weights",
+            "id": self.id,
+            "value": pickle.dumps(self.sum_weights),
+            "list_shapes": self.list_shapes
+        })
+        message_size = len(serialized_message) / (1024 * 1024)
+        self.metrics_tracker.record_protocol_communication(
+            0,  # round number could be passed as parameter if needed
+            message_size,
+            "client-node"
+        )
 
+        # Original send code
+        address = self.node.get('address')
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect(('127.0.0.1', address))
-
-        serialized_data = pickle.dumps(self.sum_weights)  # The values summed on the client side and sent to the node.
-        message = {"type": "frag_weights", "id": self.id, "value": serialized_data, "list_shapes": self.list_shapes}
-
-        serialized_message = pickle.dumps(message)
-
-        # Send the length of the message first
         client_socket.send(len(serialized_message).to_bytes(4, byteorder='big'))
         client_socket.send(serialized_message)
-
-        # Close the socket after sending
         client_socket.close()
-
         self.frag_weights = []
 
     def reset_connections(self):

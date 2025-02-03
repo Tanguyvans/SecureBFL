@@ -82,7 +82,7 @@ def start_server(host, port, handle_message, num_node):
 
 
 class Node:
-    def __init__(self, id, host, port, consensus_protocol, test, save_results, coef_useful=1.01, tolerance_ceil=0.1,
+    def __init__(self, id, host, port, consensus_protocol, test, save_results, metrics_tracker, coef_useful=1.01, tolerance_ceil=0.1,
                  ss_type="additif", m=3, **kwargs):
         self.id = id
         self.host = host
@@ -121,6 +121,8 @@ class Node:
         elif consensus_protocol == "raft":
             self.consensus_protocol = RaftProtocol(node=self, blockchain=self.blockchain)
             threading.Thread(target=self.consensus_protocol.run).start()
+
+        self.metrics_tracker = metrics_tracker  # Store reference to metrics tracker
 
     def start_server(self):
         start_server(self.host, self.port, self.handle_message, self.id)
@@ -229,6 +231,17 @@ class Node:
 
         weights_dict = self.flower_client.get_dict_params({})
         weights_dict['len_dataset'] = len_dataset
+        if weights_dict is not None:
+            filename = f"models/BFL/m{self.blockchain.len_chain}.npz"
+            # Track storage communication (save)
+            with open(filename, "wb") as f:
+                np.savez(f, **weights_dict)
+            model_size = os.path.getsize(filename) / (1024 * 1024)
+            self.metrics_tracker.record_storage_communication(
+                self.blockchain.len_chain,
+                model_size,
+                'save'
+            )
         return weights_dict
 
     def is_global_valid(self, proposed_hash):
@@ -262,33 +275,55 @@ class Node:
         return test_metrics['test_loss'], test_metrics['test_acc']
 
     def broadcast_model_to_clients(self):
+        # Get the model block
         for block in self.blockchain.blocks[::-1]: 
             if block.model_type == "global_model" or block.model_type == "first_global_model":
                 block_model = block 
                 break 
 
+        # Track storage communication (load)
+        model_size = os.path.getsize(block_model.storage_reference) / (1024 * 1024)
+        self.metrics_tracker.record_storage_communication(
+            len(self.blockchain.blocks) - 1,
+            model_size,
+            'load'
+        )
+
         loaded_weights_dict = np.load(block_model.storage_reference)
         loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
 
+        # Track protocol communication (broadcast to clients)
+        serialized_message = pickle.dumps({
+            "type": "global_model",
+            "value": pickle.dumps(loaded_weights)
+        })
+        message_size = len(serialized_message) / (1024 * 1024)
+        self.metrics_tracker.record_protocol_communication(
+            len(self.blockchain.blocks) - 1,
+            message_size,
+            "node-client"
+        )
+
+        # Original broadcast code
         for k, v in self.clients.items():
             address = v.get('address')
-
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect(('127.0.0.1', address[1]))
-
-            serialized_data = pickle.dumps(loaded_weights)
-            message = {"type": "global_model", "value": serialized_data}
-
-            serialized_message = pickle.dumps(message)
-
-            # Send the length of the message first
             client_socket.send(len(serialized_message).to_bytes(4, byteorder='big'))
             client_socket.send(serialized_message)
-
-            # Close the socket after sending
             client_socket.close()
 
     def broadcast_message(self, message):
+        # Track protocol communication (consensus)
+        serialized_message = pickle.dumps(message)
+        message_size = len(serialized_message) / (1024 * 1024)
+        self.metrics_tracker.record_protocol_communication(
+            len(self.blockchain.blocks) - 1,
+            message_size,
+            "node-node"
+        )
+        
+        # Original broadcast code
         for peer_id in self.peers:
             self.send_message(peer_id, message)
 

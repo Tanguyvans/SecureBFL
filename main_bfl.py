@@ -2,6 +2,11 @@ import time
 import threading
 import logging
 import json
+import sys
+import os
+import psutil
+import GPUtil
+from datetime import datetime
 
 from node import Node
 from client import Client
@@ -14,6 +19,8 @@ import warnings
 from config import settings
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
+
+from metrics import MetricsTracker
 
 warnings.filterwarnings("ignore")
 
@@ -108,10 +115,16 @@ if __name__ == "__main__":
         clients_per_node=settings['number_of_clients_per_node'],
     )
 
-    # Create nodes
-    # the nodes should not have a train dataset
+    # Create metrics tracker
+    metrics_tracker = MetricsTracker(settings['save_results'])
+    metrics_tracker.start_tracking()
+    metrics_tracker.measure_power(0, "initial_setup")
+
+    # Create nodes with metrics tracker
     nodes = create_nodes(
-        node_test_sets, settings['number_of_nodes'], save_results=settings['save_results'],
+        node_test_sets, settings['number_of_nodes'], 
+        save_results=settings['save_results'],
+        metrics_tracker=metrics_tracker,  # Pass metrics_tracker to nodes
         coef_useful=settings['coef_useful'], tolerance_ceil=settings['tolerance_ceil'], 
         ss_type=settings['secret_sharing'], m=settings['m'],
         dp=settings['diff_privacy'], model_choice=settings['arch'], batch_size=settings['batch_size'],
@@ -121,13 +134,16 @@ if __name__ == "__main__":
         save_model=settings['save_model']
     )
 
-    # ## client to node connections ###
+    # Create clients with metrics tracker
     clients = []
     for i in range(settings['number_of_nodes']):
         node_clients = create_clients(
-            client_train_sets, client_test_sets, i, settings['number_of_clients_per_node'],
+            client_train_sets, client_test_sets, i, 
+            settings['number_of_clients_per_node'],
+            save_results=settings['save_results'],
+            metrics_tracker=metrics_tracker,  # Pass metrics_tracker to clients
             type_ss=settings['secret_sharing'], m=settings['m'], threshold=settings['k'],
-            save_results=settings['save_results'], dp=settings['diff_privacy'], model_choice=settings['arch'],
+            dp=settings['diff_privacy'], model_choice=settings['arch'],
             batch_size=settings['batch_size'], epochs=settings['n_epochs'], classes=list_classes,
             learning_rate=settings['lr'], choice_loss=settings['choice_loss'],
             choice_optimizer=settings['choice_optimizer'], choice_scheduler=settings['choice_scheduler'],
@@ -160,6 +176,7 @@ if __name__ == "__main__":
             threading.Thread(target=client.start_server).start()
 
     nodes[0].create_first_global_model_request()
+    nodes[0].metrics_tracker.measure_power(0, "initial_setup_complete")
 
     time.sleep(settings['ts'])
 
@@ -199,6 +216,7 @@ if __name__ == "__main__":
             time.sleep(settings['ts'])
 
         nodes[0].create_global_model()
+        nodes[0].metrics_tracker.measure_power(round_i + 1, "aggregation_complete")
 
         time.sleep(settings['ts'])
 
@@ -207,4 +225,7 @@ if __name__ == "__main__":
     for i in range(settings['number_of_nodes']):
         nodes[i].blockchain.save_chain_in_file(settings['save_results'] + f"node{i + 1}.txt")
 
-    print("This is the end")
+    # Save metrics at the end
+    metrics_tracker.save_metrics()
+    print("\nTraining completed. Exiting program...")
+    sys.exit(0)
