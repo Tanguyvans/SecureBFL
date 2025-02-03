@@ -227,16 +227,16 @@ class Node:
         return weights_dict
 
     def broadcast_model_to_clients(self, filename):
-        # Track storage communication (load model)
+        # Track storage communication (load)
         model_size = os.path.getsize(filename) / (1024 * 1024)
         self.metrics_tracker.record_storage_communication(
-            int(filename.split('m')[-1].split('.')[0]),  # Extract round number
+            int(filename.split('m')[-1].split('.')[0]),
             model_size,
             'load'
         )
         
-        # Load the model parameters from the .pt file
-        loaded_weights = torch.load(filename)
+        # Modification ici : ajout de weights_only=False
+        loaded_weights = torch.load(filename, weights_only=False)
 
         # Track protocol communication (broadcast to clients)
         serialized_message = pickle.dumps({
@@ -284,7 +284,7 @@ class Node:
         # get the global model from the params directory
 
         print("self.global_params_directory", self.global_params_directory)
-        global_model = torch.load(self.global_params_directory)
+        global_model = torch.load(self.global_params_directory, weights_only=False)
         global_metrics = self.flower_client.evaluate(global_model, {'name': 'Current global model'})
         
         for i, client_weights in enumerate(weights):

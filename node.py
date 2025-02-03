@@ -213,6 +213,14 @@ class Node:
         cnt = 0
         for block in self.blockchain.blocks[::-1]:
             if block.model_type == "update":
+                # Track storage communication (load)
+                model_size = os.path.getsize(block.storage_reference) / (1024 * 1024)
+                self.metrics_tracker.record_storage_communication(
+                    len(self.blockchain.blocks) - 1,
+                    model_size,
+                    'load'
+                )
+
                 loaded_weights_dict = np.load(block.storage_reference)
                 loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
 
@@ -231,17 +239,7 @@ class Node:
 
         weights_dict = self.flower_client.get_dict_params({})
         weights_dict['len_dataset'] = len_dataset
-        if weights_dict is not None:
-            filename = f"models/BFL/m{self.blockchain.len_chain}.npz"
-            # Track storage communication (save)
-            with open(filename, "wb") as f:
-                np.savez(f, **weights_dict)
-            model_size = os.path.getsize(filename) / (1024 * 1024)
-            self.metrics_tracker.record_storage_communication(
-                self.blockchain.len_chain,
-                model_size,
-                'save'
-            )
+
         return weights_dict
 
     def is_global_valid(self, proposed_hash):
@@ -259,6 +257,14 @@ class Node:
             return False
 
     def evaluate_model(self, model_directory, participants, write=True):
+        # Track storage communication (load)
+        model_size = os.path.getsize(model_directory) / (1024 * 1024)
+        self.metrics_tracker.record_storage_communication(
+            len(self.blockchain.blocks) - 1,
+            model_size,
+            'load'
+        )
+
         loaded_weights_dict = np.load(model_directory)
         loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
         test_metrics = self.flower_client.evaluate(loaded_weights, {'name': f'Node {self.id}_Clusters {participants}'})
