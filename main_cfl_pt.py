@@ -409,6 +409,12 @@ def create_clients(train_sets, test_sets, node, number_of_clients, save_results,
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     training_barrier, length = initialize_parameters(settings, 'CFL')
+    
+    # Create metrics tracker and start global measurement
+    metrics_tracker = MetricsTracker(settings['save_results'])
+    metrics_tracker.start_tracking()
+    metrics_tracker.measure_global_power("start")  # Nouvelle méthode pour la mesure globale
+
     json_dict = {
         'settings': settings
     }
@@ -430,10 +436,6 @@ if __name__ == "__main__":
         n_classes=len(list_classes),
         poisoned_number=settings['poisoned_number'],
     )
-
-    # Create metrics tracker
-    metrics_tracker = MetricsTracker(settings['save_results'])
-    metrics_tracker.start_tracking()
 
     # Create the server entity
     # the nodes should not have a train dataset
@@ -524,6 +526,9 @@ if __name__ == "__main__":
         client_weights = []
         
         metrics_tracker.record_time(round_i + 1, "round_complete")
+    
+    # Mesure globale fin avec la nouvelle méthode
+    metrics_tracker.measure_global_power("complete")
     
     # Save final metrics
     metrics_tracker.save_metrics()

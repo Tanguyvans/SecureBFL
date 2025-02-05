@@ -88,6 +88,14 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     training_barrier, length = initialize_parameters(settings, "BFL")
 
+    # Create metrics tracker at the very beginning
+    metrics_tracker = MetricsTracker(settings['save_results'])
+    metrics_tracker.start_tracking()
+    metrics_tracker.measure_global_power("start")
+    
+    # Initial setup phase
+    metrics_tracker.measure_power(0, "initial_setup_start")
+
     poisoning_type = "rand"  # rand, targeted
 
     json_dict = {
@@ -114,11 +122,6 @@ if __name__ == "__main__":
         number_of_nodes=settings['number_of_nodes'],
         clients_per_node=settings['number_of_clients_per_node'],
     )
-
-    # Create metrics tracker
-    metrics_tracker = MetricsTracker(settings['save_results'])
-    metrics_tracker.start_tracking()
-    metrics_tracker.measure_power(0, "initial_setup")
 
     # Create nodes with metrics tracker
     nodes = create_nodes(
@@ -176,15 +179,18 @@ if __name__ == "__main__":
             threading.Thread(target=client.start_server).start()
 
     nodes[0].create_first_global_model_request()
-    nodes[0].metrics_tracker.measure_power(0, "initial_setup_complete")
+    metrics_tracker.measure_power(0, "initial_setup_complete")
 
     time.sleep(settings['ts'])
 
     # training and SMPC
     for round_i in range(settings['n_rounds']):
         print(f"### ROUND {round_i + 1} ###")
-        # ## Creation of the clusters + client to client connections ###
+        
+        # Cluster generation phase
+        metrics_tracker.measure_power(round_i + 1, "cluster_generation_start")
         cluster_generation(nodes, clients, settings['min_number_of_clients_in_cluster'], settings['number_of_nodes'])
+        metrics_tracker.measure_power(round_i + 1, "cluster_generation_complete")
 
         with open("results/BFL/output.txt", "a") as f:
             f.write(f"### ROUND {round_i + 1} ###\n")
@@ -192,6 +198,9 @@ if __name__ == "__main__":
         # ## training ###
         for i in range(settings['number_of_nodes']):
             print(f"Node {i + 1} : Training\n")
+            
+            # Training phase
+            metrics_tracker.measure_power(round_i + 1, f"node_{i+1}_training_start")
             threads = []
             for client in clients[i].values():
                 t = threading.Thread(target=train_client, args=(client,))
@@ -200,9 +209,12 @@ if __name__ == "__main__":
         
             for t in threads:
                 t.join()
+            metrics_tracker.measure_power(round_i + 1, f"node_{i+1}_training_complete")
 
             print(f"Node {i + 1} : SMPC\n")
             
+            # SMPC phase
+            metrics_tracker.measure_power(round_i + 1, f"node_{i+1}_smpc_start")
             for cluster in nodes[i].clusters:
                 for client_id in cluster.keys():
                     if client_id in ['tot', 'count']:
@@ -212,20 +224,26 @@ if __name__ == "__main__":
                     time.sleep(5)
 
                 time.sleep(settings['ts'])
+            metrics_tracker.measure_power(round_i + 1, f"node_{i+1}_smpc_complete")
 
             time.sleep(settings['ts'])
 
+        # Aggregation phase
+        metrics_tracker.measure_power(round_i + 1, "aggregation_start")
         nodes[0].create_global_model()
-        nodes[0].metrics_tracker.measure_power(round_i + 1, "aggregation_complete")
+        metrics_tracker.measure_power(round_i + 1, "aggregation_complete")
 
         time.sleep(settings['ts'])
 
+    # Final blockchain operations
+    metrics_tracker.measure_power(settings['n_rounds'], "blockchain_operations_start")
     nodes[0].blockchain.print_blockchain()
-
     for i in range(settings['number_of_nodes']):
         nodes[i].blockchain.save_chain_in_file(settings['save_results'] + f"node{i + 1}.txt")
+    metrics_tracker.measure_power(settings['n_rounds'], "blockchain_operations_complete")
+
+    metrics_tracker.measure_global_power("complete")
 
     # Save metrics at the end
     metrics_tracker.save_metrics()
     print("\nTraining completed. Exiting program...")
-    sys.exit(0)

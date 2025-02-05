@@ -1,7 +1,11 @@
 import psutil
 import GPUtil
 from datetime import datetime
-
+import pyRAPL
+import pynvml
+import pcm
+import os
+import json
 
 class MetricsTracker:
     def __init__(self, save_results):
@@ -11,24 +15,48 @@ class MetricsTracker:
         self.storage_communications = []   # Communications de stockage
         self.time_measurements = []
         self.start_time = None
+        self.global_start_time = None
+        self.global_start_energy = None
         
     def start_tracking(self):
         self.start_time = datetime.now()
         
     def measure_power(self, round_num, phase):
-        cpu_percent = psutil.cpu_percent()
-        cpu_power = cpu_percent * 0.3  # Approximate watts based on CPU usage
-        
-        ram = psutil.virtual_memory()
-        ram_power = (ram.used / ram.total) * 8  # Approximate RAM power consumption
-        
-        gpu_power = 0
+        """
+        Mesure la consommation d'énergie avec fallback sur psutil si les outils spécialisés ne sont pas disponibles
+        """
+        # CPU Power - essai avec RAPL, fallback sur psutil
         try:
-            gpus = GPUtil.getGPUs()
-            if gpus:
-                gpu_power = gpus[0].load * 150  # Approximate GPU power based on usage
+            pyRAPL.setup()
+            cpu_measurement = pyRAPL.Measurement('cpu')
+            cpu_measurement.begin()
+            cpu_measurement.end()
+            cpu_power = cpu_measurement.result.pkg[0]
         except:
-            pass
+            cpu_percent = psutil.cpu_percent()
+            cpu_power = cpu_percent * 0.3  # Fallback sur l'estimation simple
+        
+        # RAM Power - fallback sur psutil si PCM n'est pas disponible
+        try:
+            ram_power = pcm.get_memory_power()
+        except:
+            ram = psutil.virtual_memory()
+            ram_power = (ram.used / ram.total) * 8  # Fallback sur l'estimation simple
+        
+        # GPU Power - essai avec NVML, fallback sur GPUtil
+        try:
+            pynvml.nvmlInit()
+            handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+            gpu_power = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0
+        except:
+            try:
+                gpus = GPUtil.getGPUs()
+                if gpus:
+                    gpu_power = gpus[0].load * 150
+                else:
+                    gpu_power = 0
+            except:
+                gpu_power = 0
             
         total_power = cpu_power + ram_power + gpu_power
         
@@ -39,7 +67,12 @@ class MetricsTracker:
             'ram_power': ram_power,
             'gpu_power': gpu_power,
             'total_power': total_power,
-            'timestamp': datetime.now()
+            'timestamp': datetime.now(),
+            'measurement_type': {
+                'cpu': 'RAPL' if 'pyRAPL' in locals() else 'psutil',
+                'ram': 'PCM' if 'pcm' in locals() else 'psutil',
+                'gpu': 'NVML' if 'pynvml' in locals() else 'GPUtil' if gpu_power > 0 else 'none'
+            }
         })
         
     def record_protocol_communication(self, round_num, size_mb, comm_type):
@@ -137,3 +170,70 @@ class MetricsTracker:
                 next_measurement = self.time_measurements[i+1]
                 duration = (next_measurement['timestamp'] - current['timestamp']).total_seconds()
                 f.write(f"Round {current['round']}, {current['phase']} -> {next_measurement['phase']}: {duration:.2f} seconds\n")
+
+    def measure_global_power(self, phase):
+        """
+        Mesure globale de la consommation d'énergie
+        """
+        if phase == "start":
+            self.global_start_time = datetime.now()
+            self.measure_power('global', 'start')
+            
+        elif phase == "complete":
+            self.measure_power('global', 'complete')
+            duration = (datetime.now() - self.global_start_time).total_seconds()
+            
+            # Calculer la consommation totale
+            global_measurements = [m for m in self.energy_measurements if m['round'] == 'global']
+            if len(global_measurements) >= 2:
+                start_measurement = global_measurements[0]
+                end_measurement = global_measurements[-1]
+                
+                avg_power = {
+                    'cpu': (start_measurement['cpu_power'] + end_measurement['cpu_power']) / 2,
+                    'ram': (start_measurement['ram_power'] + end_measurement['ram_power']) / 2,
+                    'gpu': (start_measurement['gpu_power'] + end_measurement['gpu_power']) / 2,
+                    'total': (start_measurement['total_power'] + end_measurement['total_power']) / 2
+                }
+                
+                # Calculer l'énergie totale en joules (Watts * secondes)
+                total_energy_joules = avg_power['total'] * duration
+                total_energy_megajoules = total_energy_joules / 1_000_000
+                
+                # Créer le rapport JSON
+                total_energy_consumption = {
+                    'duration_seconds': duration,
+                    'start_time': start_measurement['timestamp'].isoformat(),
+                    'end_time': end_measurement['timestamp'].isoformat(),
+                    'average_power': avg_power,
+                    'total_energy': {
+                        'joules': total_energy_joules,
+                        'megajoules': total_energy_megajoules
+                    },
+                    'measurement_type': start_measurement['measurement_type']
+                }
+                
+                # Sauvegarder en JSON
+                with open(os.path.join(self.save_results, "global_energy_consumption.json"), 'w') as f:
+                    json.dump(total_energy_consumption, f, indent=4)
+                
+                # Créer et sauvegarder le rapport texte
+                report = f"""=== Energy Consumption Metrics ===
+                Total Duration: {duration:.2f} seconds
+                Average CPU Power: {avg_power['cpu']:.2f} Watts
+                Average RAM Power: {avg_power['ram']:.2f} Watts
+                Average GPU Power: {avg_power['gpu']:.2f} Watts
+                Total Energy Consumption: {total_energy_megajoules:.4f} Mega Joules
+
+                === Measurement Details ===
+                Start Time: {start_measurement['timestamp']}
+                End Time: {end_measurement['timestamp']}
+                Measurement Types:
+                - CPU: {start_measurement['measurement_type']['cpu']}
+                - RAM: {start_measurement['measurement_type']['ram']}
+                - GPU: {start_measurement['measurement_type']['gpu']}
+                """
+                
+                # Sauvegarder le rapport texte
+                with open(os.path.join(self.save_results, "energy_report.txt"), 'w') as f:
+                    f.write(report)

@@ -56,6 +56,7 @@ class Client:
             y_train=y_train, 
             y_val=y_val, 
             y_test=y_test,
+            device="gpu",
             **kwargs
             )
 

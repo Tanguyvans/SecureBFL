@@ -31,7 +31,7 @@ if __name__ == '__main__':
     roc_path = "roc"
     path_nodetxt = "results/BFL/node1.txt"
     dir_model = f"models/{training_approach}"
-    device = "mps"
+    device = "cuda"
     with open(f"results/{training_approach}/config.json", "r") as f:
         config = json.load(f)['settings']
     # if 'settings' in config:
@@ -79,7 +79,7 @@ if __name__ == '__main__':
             
         elif model_file.endswith(('.pt', '.pth')):
             print(f"Loading PT/PTH file: {model_file}")
-            loaded_model = torch.load(config['save_model'] + model_file)
+            loaded_model = torch.load(config['save_model'] + model_file, weights_only=False)
             if isinstance(loaded_model, list):
                 loaded_weights = loaded_model
             elif isinstance(loaded_model, dict):
