@@ -1,20 +1,20 @@
 settings = {
     "name_dataset": "cifar10",  # "cifar10" or "cifar100" or "caltech256"
-    "arch": "mobilenet",  # "shufflenet" "mobilenet" or "resnet18"
+    "arch": "mobilenet",  # "mobilenet" or "resnet18"
     "pretrained": True,
     "patience": 3,
     "batch_size": 32,
-    "n_epochs": 2,
+    "n_epochs": 15,
     "number_of_nodes": 3,
-    "number_of_clients_per_node": 3,
+    "number_of_clients_per_node": 6,
     "min_number_of_clients_in_cluster": 3,
 
     "check_usefulness": False,
     "coef_useful": 1.05,   # 1.05
     "tolerance_ceil": 0.08,
 
-    "poisoned_number": 0,
-    "n_rounds": 2,
+    "poisoned_number": 6,
+    "n_rounds": 50,
     "choice_loss": "cross_entropy",
     "choice_optimizer": "Adam",
     "lr": 0.001,
