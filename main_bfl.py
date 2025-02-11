@@ -36,7 +36,7 @@ def create_nodes(test_sets, number_of_nodes, save_results, coef_useful=1.2, tole
             Node(
                 id=f"n{num_node + 1}",
                 host="127.0.0.1",
-                port=6010 + num_node,
+                port=10010 + num_node,
                 consensus_protocol="pbft",
                 test=test_sets[num_node],
                 coef_useful=coef_useful,
@@ -58,7 +58,7 @@ def create_clients(train_sets, test_sets, node, number_of_clients, save_results,
         dict_clients[f"c{node}_{num_client + 1}"] = Client(
             id=f"c{node}_{num_client + 1}",
             host="127.0.0.1",
-            port=5010 + num_client + node * 100,
+            port=9010 + num_client + node * 100,
             train=train_sets[dataset_index],
             test=test_sets[dataset_index],
             type_ss=type_ss,

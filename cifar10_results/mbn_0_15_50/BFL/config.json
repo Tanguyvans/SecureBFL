@@ -9,7 +9,7 @@
         "number_of_nodes": 3,
         "number_of_clients_per_node": 6,
         "min_number_of_clients_in_cluster": 3,
-        "check_usefulness": false,
+        "check_usefulness": true,
         "coef_useful": 1.05,
         "tolerance_ceil": 0.08,
         "poisoned_number": 0,
@@ -31,6 +31,6 @@
         "save_results": "results/BFL/",
         "save_model": "models/BFL/",
         "length": null,
-        "poisoning_type": "targeted"
+        "poisoning_type": "rand"
     }
 }

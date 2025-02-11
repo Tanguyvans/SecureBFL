@@ -6,7 +6,10 @@ import pickle
 import time
 import socket
 import json
-
+import sys
+import psutil
+import GPUtil
+from datetime import datetime
 
 from flwr.server.strategy.aggregate import aggregate
 from sklearn.model_selection import train_test_split
@@ -16,12 +19,15 @@ from cryptography.hazmat.primitives import serialization
 
 from flowerclient import FlowerClient
 from node import get_keys, start_server
-from going_modular.security import sum_shares
-
+from going_modular.security import sum_shares, data_poisoning
 from going_modular.utils import initialize_parameters
 from going_modular.data_setup import load_dataset
-from going_modular.security import data_poisoning
 from config import settings
+
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
+from metrics import MetricsTracker
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -132,7 +138,7 @@ class Client:
 
 
 class Node:
-    def __init__(self, id, host, port, test, save_results, check_usefulness, coef_useful=1.05, tolerance_ceil=0.06, **kwargs):
+    def __init__(self, id, host, port, test, save_results, check_usefulness, coef_useful=1.05, tolerance_ceil=0.06, metrics_tracker=None, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -146,6 +152,8 @@ class Node:
         self.check_usefulness = check_usefulness
         self.coef_useful = coef_useful
         self.tolerance_ceil = tolerance_ceil
+
+        self.metrics_tracker = metrics_tracker
 
         private_key_path = f"keys/{id}_private_key.pem"
         public_key_path = f"keys/{id}_public_key.pem"
@@ -218,13 +226,11 @@ class Node:
         return weights_dict
 
     def broadcast_model_to_clients(self, filename):
-        # The loop is missing : for block in self.blockchain.blocks[::-1]:
-        # The rest is identical.
         loaded_weights_dict = np.load(filename)
-
         loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
 
         for k, v in self.clients.items():
+            print("sending to client", k)
             address = v.get('address')
 
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -233,23 +239,29 @@ class Node:
             serialized_data = pickle.dumps(loaded_weights)
             message = {"type": "global_model", "value": serialized_data}
 
-            serialized_message = pickle.dumps(message)
+            if self.metrics_tracker:
+                # Utiliser record_protocol_communication au lieu de add_communication
+                message_size = sys.getsizeof(serialized_data) / (1024 * 1024)  # Convert to MB
+                self.metrics_tracker.record_protocol_communication(0, message_size, "node-client")
 
-            # Send the length of the message first
+            serialized_message = pickle.dumps(message)
             client_socket.send(len(serialized_message).to_bytes(4, byteorder='big'))
             client_socket.send(serialized_message)
-
-            # Close the socket after sending
             client_socket.close()
 
     def create_first_global_model(self):
-        # Different of create_first_global_model_request()
         weights_dict = self.flower_client.get_dict_params({})
         weights_dict['len_dataset'] = 0
 
         filename = f"models/CFL/m0.npz"
         self.global_params_directory = filename
         os.makedirs("models/CFL/", exist_ok=True)
+        
+        # Ajouter le tracking du stockage
+        if self.metrics_tracker:
+            file_size = sys.getsizeof(pickle.dumps(weights_dict)) / (1024 * 1024)  # Convert to MB
+            self.metrics_tracker.record_storage_communication(0, file_size, 'save')
+            
         with open(filename, "wb") as fi:
             np.savez(fi, **weights_dict)
 
@@ -282,6 +294,12 @@ class Node:
         filename = f"models/CFL/m{index}.npz"
         self.global_params_directory = filename
         os.makedirs("models/CFL/", exist_ok=True)
+        
+        # Ajouter le tracking du stockage
+        if self.metrics_tracker:
+            file_size = sys.getsizeof(pickle.dumps(weights_dict)) / (1024 * 1024)  # Convert to MB
+            self.metrics_tracker.record_storage_communication(index, file_size, 'save')
+            
         with open(filename, "wb") as fi:
             np.savez(fi, **weights_dict)
 
@@ -306,39 +324,41 @@ class Node:
 
 client_weights = []
 
-def train_client(client_obj):
+def train_client(client_obj, metrics_tracker=None):
     weights = client_obj.train()  # Train the client
+    if metrics_tracker:
+        # Utiliser record_protocol_communication au lieu de add_communication
+        weights_size = sys.getsizeof(pickle.dumps(weights)) / (1024 * 1024)  # Convert to MB
+        metrics_tracker.record_protocol_communication(0, weights_size, "client-node")
     client_weights.append(weights)
-    # client.send_frag_clients(frag_weights)  # Send the shares to other clients
-    training_barrier.wait()  # Wait here until all clients have trained
+    training_barrier.wait()
 
-def create_nodes(test_sets, number_of_nodes, save_results, **kwargs):
-    # The same as the create_nodes() function in main.py but without the smpc and blockchain parameters
+def create_nodes(test_sets, number_of_nodes, save_results, check_usefulness, coef_useful, tolerance_ceil, **kwargs):
     list_nodes = []
     for i in range(number_of_nodes):
         list_nodes.append(
             Node(
                 id=f"n{i + 1}",
                 host="127.0.0.1",
-                port=6010 + i,
+                port=9010 + i,
                 test=test_sets[i],
                 save_results=save_results,
+                check_usefulness=check_usefulness,
+                coef_useful=coef_useful,
+                tolerance_ceil=tolerance_ceil,
                 **kwargs
             )
         )
-
     return list_nodes
 
 
 def create_clients(train_sets, test_sets, node, number_of_clients, save_results, **kwargs):
-    # Exactly the same as the create_clients() function
-    # but it called Client class from manual_cfl.py and not from client.py
     dict_clients = {}
     for i in range(number_of_clients):
         dict_clients[f"c{node}_{i + 1}"] = Client(
             id=f"c{node}_{i + 1}",
             host="127.0.0.1",
-            port=5010 + i + node * 10,
+            port=7010 + i + node * 10,
             train=train_sets[i],
             test=test_sets[i],
             save_results=save_results,
@@ -348,9 +368,17 @@ def create_clients(train_sets, test_sets, node, number_of_clients, save_results,
     return dict_clients
 
 if __name__ == "__main__":
-
     logging.basicConfig(level=logging.DEBUG)
     training_barrier, length = initialize_parameters(settings, 'CFL')
+    
+    # Create metrics tracker at the very beginning
+    metrics_tracker = MetricsTracker(settings['save_results'])
+    metrics_tracker.start_tracking()
+    metrics_tracker.measure_global_power("start")
+    
+    # Initial setup phase
+    metrics_tracker.measure_power(0, "initial_setup_start")
+
     json_dict = {
         'settings': {**settings, "length": length}
     }
@@ -360,79 +388,120 @@ if __name__ == "__main__":
     with open(settings['save_results'] + "output.txt", "w") as f:
         f.write("")
 
-    client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(length, settings['name_dataset'],
-                                                                                     settings['data_root'],
-                                                                                     settings['n_clients'],
-                                                                                     1)
+    client_train_sets, client_test_sets, node_test_sets, list_classes = load_dataset(
+        length, settings['name_dataset'],
+        settings['data_root'],
+        settings['n_clients'],
+        1
+    )
 
-    # # %% Data poisoning of the clients
+    # Data poisoning of the clients
+    metrics_tracker.measure_power(0, "data_poisoning_start")
     data_poisoning(
         client_train_sets,
-        poisoning_type="order",
+        poisoning_type="rand",
         n_classes=len(list_classes),
         poisoned_number=settings['poisoned_number'],
     )
+    metrics_tracker.measure_power(0, "data_poisoning_complete")
 
     # Create the server entity
-    # the nodes should not have a train dataset
+    metrics_tracker.measure_power(0, "server_creation_start")
     server = create_nodes(
-        node_test_sets, 1, save_results=settings['save_results'],
-        dp=settings['diff_privacy'], model_choice=settings['arch'],  batch_size=settings['batch_size'],
-        classes=list_classes, choice_loss=settings['choice_loss'],  choice_optimizer=settings['choice_optimizer'],
-        choice_scheduler=settings['choice_scheduler'], save_figure=None, matrix_path=settings['matrix_path'],
-        roc_path=settings['roc_path'], pretrained=settings['pretrained'],
+        node_test_sets, 1, 
+        save_results=settings['save_results'],
+        check_usefulness=settings['check_usefulness'],
+        coef_useful=settings['coef_useful'],
+        tolerance_ceil=settings['tolerance_ceil'],
+        dp=settings['diff_privacy'], 
+        model_choice=settings['arch'],
+        batch_size=settings['batch_size'],
+        classes=list_classes, 
+        choice_loss=settings['choice_loss'],
+        choice_optimizer=settings['choice_optimizer'],
+        choice_scheduler=settings['choice_scheduler'],
+        save_figure=None, 
+        matrix_path=settings['matrix_path'],
+        roc_path=settings['roc_path'],
+        pretrained=settings['pretrained'],
         save_model=settings['save_model']
     )[0]
+    metrics_tracker.measure_power(0, "server_creation_complete")
 
-    # ## client to node (central serveur) connections ###
-
+    # Create clients
+    metrics_tracker.measure_power(0, "clients_creation_start")
     node_clients = create_clients(
-        client_train_sets, client_test_sets, 0, settings['n_clients'], save_results=settings['save_results'],
-        dp=settings['diff_privacy'], model_choice=settings['arch'], batch_size=settings['batch_size'],
-        epochs=settings['n_epochs'], classes=list_classes, learning_rate=settings['lr'],
-        choice_loss=settings['choice_loss'], choice_optimizer=settings['choice_optimizer'],
-        choice_scheduler=settings['choice_scheduler'], step_size=settings['step_size'], gamma=settings['gamma'],
-        save_figure=None, matrix_path=settings['matrix_path'], roc_path=settings['roc_path'],
-        patience=settings['patience'], pretrained=settings['pretrained'],
+        client_train_sets, client_test_sets, 0, settings['n_clients'],
+        save_results=settings['save_results'],
+        dp=settings['diff_privacy'], 
+        model_choice=settings['arch'],
+        batch_size=settings['batch_size'],
+        epochs=settings['n_epochs'], 
+        classes=list_classes,
+        learning_rate=settings['lr'],
+        choice_loss=settings['choice_loss'],
+        choice_optimizer=settings['choice_optimizer'],
+        choice_scheduler=settings['choice_scheduler'],
+        step_size=settings['step_size'],
+        gamma=settings['gamma'],
+        save_figure=None,
+        matrix_path=settings['matrix_path'],
+        roc_path=settings['roc_path'],
+        patience=settings['patience'],
+        pretrained=settings['pretrained'],
         save_model=settings['save_model']
     )
+    metrics_tracker.measure_power(0, "clients_creation_complete")
 
+    # Setup connections
+    metrics_tracker.measure_power(0, "connections_setup_start")
     for client_id, client in node_clients.items():
         client.update_node_connection(server.id, server.port)
 
-    # ## node to client ###
     for client_j in node_clients.values():
         server.add_client(c_id=client_j.id, client_address=("localhost", client_j.port))
+    metrics_tracker.measure_power(0, "connections_setup_complete")
 
     print("done with the connections")
 
-    # ## run threads ###
+    # Start servers
+    metrics_tracker.measure_power(0, "servers_start")
     threading.Thread(target=server.start_server).start()
     for client in node_clients.values():
         threading.Thread(target=client.start_server).start()
 
     server.create_first_global_model()
-    time.sleep(settings['ts'] * 3)
+    metrics_tracker.measure_power(0, "initial_setup_complete")
+    
+    time.sleep(10)
 
-    # ## training and SMPC
+    client_weights = []
+
+    # Training rounds
     for round_i in range(settings['n_rounds']):
         print(f"### ROUND {round_i + 1} ###")
-
-        # ## training ###
-        # For 1 node
+        
+        # Training phase
+        metrics_tracker.measure_power(round_i + 1, "training_start")
         threads = []
         for client in node_clients.values():
-            t = threading.Thread(target=train_client, args=(client,))
+            t = threading.Thread(target=train_client, args=(client, metrics_tracker))  # Pass metrics_tracker
             t.start()
             threads.append(t)
 
         for t in threads:
             t.join()
+        metrics_tracker.measure_power(round_i + 1, "training_complete")
 
-        # No SMPC
+        # Aggregation phase
+        metrics_tracker.measure_power(round_i + 1, "aggregation_start")
         server.create_global_model(client_weights, round_i + 1, two_step=False)
+        metrics_tracker.measure_power(round_i + 1, "aggregation_complete")
 
         time.sleep(settings['ts'])
         client_weights = []
 
-    print("This is the end")
+    # Garder ces lignes
+    metrics_tracker.measure_global_power("complete")
+    metrics_tracker.save_metrics()
+    print("\nTraining completed. Exiting program...")

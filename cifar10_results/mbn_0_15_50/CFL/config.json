@@ -24,6 +24,7 @@
         "matrix_path": null,
         "save_results": "results/CFL/",
         "save_model": "models/CFL/",
-        "n_clients": 18
+        "n_clients": 18,
+        "length": null
     }
 }

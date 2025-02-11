@@ -2,15 +2,11 @@ import logging
 import numpy as np
 import threading
 import os
-import sys
 import pickle
 import time
 import socket
 import json
 import torch
-import psutil
-import GPUtil
-from datetime import datetime
 
 from flwr.server.strategy.aggregate import aggregate
 from sklearn.model_selection import train_test_split
@@ -27,13 +23,11 @@ from going_modular.data_setup import load_dataset
 from going_modular.security import data_poisoning
 from config import settings
 
-from metrics import MetricsTracker
-
 import warnings
 warnings.filterwarnings("ignore")
 
 class Client:
-    def __init__(self, id, host, port, train, test, save_results, metrics_tracker, **kwargs):
+    def __init__(self, id, host, port, train, test, save_results, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -67,7 +61,6 @@ class Client:
         )
 
         self.res = None  # Why ? Where is it used ? Only line added in the init compared to the original.
-        self.metrics_tracker = metrics_tracker
 
     def start_server(self):
         # same
@@ -99,14 +92,12 @@ class Client:
         # No if message_type == "frag_weights" because no SMPC.
         if message_type == "global_model":
             print("received_value")
-            weights = message.get("value")
+            weights = pickle.loads(message.get("value"))
             self.flower_client.set_parameters(weights)
 
         client_socket.close()
 
     def train(self):
-        # Track power usage during training
-        self.metrics_tracker.measure_power(0, f"client_{self.id}_training_start")
         old_params = self.flower_client.get_parameters({})
         res = old_params[:]
 
@@ -119,8 +110,6 @@ class Client:
                 f"val: {metrics['val_loss']} {metrics['val_acc']} "
                 f"test: {test_metrics['test_loss']} {test_metrics['test_acc']}\n")
         # No apply_smpc() so we don't return encrypted_list but res directly (and no self.frag_weights)
-        
-        self.metrics_tracker.measure_power(0, f"client_{self.id}_training_complete")
         return res
 
     def update_node_connection(self, id, address):
@@ -143,7 +132,7 @@ class Client:
         self.private_key, self.public_key = get_keys(private_key_path, public_key_path)
 
 class Node:
-    def __init__(self, id, host, port, test, save_results, metrics_tracker, check_usefulness, coef_useful=1.05, tolerance_ceil=0.06, **kwargs):
+    def __init__(self, id, host, port, test, save_results, check_usefulness, coef_useful=1.05, tolerance_ceil=0.06, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -165,8 +154,6 @@ class Node:
             y_test=y_test,
             **kwargs
         )
-
-        self.metrics_tracker = metrics_tracker
 
     def start_server(self):
         start_server(self.host, self.port, self.handle_message, self.id)
@@ -227,37 +214,27 @@ class Node:
         return weights_dict
 
     def broadcast_model_to_clients(self, filename):
-        # Track storage communication (load)
-        model_size = os.path.getsize(filename) / (1024 * 1024)
-        self.metrics_tracker.record_storage_communication(
-            int(filename.split('m')[-1].split('.')[0]),
-            model_size,
-            'load'
-        )
-        
-        # Modification ici : ajout de weights_only=False
+        # Load the model parameters from the .pt file
         loaded_weights = torch.load(filename, weights_only=False)
-
-        # Track protocol communication (broadcast to clients)
-        serialized_message = pickle.dumps({
-            "type": "global_model",
-            "value": loaded_weights
-        })
-        message_size = len(serialized_message) / (1024 * 1024)
-        self.metrics_tracker.record_protocol_communication(
-            int(filename.split('m')[-1].split('.')[0]),
-            message_size,
-            "node-client"
-        )
 
         print("len(self.clients)", len(self.clients))
         for k, v in self.clients.items():
             print("sending to client", k)
             address = v.get('address')
+
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect(('127.0.0.1', address[1]))
+
+            serialized_data = pickle.dumps(loaded_weights)
+            message = {"type": "global_model", "value": serialized_data}
+
+            serialized_message = pickle.dumps(message)
+
+            # Send the length of the message first
             client_socket.send(len(serialized_message).to_bytes(4, byteorder='big'))
             client_socket.send(serialized_message)
+
+            # Close the socket after sending
             client_socket.close()
 
     def create_first_global_model(self):
@@ -265,17 +242,9 @@ class Node:
 
         global_model = self.flower_client.get_parameters({})
         filename = f"models/CFL/m0.pt"
-        
-        # Save initial model
-        torch.save(global_model, filename)
-        model_size = os.path.getsize(filename) / (1024 * 1024)
-        self.metrics_tracker.record_storage_communication(
-            0,
-            model_size,
-            'save'
-        )
-        
         self.global_params_directory = filename
+        torch.save(global_model, filename)
+
         self.broadcast_model_to_clients(filename)
 
     def create_global_model(self, weights, index, two_step=False):
@@ -312,17 +281,10 @@ class Node:
             aggregated_weights = aggregate(useful_weights)
             metrics = self.flower_client.evaluate(aggregated_weights, {})
             
-            # Track storage communication (save model)
+            # Sauvegarder le nouveau modèle global
             filename = f"models/CFL/m{index}.pt"
-            torch.save(aggregated_weights, filename)
-            model_size = os.path.getsize(filename) / (1024 * 1024)
-            self.metrics_tracker.record_storage_communication(
-                index,
-                model_size,
-                'save'
-            )
-            
             self.global_params_directory = filename
+            torch.save(aggregated_weights, filename)
             
             print(f"\nNew global model created for round {index}")
             with open(self.save_results + "output.txt", "a") as fi:
@@ -332,15 +294,10 @@ class Node:
             # Copier le modèle global actuel pour le prochain round
             filename = f"models/CFL/m{index}.pt"
             torch.save(global_model, filename)
-            model_size = os.path.getsize(filename) / (1024 * 1024)
-            self.metrics_tracker.record_storage_communication(
-                index,
-                model_size,
-                'save'
-            )
             self.global_params_directory = filename
         
-        # Broadcast model to clients
+        # Dans tous les cas, diffuser le modèle (nouveau ou copié) aux clients
+        print("\nBroadcasting model to clients for next round...")
         self.broadcast_model_to_clients(self.global_params_directory)
 
     def is_update_useful(self, update_metrics, global_metrics):
@@ -368,7 +325,7 @@ def train_client(client_obj):
     client_weights.append(weights)
     training_barrier.wait()  # Wait here until all clients have trained
 
-def create_nodes(test_sets, number_of_nodes, save_results, metrics_tracker, check_usefulness, coef_useful, tolerance_ceil, **kwargs):
+def create_nodes(test_sets, number_of_nodes, save_results, check_usefulness, coef_useful, tolerance_ceil, **kwargs):
     list_nodes = []
     for i in range(number_of_nodes):
         list_nodes.append(
@@ -378,7 +335,6 @@ def create_nodes(test_sets, number_of_nodes, save_results, metrics_tracker, chec
                 port=6010 + i,
                 test=test_sets[i],
                 save_results=save_results,
-                metrics_tracker=metrics_tracker,
                 check_usefulness=check_usefulness,
                 coef_useful=coef_useful,
                 tolerance_ceil=tolerance_ceil,
@@ -388,7 +344,7 @@ def create_nodes(test_sets, number_of_nodes, save_results, metrics_tracker, chec
 
     return list_nodes
 
-def create_clients(train_sets, test_sets, node, number_of_clients, save_results, metrics_tracker, **kwargs):
+def create_clients(train_sets, test_sets, node, number_of_clients, save_results, **kwargs):
     # Exactly the same as the create_clients() function
     # but it called Client class from manual_cfl.py and not from client.py
     dict_clients = {}
@@ -400,7 +356,6 @@ def create_clients(train_sets, test_sets, node, number_of_clients, save_results,
             train=train_sets[i],
             test=test_sets[i],
             save_results=save_results,
-            metrics_tracker=metrics_tracker,
             **kwargs
         )
 
@@ -409,12 +364,6 @@ def create_clients(train_sets, test_sets, node, number_of_clients, save_results,
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     training_barrier, length = initialize_parameters(settings, 'CFL')
-    
-    # Create metrics tracker and start global measurement
-    metrics_tracker = MetricsTracker(settings['save_results'])
-    metrics_tracker.start_tracking()
-    metrics_tracker.measure_global_power("start")  # Nouvelle méthode pour la mesure globale
-
     json_dict = {
         'settings': settings
     }
@@ -442,7 +391,6 @@ if __name__ == "__main__":
     server = create_nodes(
         node_test_sets, 1, 
         save_results=settings['save_results'],
-        metrics_tracker=metrics_tracker,
         check_usefulness=settings['check_usefulness'],
         coef_useful=settings['coef_useful'],
         tolerance_ceil=settings['tolerance_ceil'],
@@ -459,15 +407,10 @@ if __name__ == "__main__":
         save_model=settings['save_model']
     )[0]
 
-    # Start metrics tracking
-    server.metrics_tracker.start_tracking()
-
     # ## client to node (central serveur) connections ###
 
     node_clients = create_clients(
-        client_train_sets, client_test_sets, 0, settings['n_clients'], 
-        save_results=settings['save_results'],
-        metrics_tracker=metrics_tracker,
+        client_train_sets, client_test_sets, 0, settings['n_clients'], save_results=settings['save_results'],
         dp=settings['diff_privacy'], model_choice=settings['arch'], batch_size=settings['batch_size'],
         epochs=settings['n_epochs'], classes=list_classes, learning_rate=settings['lr'],
         choice_loss=settings['choice_loss'], choice_optimizer=settings['choice_optimizer'],
@@ -492,19 +435,14 @@ if __name__ == "__main__":
         threading.Thread(target=client.start_server).start()
 
     server.create_first_global_model()
-    server.metrics_tracker.measure_power(0, "initial_setup")
     time.sleep(10)
-    server.metrics_tracker.measure_power(0, "initial_setup_complete")
 
     client_weights = []
 
     # ## training and SMPC
     for round_i in range(settings['n_rounds']):
-        metrics_tracker.record_time(round_i + 1, "round_start")
         print(f"### ROUND {round_i + 1} ###")
-        
-        metrics_tracker.record_time(round_i + 1, "training_start")
-        
+
         # Training
         threads = []
         for client in node_clients.values():
@@ -514,23 +452,9 @@ if __name__ == "__main__":
 
         for t in threads:
             t.join()
-            
-        metrics_tracker.record_time(round_i + 1, "training_complete")
 
         # Agrégation avec vérification d'utilité
-        metrics_tracker.record_time(round_i + 1, "aggregation_start")
         server.create_global_model(client_weights, round_i + 1, two_step=False)
-        metrics_tracker.record_time(round_i + 1, "aggregation_complete")
 
         time.sleep(settings['ts'])
         client_weights = []
-        
-        metrics_tracker.record_time(round_i + 1, "round_complete")
-    
-    # Mesure globale fin avec la nouvelle méthode
-    metrics_tracker.measure_global_power("complete")
-    
-    # Save final metrics
-    metrics_tracker.save_metrics()
-
-    print("\nTraining completed. Exiting program...")

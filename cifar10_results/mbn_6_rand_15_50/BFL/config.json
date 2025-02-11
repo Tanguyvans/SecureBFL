@@ -1,6 +1,6 @@
 {
     "settings": {
-        "name_dataset": "cifar",
+        "name_dataset": "cifar10",
         "arch": "mobilenet",
         "pretrained": true,
         "patience": 3,
@@ -9,7 +9,8 @@
         "number_of_nodes": 3,
         "number_of_clients_per_node": 6,
         "min_number_of_clients_in_cluster": 3,
-        "coef_usefull": 1.05,
+        "check_usefulness": true,
+        "coef_useful": 1.05,
         "tolerance_ceil": 0.08,
         "poisoned_number": 6,
         "n_rounds": 50,
@@ -23,13 +24,13 @@
         "secret_sharing": "additif",
         "k": 3,
         "m": 3,
-        "ts": 10,
+        "ts": 20,
         "data_root": "Data",
         "roc_path": null,
         "matrix_path": null,
         "save_results": "results/BFL/",
         "save_model": "models/BFL/",
-        "length": 32,
-        "poisoning_type": "distribution"
+        "length": null,
+        "poisoning_type": "rand"
     }
 }
