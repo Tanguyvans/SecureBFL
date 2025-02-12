@@ -9,7 +9,7 @@ settings = {
     "number_of_clients_per_node": 15,
     "min_number_of_clients_in_cluster": 3,
 
-    "check_usefulness": False,
+    "check_usefulness": True,
     "coef_useful": 1.05,   # 1.05
     "tolerance_ceil": 0.08,
 
