@@ -4,7 +4,6 @@ import flwr as fl
 
 from going_modular.model import Net
 
-from going_modular.security import PrivacyEngine, validate_dp_model
 from going_modular.data_setup import TensorDataset, DataLoader
 from going_modular.utils import (choice_device, fct_loss, choice_optimizer_fct, choice_scheduler_fct, save_graphs,
                                  save_matrix, save_roc, get_parameters, set_parameters)
@@ -23,7 +22,7 @@ class FlowerClient(fl.client.NumPyClient):
         self.batch_size = batch_size
         self.epochs = epochs
         self.model_choice = model_choice
-        self.dp = dp
+        self.dp = False
         self.delta = delta
         self.epsilon = epsilon
         self.max_grad_norm = max_grad_norm
@@ -38,13 +37,13 @@ class FlowerClient(fl.client.NumPyClient):
 
         # Initialize model after data loaders are potentially set
         model = Net(num_classes=len(self.classes), arch=self.model_choice, pretrained=pretrained)
-        self.model = validate_dp_model(model.to(self.device)) if self.dp else model.to(self.device)
+        self.model = model.to(self.device)
         self.criterion = fct_loss(choice_loss)
         self.choice_optimizer = choice_optimizer
         self.choice_scheduler = choice_scheduler
         self.step_size = step_size
         self.gamma = gamma
-        self.privacy_engine = PrivacyEngine(accountant="rdp", secure_mode=False)
+        self.privacy_engine = None
 
         self.save_figure = save_figure
         self.matrix_path = matrix_path

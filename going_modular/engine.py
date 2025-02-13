@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from tqdm.auto import tqdm
-from going_modular.security import BatchMemoryManager
 
 
 def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, scheduler=None, device="cpu",
@@ -13,17 +12,8 @@ def train(node_id, model, train_loader, val_loader, epochs, loss_fn, optimizer, 
     epochs_no_improve = 0
 
     for epoch in tqdm(range(epochs)):
-        if dp:
-            with BatchMemoryManager(data_loader=train_loader,
-                                    max_physical_batch_size=max_physical_batch_size,
-                                    optimizer=optimizer) as memory_safe_data_loader:
-                epoch_loss, epoch_acc = train_step(model, memory_safe_data_loader, loss_fn, optimizer, device,
-                                                   scheduler)
-                epsilon = privacy_engine.get_epsilon(delta)
-                tmp = f"(ε = {epsilon:.2f}, δ = {delta})"
-        else:
-            epoch_loss, epoch_acc = train_step(model, train_loader, loss_fn, optimizer, device, scheduler)
-            tmp = ""
+        epoch_loss, epoch_acc = train_step(model, train_loader, loss_fn, optimizer, device, scheduler)
+        tmp = ""
 
         val_loss, val_acc, _, _, _ = test(model, val_loader, loss_fn, device=device)
 

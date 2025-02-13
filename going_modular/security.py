@@ -1,19 +1,14 @@
 import numpy as np
 
-# For the differential privacy
-from opacus import PrivacyEngine  # use in the flowerclient.py file
-from opacus.validators import ModuleValidator  # to validate our model with differential privacy
-from opacus.utils.batch_memory_manager import BatchMemoryManager  # use in the engine.py file
+# def validate_dp_model(model_dp):
+#     """Check if the model is compatible with Opacus because it does not support all types of Pytorch layers"""
+#     if not ModuleValidator.validate(model_dp, strict=False):
+#         print("Model ok for the Differential privacy")
+#         return model_dp
 
-def validate_dp_model(model_dp):
-    """Check if the model is compatible with Opacus because it does not support all types of Pytorch layers"""
-    if not ModuleValidator.validate(model_dp, strict=False):
-        print("Model ok for the Differential privacy")
-        return model_dp
-
-    else:
-        print("Model to be modified : ")
-        return validate_dp_model(ModuleValidator.fix(model_dp))
+#     else:
+#         print("Model to be modified : ")
+#         return validate_dp_model(ModuleValidator.fix(model_dp))
 
 def encrypt_tensor(secret, n_shares=3):
     """
