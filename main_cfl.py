@@ -399,7 +399,7 @@ if __name__ == "__main__":
     metrics_tracker.measure_power(0, "data_poisoning_start")
     data_poisoning(
         client_train_sets,
-        poisoning_type="rand",
+        poisoning_type="targeted",
         n_classes=len(list_classes),
         poisoned_number=settings['poisoned_number'],
     )
