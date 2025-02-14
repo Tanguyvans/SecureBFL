@@ -6,14 +6,14 @@ settings = {
     "batch_size": 32,
     "n_epochs": 15,
     "number_of_nodes": 3,
-    "number_of_clients_per_node": 6,
+    "number_of_clients_per_node": 15,
     "min_number_of_clients_in_cluster": 3,
 
     "check_usefulness": True,
     "coef_useful": 1.05,   # 1.05
     "tolerance_ceil": 0.08,
 
-    "poisoned_number": 6,
+    "poisoned_number": 0,
     "n_rounds": 50,
     "choice_loss": "cross_entropy",
     "choice_optimizer": "Adam",

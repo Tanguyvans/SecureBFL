@@ -1,0 +1,20 @@
+{
+    "duration_seconds": 6842.949343,
+    "start_time": "2025-02-13T20:05:12.527486",
+    "end_time": "2025-02-13T21:59:15.466633",
+    "average_power": {
+        "cpu": 1.8749999999999998,
+        "ram": 1.3985840510650571,
+        "gpu": 46.785,
+        "total": 50.058584051065054
+    },
+    "total_energy": {
+        "joules": 342548.3548437459,
+        "megajoules": 0.3425483548437459
+    },
+    "measurement_type": {
+        "cpu": "psutil",
+        "ram": "psutil",
+        "gpu": "GPUtil"
+    }
+}

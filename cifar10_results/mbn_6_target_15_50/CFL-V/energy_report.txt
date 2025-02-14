@@ -1,0 +1,15 @@
+=== Energy Consumption Metrics ===
+                Total Duration: 11775.38 seconds
+                Average CPU Power: 1.56 Watts
+                Average RAM Power: 4.26 Watts
+                Average GPU Power: 17.90 Watts
+                Total Energy Consumption: 0.2793 Mega Joules
+
+                === Measurement Details ===
+                Start Time: 2025-02-13 20:35:33.368110
+                End Time: 2025-02-13 23:51:48.714629
+                Measurement Types:
+                - CPU: psutil
+                - RAM: psutil
+                - GPU: GPUtil
+                

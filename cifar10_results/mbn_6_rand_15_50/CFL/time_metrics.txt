@@ -1,0 +1,5 @@
+=== Time Metrics ===
+
+Total Duration: 4057.82 seconds
+
+=== Phase Durations ===

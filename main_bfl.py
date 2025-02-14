@@ -96,7 +96,7 @@ if __name__ == "__main__":
     # Initial setup phase
     metrics_tracker.measure_power(0, "initial_setup_start")
 
-    poisoning_type = "rand"  # rand, targeted
+    poisoning_type = "targeted"  # rand, targeted
 
     json_dict = {
         'settings': {**settings, "length": length, "poisoning_type": poisoning_type}

@@ -10,6 +10,7 @@ import sys
 import psutil
 import GPUtil
 from datetime import datetime
+import shutil
 
 from flwr.server.strategy.aggregate import aggregate
 from sklearn.model_selection import train_test_split
@@ -138,7 +139,7 @@ class Client:
 
 
 class Node:
-    def __init__(self, id, host, port, test, save_results, check_usefulness, coef_useful=1.05, tolerance_ceil=0.06, metrics_tracker=None, **kwargs):
+    def __init__(self, id, host, port, test, save_results, check_usefulness=True, coef_useful=1.05, tolerance_ceil=0.06, metrics_tracker=None, **kwargs):
         self.id = id
         self.host = host
         self.port = port
@@ -268,46 +269,88 @@ class Node:
         self.broadcast_model_to_clients(filename)
 
     def create_global_model(self, weights, index, two_step=False):
-        if two_step:
-            cluster_weights = []
-            for i in range(0, len(weights), 3):
-                aggregated_weights = aggregate([(weights[j], 10) for j in range(i, i + 3)])
-                cluster_weights.append(aggregated_weights)
-                metrics = self.flower_client.evaluate(aggregated_weights, {'name': f'Node {self.id}_Clusters {i}'})
-                with open(self.save_results + "output.txt", "a") as fi:
-                    fi.write(f"cluster {i // 3} node {self.id} {metrics} \n")
+        useful_weights = []
+        useful_clients = []
+        not_useful_clients = []
 
-            aggregated_weights = aggregate(
-                [(weights_i, 10) for weights_i in cluster_weights]
-            )
-        else:
-            aggregated_weights = aggregate(
-                [(weights_i, 10) for weights_i in weights]
-            )
-
-        metrics = self.flower_client.evaluate(aggregated_weights, {})
-
-        self.flower_client.set_parameters(aggregated_weights)
-        weights_dict = self.flower_client.get_dict_params({})
-        weights_dict['len_dataset'] = 0
-
-        filename = f"models/CFL/m{index}.npz"
-        self.global_params_directory = filename
-        os.makedirs("models/CFL/", exist_ok=True)
+        # Charger le modèle global actuel pour comparaison
+        global_weights_dict = np.load(self.global_params_directory)
+        global_weights = [val for name, val in global_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
         
-        # Ajouter le tracking du stockage
-        if self.metrics_tracker:
-            file_size = sys.getsizeof(pickle.dumps(weights_dict)) / (1024 * 1024)  # Convert to MB
-            self.metrics_tracker.record_storage_communication(index, file_size, 'save')
-            
-        with open(filename, "wb") as fi:
-            np.savez(fi, **weights_dict)
+        # Pour chaque modèle client
+        for i, client_weights in enumerate(weights):
+            client_id = f"c0_{i + 1}"  # Format du client ID basé sur la création des clients
+            if self.check_usefulness:
+                # Sauvegarder temporairement le modèle client pour évaluation
+                temp_filename = f"models/CFL/temp_client_{i}_round_{index}.npz"
+                
+                self.flower_client.set_parameters(client_weights)
+                temp_weights_dict = self.flower_client.get_dict_params({})
+                temp_weights_dict['len_dataset'] = 0
+                
+                with open(temp_filename, "wb") as fi:
+                    np.savez(fi, **temp_weights_dict)
 
+                # Vérifier si le modèle est utile
+                if self.is_update_useful(temp_filename, list(self.clients.keys())):
+                    useful_weights.append((client_weights, 10))
+                    useful_clients.append(client_id)
+                else:
+                    not_useful_clients.append(client_id)
+                    
+                # Nettoyer le fichier temporaire
+                os.remove(temp_filename)
+            else:
+                useful_weights.append((client_weights, 10))
+                useful_clients.append(client_id)
+
+        # Afficher le résumé des modèles utiles et non utiles
+        print(f"\n=== Round {index} Model Usefulness Summary ===")
+        print(f"Total clients: {len(weights)}")
+        print(f"Useful models ({len(useful_clients)}): {', '.join(useful_clients)}")
+        print(f"Not useful models ({len(not_useful_clients)}): {', '.join(not_useful_clients)}")
+        print("=======================================\n")
+
+        # Écrire le résumé dans le fichier de sortie
         with open(self.save_results + "output.txt", "a") as fi:
-            fi.write(f"flower aggregation {metrics} \n")
+            fi.write(f"\n=== Round {index} Model Usefulness Summary ===\n")
+            fi.write(f"Total clients: {len(weights)}\n")
+            fi.write(f"Useful models ({len(useful_clients)}): {', '.join(useful_clients)}\n")
+            fi.write(f"Not useful models ({len(not_useful_clients)}): {', '.join(not_useful_clients)}\n")
+            fi.write("=======================================\n")
 
-        print(f"flower aggregation {metrics}")
-        self.broadcast_model_to_clients(filename)
+        if len(useful_weights) > 0:
+            # Ajouter le modèle global avec un poids plus important
+            useful_weights.append((global_weights, 20))
+            
+            # Agréger les modèles utiles
+            aggregated_weights = aggregate(useful_weights)
+            metrics = self.flower_client.evaluate(aggregated_weights, {})
+
+            self.flower_client.set_parameters(aggregated_weights)
+            weights_dict = self.flower_client.get_dict_params({})
+            weights_dict['len_dataset'] = 0
+
+            filename = f"models/CFL/m{index}.npz"
+            self.global_params_directory = filename
+            
+            if self.metrics_tracker:
+                file_size = sys.getsizeof(pickle.dumps(weights_dict)) / (1024 * 1024)
+                self.metrics_tracker.record_storage_communication(index, file_size, 'save')
+                
+            with open(filename, "wb") as fi:
+                np.savez(fi, **weights_dict)
+
+            with open(self.save_results + "output.txt", "a") as fi:
+                fi.write(f"Round {index}, Global aggregation: {metrics}\n")
+        else:
+            print("\nNo useful models found. Keeping current global model.")
+            # Copier le modèle global actuel pour le prochain round
+            filename = f"models/CFL/m{index}.npz"
+            shutil.copy2(self.global_params_directory, filename)
+            self.global_params_directory = filename
+
+        self.broadcast_model_to_clients(self.global_params_directory)
 
     def get_keys(self, private_key_path, public_key_path):
         # same
@@ -321,6 +364,47 @@ class Node:
             )
 
         self.clients[c_id] = {"address": client_address, "public_key": public_key}
+
+    def is_update_useful(self, model_directory, participants): 
+        """
+        Vérifie si la mise à jour du modèle est bénéfique
+        """
+        update_eval = self.evaluate_model(model_directory, participants, write=True)
+        gm_eval = self.evaluate_model(self.global_params_directory, participants, write=False)
+
+        print(f"node: {self.id} update_eval: {update_eval} gm_eval: {gm_eval}")
+
+        allowed_unimprovement = min(self.tolerance_ceil, gm_eval[0] * (self.coef_useful - 1))
+        if update_eval[0] <= gm_eval[0] + allowed_unimprovement:
+            return True
+        else: 
+            return False
+
+    def evaluate_model(self, model_directory, participants, write=True):
+        """
+        Évalue les performances d'un modèle
+        """
+        # Track storage communication (load)
+        model_size = os.path.getsize(model_directory) / (1024 * 1024)
+        if self.metrics_tracker:
+            self.metrics_tracker.record_storage_communication(0, model_size, 'load')
+
+        loaded_weights_dict = np.load(model_directory)
+        loaded_weights = [val for name, val in loaded_weights_dict.items() if 'bn' not in name and 'len_dataset' not in name]
+        test_metrics = self.flower_client.evaluate(loaded_weights, {'name': f'Node {self.id}_Clusters {participants}'})
+        
+        print(f"In evaluate Model (node: {self.id}) \tTest Loss: {test_metrics['test_loss']:.4f}, "
+              f"\tAccuracy: {test_metrics['test_acc']:.2f}%")
+              
+        if write: 
+            with open(self.save_results + 'output.txt', 'a') as f:
+                f.write(f"node: {self.id} "
+                        f"model: {model_directory} "
+                        f"cluster: {participants} "
+                        f"loss: {test_metrics['test_loss']} "
+                        f"acc: {test_metrics['test_acc']} \n")
+
+        return test_metrics['test_loss'], test_metrics['test_acc']
 
 client_weights = []
 
@@ -350,7 +434,6 @@ def create_nodes(test_sets, number_of_nodes, save_results, check_usefulness, coe
             )
         )
     return list_nodes
-
 
 def create_clients(train_sets, test_sets, node, number_of_clients, save_results, **kwargs):
     dict_clients = {}
